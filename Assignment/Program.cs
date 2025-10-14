@@ -1,0 +1,245 @@
+using Assignment.Data;
+using Assignment.Models;
+using Assignment.Services;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity.UI.Services;
+using System.Security.Claims;
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+builder.Services.AddControllersWithViews();
+
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+builder.Services.AddDbContext<ApplicationDbContext>(options =>
+    options.UseSqlServer(connectionString));
+
+builder.Services.AddRazorPages();
+
+builder.Services.AddIdentity<IdentityUser, IdentityRole>(options =>
+{
+    options.SignIn.RequireConfirmedAccount = false;
+})
+    .AddEntityFrameworkStores<ApplicationDbContext>()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddTransient<IEmailSender, EmailSender>();
+
+builder.Services.AddAuthentication()
+    .AddGoogle(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Google:ClientId"] ?? string.Empty;
+        options.ClientSecret = builder.Configuration["Authentication:Google:ClientSecret"] ?? string.Empty;
+    })
+    .AddFacebook(options =>
+    {
+        options.AppId = builder.Configuration["Authentication:Facebook:AppId"] ?? string.Empty;
+        options.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"] ?? string.Empty;
+    })
+    .AddGitHub(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:GitHub:ClientId"] ?? string.Empty;
+        options.ClientSecret = builder.Configuration["Authentication:GitHub:ClientSecret"] ?? string.Empty;
+    })
+    .AddDiscord(options =>
+    {
+        options.ClientId = builder.Configuration["Authentication:Discord:ClientId"] ?? string.Empty;
+        options.ClientSecret = builder.Configuration["Authentication:Discord:ClientSecret"] ?? string.Empty;
+        options.Scope.Add("identify");
+        options.Scope.Add("email");
+    });
+
+builder.Services.AddHttpClient("AssignmentApi", client =>
+{
+    client.BaseAddress = new Uri("https://localhost:443/");
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("GetCategoryPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "GetCategoryAll") ||
+            (ctx.User.HasClaim(c => c.Type == "GetCategory") &&
+             ctx.Resource is Category cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateCategoryPolicy", policy =>
+        policy.RequireClaim("CreateCategory")
+    );
+
+    options.AddPolicy("UpdateCategoryPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "UpdateCategoryAll") ||
+            (ctx.User.HasClaim(c => c.Type == "UpdateCategory") &&
+             ctx.Resource is Category cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteCategoryPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "DeleteCategoryAll") ||
+            (ctx.User.HasClaim(c => c.Type == "DeleteCategory") &&
+             ctx.Resource is Category cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("GetProductPolicy", policy =>
+    policy.RequireAssertion(ctx =>
+        ctx.User.HasClaim(c => c.Type == "GetProductAll") ||
+        (ctx.User.HasClaim(c => c.Type == "GetProduct") &&
+         ctx.Resource is Product cat &&
+         cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+    )
+);
+
+    options.AddPolicy("CreateProductPolicy", policy =>
+        policy.RequireClaim("CreateProduct")
+    );
+
+    options.AddPolicy("UpdateProductPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "UpdateProductAll") ||
+            (ctx.User.HasClaim(c => c.Type == "UpdateProduct") &&
+             ctx.Resource is Product cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteProductPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "DeleteProductAll") ||
+            (ctx.User.HasClaim(c => c.Type == "DeleteProduct") &&
+             ctx.Resource is Product cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("GetComboPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "GetComboAll") ||
+            (ctx.User.HasClaim(c => c.Type == "GetCombo") &&
+             ctx.Resource is Combo cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateComboPolicy", policy =>
+        policy.RequireClaim("CreateCombo")
+    );
+
+    options.AddPolicy("UpdateComboPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "UpdateComboAll") ||
+            (ctx.User.HasClaim(c => c.Type == "UpdateCombo") &&
+             ctx.Resource is Combo cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteComboPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "DeleteComboAll") ||
+            (ctx.User.HasClaim(c => c.Type == "DeleteCombo") &&
+             ctx.Resource is Combo cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("GetVoucherPolicy", policy =>
+    policy.RequireAssertion(ctx =>
+        ctx.User.HasClaim(c => c.Type == "GetVoucherAll") ||
+        (ctx.User.HasClaim(c => c.Type == "GetVoucher") &&
+         ctx.Resource is Voucher cat &&
+         cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+    )
+);
+
+    options.AddPolicy("CreateVoucherPolicy", policy =>
+        policy.RequireClaim("CreateVoucher")
+    );
+
+    options.AddPolicy("UpdateVoucherPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "UpdateVoucherAll") ||
+            (ctx.User.HasClaim(c => c.Type == "UpdateVoucher") &&
+             ctx.Resource is Voucher cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteVoucherPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasClaim(c => c.Type == "DeleteVoucherAll") ||
+            (ctx.User.HasClaim(c => c.Type == "DeleteVoucher") &&
+             ctx.Resource is Voucher cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+});
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseExceptionHandler("/Home/Error");
+    // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
+    app.UseHsts();
+}
+
+app.UseHttpsRedirection();
+app.UseStaticFiles();
+
+app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
+app.MapRazorPages();
+
+app.MapControllerRoute(
+    name: "default",
+    pattern: "{controller=Home}/{action=Index}/{id?}");
+
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var adminRole = "Admin";
+
+    if (!await roleManager.RoleExistsAsync(adminRole))
+    {
+        var role = new IdentityRole(adminRole);
+        await roleManager.CreateAsync(role);
+
+        var claims = new List<Claim>
+        {
+            new Claim("GetCategoryAll", "true"),
+            new Claim("CreateCategory", "true"),
+            new Claim("UpdateCategoryAll", "true"),
+            new Claim("DeleteCategoryAll", "true"),
+            new Claim("GetProductAll", "true"),
+            new Claim("CreateProduct", "true"),
+            new Claim("UpdateProductAll", "true"),
+            new Claim("DeleteProductAll", "true"),
+            new Claim("GetComboAll", "true"),
+            new Claim("CreateCombo", "true"),
+            new Claim("UpdateComboAll", "true"),
+            new Claim("DeleteComboAll", "true"),
+            new Claim("GetVoucherAll", "true"),
+            new Claim("CreateVoucher", "true"),
+            new Claim("UpdateVoucherAll", "true"),
+            new Claim("DeleteVoucherAll", "true"),
+        };
+
+        foreach (var claim in claims)
+        {
+            await roleManager.AddClaimAsync(role, claim);
+        }
+    }
+}
+
+app.Run();

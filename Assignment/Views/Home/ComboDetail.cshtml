@@ -1,0 +1,346 @@
+﻿@model Assignment.Models.Combo
+
+@{
+    ViewData["Title"] = Model.Name;
+}
+
+<style>
+    .detail-container {
+        background: white;
+        border-radius: 12px;
+        padding: 30px;
+        margin-top: 30px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .combo-detail-image {
+        width: 100%;
+        border-radius: 12px;
+        object-fit: cover;
+        max-height: 500px;
+    }
+
+    .price-section {
+        background: #f8f9fa;
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+    }
+
+    .final-price {
+        color: #ff4444;
+        font-size: 36px;
+        font-weight: bold;
+    }
+
+    .original-price {
+        text-decoration: line-through;
+        color: #999;
+        font-size: 20px;
+    }
+
+    .badge-large {
+        background: #ff4444;
+        color: white;
+        padding: 8px 20px;
+        border-radius: 20px;
+        font-size: 18px;
+        font-weight: bold;
+    }
+
+    .info-item {
+        display: flex;
+        align-items: center;
+        margin: 15px 0;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+    }
+
+        .info-item i {
+            font-size: 24px;
+            margin-right: 15px;
+            color: #ff4444;
+            width: 30px;
+            text-align: center;
+        }
+
+    .quantity-selector {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin: 20px 0;
+    }
+
+    .quantity-btn {
+        width: 40px;
+        height: 40px;
+        border: 2px solid #ff4444;
+        background: white;
+        color: #ff4444;
+        border-radius: 50%;
+        font-size: 20px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+        .quantity-btn:hover {
+            background: #ff4444;
+            color: white;
+        }
+
+    .quantity-input {
+        width: 80px;
+        text-align: center;
+        font-size: 20px;
+        font-weight: bold;
+        border: 2px solid #ddd;
+        border-radius: 8px;
+        padding: 8px;
+    }
+
+    .btn-add-large {
+        background: #ff4444;
+        color: white;
+        border: none;
+        padding: 15px 40px;
+        border-radius: 30px;
+        font-size: 18px;
+        font-weight: bold;
+        width: 100%;
+        transition: all 0.3s;
+    }
+
+        .btn-add-large:hover {
+            background: #cc0000;
+            transform: scale(1.02);
+        }
+
+    .rating-large {
+        color: #ffa500;
+        font-size: 24px;
+        margin: 15px 0;
+    }
+
+    .description-section {
+        margin-top: 30px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+
+    .combo-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-size: 16px;
+        font-weight: bold;
+        display: inline-block;
+        margin-bottom: 15px;
+    }
+</style>
+
+<div class="container">
+    <div class="detail-container">
+        @Html.AntiForgeryToken()
+        <div class="row">
+            <div class="col-md-6">
+                <img src="@Model.ImageUrl" class="combo-detail-image" alt="@Model.Name" />
+            </div>
+            <div class="col-md-6">
+                <span class="combo-badge">🎁 COMBO ĐẶC BIỆT</span>
+                <h1 class="mb-3">@Model.Name</h1>
+
+                <div class="rating-large">
+                    @for (int i = 1; i <= 5; i++)
+                    {
+                        if (i <= Math.Floor(Model.AverageEvaluate))
+                        {
+                            <i class="fas fa-star"></i>
+                        }
+                        else if (i - 0.5 <= Model.AverageEvaluate)
+                        {
+                            <i class="fas fa-star-half-alt"></i>
+                        }
+                        else
+                        {
+                            <i class="far fa-star"></i>
+                        }
+                    }
+                    <span class="ms-2">@Model.AverageEvaluate.ToString("0.0") (@Model.TotalEvaluate đánh giá)</span>
+                </div>
+
+                <div class="price-section">
+                    @if (Model.DiscountType == Assignment.Enums.DiscountType.None)
+                    {
+                        <div class="final-price">@Model.Price.ToString("N0") ₫</div>
+                    }
+                    else if (Model.DiscountType == Assignment.Enums.DiscountType.Percent)
+                    {
+                        <div class="mb-2">
+                            <span class="badge-large">-@Model.Discount%</span>
+                        </div>
+                        <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
+                        <div class="final-price">@((Model.Price - (Model.Price * Model.Discount.Value / 100)).ToString("N0")) ₫</div>
+                        <div class="mt-2 text-success">
+                            <i class="fas fa-tag"></i> Tiết kiệm @((Model.Price * Model.Discount.Value / 100).ToString("N0")) ₫
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+                            <span class="badge-large">Giá đặc biệt</span>
+                        </div>
+                        <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
+                        <div class="final-price">@Model.Discount.Value.ToString("N0") ₫</div>
+                        <div class="mt-2 text-success">
+                            <i class="fas fa-tag"></i> Tiết kiệm @((Model.Price - Model.Discount.Value).ToString("N0")) ₫
+                        </div>
+                    }
+                </div>
+
+                <div class="info-item">
+                    <i class="fas fa-box"></i>
+                    <div>
+                        <strong>Tình trạng:</strong>
+                        @if (Model.Stock > 0)
+                        {
+                            <span class="text-success">Còn hàng (@Model.Stock combo)</span>
+                        }
+                        else
+                        {
+                            <span class="text-danger">Hết hàng</span>
+                        }
+                    </div>
+                </div>
+
+                <div class="info-item">
+                    <i class="fas fa-chart-line"></i>
+                    <div>
+                        <strong>Đã bán:</strong> @Model.Sold combo
+                    </div>
+                </div>
+
+                @if (Model.ComboItems != null && Model.ComboItems.Any())
+                {
+                    <div class="info-item">
+                        <i class="fas fa-utensils"></i>
+                        <div>
+                            <strong>Bao gồm:</strong> @Model.ComboItems.Count() món
+                        </div>
+                    </div>
+                }
+
+                <div class="quantity-selector">
+                    <button class="quantity-btn" onclick="decreaseQuantity()">-</button>
+                    <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@Model.Stock" />
+                    <button class="quantity-btn" onclick="increaseQuantity()">+</button>
+                </div>
+
+                <button class="btn-add-large" onclick="addToCartWithQuantity()" @(Model.Stock <= 0 ? "disabled" : "")>
+                    <i class="fas fa-shopping-cart me-2"></i>
+                    Thêm vào giỏ hàng
+                </button>
+            </div>
+        </div>
+
+        <div class="description-section">
+            <h3 class="mb-3"><i class="fas fa-align-left me-2"></i>Mô tả combo</h3>
+            <p>@Model.Description</p>
+        </div>
+
+        @if (Model.ComboItems != null && Model.ComboItems.Any())
+        {
+            <div class="description-section mt-3">
+                <h3 class="mb-3"><i class="fas fa-list-check me-2"></i>Sản phẩm trong combo</h3>
+                <div class="row g-3">
+                    @foreach (var item in Model.ComboItems)
+                    {
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 bg-white rounded">
+                                @* <i class="fas fa-check-circle text-success me-3" style="font-size: 24px;"></i> *@
+                                <img src="@item.Product.ProductImageUrl" alt="@item.Product.Name" style="max-width: 50px" />
+                                <div class="ms-2">
+                                    <strong>@item.Product?.Name</strong>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        const maxStock = @Model.Stock;
+
+        function increaseQuantity() {
+            const input = document.getElementById('quantity');
+            const currentValue = parseInt(input.value);
+            if (currentValue < maxStock) {
+                input.value = currentValue + 1;
+            }
+        }
+
+        function decreaseQuantity() {
+            const input = document.getElementById('quantity');
+            const currentValue = parseInt(input.value);
+            if (currentValue > 1) {
+                input.value = currentValue - 1;
+            }
+        }
+
+        function addToCartWithQuantity() {
+            const quantity = parseInt(document.getElementById('quantity').value);
+            const token = $('input[name="__RequestVerificationToken"]').val();
+
+            $.ajax({
+                url: '@Url.Action("AddCombo", "Cart")',
+                type: 'POST',
+                data: {
+                    __RequestVerificationToken: token,
+                    comboId: @Model.Id,
+                    quantity: quantity
+                },
+                success: function() {
+                    showNotification('Đã thêm combo vào giỏ hàng!', 'success');
+                    // Get new cart count from server and update UI
+                    $.get('@Url.Action("GetCount", "Cart")', function(data) {
+                        updateCartCount(data.count);
+                    });
+                },
+                error: function() {
+                    showNotification('Có lỗi xảy ra, vui lòng thử lại.', 'error');
+                }
+            });
+        }
+
+        function updateCartCount(count) {
+            $('#cart-count').text(count).show();
+        }
+
+        function showNotification(message, type) {
+            const bgColor = type === 'success' ? '#4caf50' : '#f44336';
+            const notification = $('<div>')
+                .css({
+                    position: 'fixed',
+                    top: '20px',
+                    right: '20px',
+                    background: bgColor,
+                    color: 'white',
+                    padding: '15px 25px',
+                    borderRadius: '5px',
+                    zIndex: 9999,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                })
+                .text(message)
+                .appendTo('body');
+
+            setTimeout(() => notification.fadeOut(() => notification.remove()), 3000);
+        }
+    </script>
+}

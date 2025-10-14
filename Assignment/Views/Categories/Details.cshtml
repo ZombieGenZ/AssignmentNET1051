@@ -1,0 +1,48 @@
+﻿@model Assignment.Models.Category
+
+@{
+    ViewData["Title"] = "Chi tiết danh mục";
+    Layout = "_AdminLayout";
+}
+
+<!-- Thêm link Font Awesome để sử dụng icons -->
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<div class="container-fluid pt-4 px-4">
+    <div class="row g-4 justify-content-center">
+        <div class="col-sm-12 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0 text-primary">
+                        <i class="fas fa-info-circle me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
+
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Index)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Index)</dd>
+                    </dl>
+                </div>
+                <div class="card-footer bg-transparent border-top d-flex justify-content-start gap-2">
+                    @if (User.HasClaim(c => c.Type == "UpdateCategory" || c.Type == "UpdateCategoryAll"))
+                    {
+                        <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.Id">
+                            <i class="fas fa-edit me-2"></i>Chỉnh sửa
+                        </a>
+                    }
+                    @if (User.HasClaim(c => c.Type == "GetCategory" || c.Type == "GetCategoryAll"))
+                    {
+                        <a class="btn btn-secondary" asp-action="Index">
+                            <i class="fas fa-arrow-left me-2"></i>Trở về danh sách
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

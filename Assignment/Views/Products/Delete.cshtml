@@ -1,0 +1,55 @@
+﻿@model Assignment.Models.Product
+
+@{
+    ViewData["Title"] = "Xóa sản phẩm";
+    Layout = "_AdminLayout";
+}
+
+<!-- Thêm link Font Awesome để sử dụng icons -->
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<div class="container-fluid pt-4 px-4">
+    <div class="row g-4 justify-content-center">
+        <div class="col-sm-12 col-xl-8">
+            <div class="card shadow-sm border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                    <h5 class="card-title">Bạn có chắc chắn muốn xóa sản phẩm này không?</h5>
+                    <p>Hành động này không thể hoàn tác.</p>
+                    <hr />
+                    <dl class="row">
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Name)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Name)</dd>
+
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Category)</dt>
+                        <dd class="col-sm-9">@Html.DisplayFor(model => model.Category.Name)</dd>
+
+                        <dt class="col-sm-3">@Html.DisplayNameFor(model => model.Price)</dt>
+                        <dd class="col-sm-9">@Model.Price.ToString("C0")</dd>
+                    </dl>
+                </div>
+                <div class="card-footer bg-transparent border-top d-flex justify-content-start gap-2">
+                    <form asp-action="Delete">
+                        <input type="hidden" asp-for="Id" />
+                        @if (User.HasClaim(c => c.Type == "GetProduct" || c.Type == "GetProductAll"))
+                        {
+                            <a class="btn btn-secondary" asp-action="Index">
+                                <i class="fas fa-times-circle me-2"></i>Hủy
+                            </a>
+                        }
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-2"></i>Xóa
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

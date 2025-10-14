@@ -1,0 +1,117 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using Assignment.Enums
+@model IEnumerable<Assignment.Models.Voucher>
+@inject UserManager<IdentityUser> UserManager
+
+@{
+    ViewData["Title"] = "Danh sách Voucher";
+    Layout = "_AdminLayout";
+}
+
+<!-- Thêm link Font Awesome để sử dụng icons -->
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h4 class="mb-0 text-primary">
+                <i class="fas fa-ticket-alt me-2"></i>@ViewData["Title"]
+            </h4>
+            @if (User.HasClaim(c => c.Type == "CreateVoucher"))
+            {
+                <a class="btn btn-primary" asp-action="Create">
+                    <i class="fas fa-plus me-2"></i>Tạo mới
+                </a>
+            }
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th>@Html.DisplayNameFor(model => model.Code)</th>
+                            <th>@Html.DisplayNameFor(model => model.Name)</th>
+                            <th>@Html.DisplayNameFor(model => model.Type)</th>
+                            <th>@Html.DisplayNameFor(model => model.DiscountType)</th>
+                            <th>@Html.DisplayNameFor(model => model.Discount)</th>
+                            <th>@Html.DisplayNameFor(model => model.Used)</th>
+                            <th>@Html.DisplayNameFor(model => model.Quantity)</th>
+                            <th>Thời gian bắt đầu</th>
+                            <th>Thời gian kết thúc</th>
+                            <th style="width: 15%;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@Html.DisplayFor(modelItem => item.Code)</td>
+                                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                                <td>
+                                    @if (item.Type == VoucherType.Public)
+                                    {
+                                        <span class="badge bg-success">Công khai</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="badge bg-info">Riêng tư</span>
+                                    }
+                                </td>
+                                <td>
+                                    @(item.DiscountType == VoucherDiscountType.Money ? "Tiền mặt" : "Phần trăm")
+                                </td>
+                                <td>
+                                    @if (item.DiscountType == VoucherDiscountType.Money)
+                                    {
+                                        @item.Discount.ToString("C0")
+                                    }
+                                    else
+                                    {
+                                        @($"{item.Discount}%")
+                                    }
+                                </td>
+                                <td>@item.Used.ToString("N0")</td>
+                                <td>@item.Quantity.ToString("N0")</td>
+                                <td>@item.StartTime.ToString("dd/MM/yyyy HH:mm")</td>
+                                <td>
+                                    @if (item.IsLifeTime)
+                                    {
+                                        <span class="badge bg-warning">Vô thời hạn</span>
+                                    }
+                                    else
+                                    {
+                                        @item.EndTime?.ToString("dd/MM/yyyy HH:mm")
+                                    }
+                                </td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        @if (User.HasClaim(c => c.Type == "UpdateVoucher" || c.Type == "UpdateVoucherAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        }
+                                        @if (User.HasClaim(c => c.Type == "GetVoucher" || c.Type == "GetVoucherAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
+                                                <i class="fas fa-info-circle"></i>
+                                            </a>
+                                        }
+                                        @if (User.HasClaim(c => c.Type == "DeleteVoucher" || c.Type == "DeleteVoucherAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

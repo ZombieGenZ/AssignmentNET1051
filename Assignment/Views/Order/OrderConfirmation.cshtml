@@ -1,0 +1,25 @@
+﻿@model Assignment.Models.Order
+
+@{
+    ViewData["Title"] = "Đặt Hàng Thành Công";
+}
+
+<div class="container my-5 text-center">
+    <div class="py-5">
+        <i class="fas fa-check-circle fa-5x text-success mb-3"></i>
+        <h2 class="display-5">Cảm ơn bạn đã đặt hàng!</h2>
+        <p class="lead">Đơn hàng của bạn đã được tiếp nhận thành công.</p>
+        <hr class="my-4">
+        <p>Mã đơn hàng của bạn là: <strong>#@Model.Id</strong></p>
+        <p>Chúng tôi sẽ xử lý đơn hàng của bạn trong thời gian sớm nhất. Bạn có thể theo dõi trạng thái đơn hàng trong phần lịch sử mua hàng.</p>
+
+        <div class="mt-4">
+            <a href="@Url.Action("History", "Order")" class="btn btn-primary btn-lg mx-2">
+                <i class="fas fa-history"></i> Xem Lịch Sử Đơn Hàng
+            </a>
+            <a href="@Url.Action("Index", "Home")" class="btn btn-outline-secondary btn-lg mx-2">
+                <i class="fas fa-shopping-bag"></i> Tiếp Tục Mua Sắm
+            </a>
+        </div>
+    </div>
+</div>

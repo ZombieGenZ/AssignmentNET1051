@@ -1,0 +1,257 @@
+﻿@model Assignment.Models.Order
+@using Assignment.Enums;
+@{
+    ViewData["Title"] = "Thanh Toán";
+    var cart = ViewBag.Cart as Assignment.Models.Cart;
+    double totalPrice = 0;
+    if (cart != null)
+    {
+        totalPrice = cart.CartItems.Sum(item => (item.Product?.Price ?? item.Combo?.Price ?? 0) * item.Quantity);
+    }
+    // Get the integer value for PayNow (which is 0 by default) for use in JavaScript
+    int payNowValue = (int)PaymentType.PayNow;
+}
+
+<div class="container my-5">
+    <h2 class="mb-4 text-center">
+        <i class="fas fa-credit-card"></i> Thông Tin Thanh Toán
+    </h2>
+
+    <form asp-action="Checkout" method="post">
+        @Html.AntiForgeryToken()
+        <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
+        <input type="hidden" asp-for="VoucherId" id="appliedVoucherId" />
+
+        <div class="row">
+            <!-- Left Column: Customer Info & Payment Method -->
+            <div class="col-lg-7">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">Thông tin khách hàng</h4>
+                        <div class="mb-3">
+                            <label asp-for="Name" class="form-label">Họ và Tên</label>
+                            <input asp-for="Name" class="form-control" />
+                            <span asp-validation-for="Name" class="text-danger"></span>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Email" class="form-label">Email (Tùy chọn)</label>
+                                <input asp-for="Email" class="form-control" />
+                                <span asp-validation-for="Email" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="Phone" class="form-label">Số Điện Thoại</label>
+                                <input asp-for="Phone" class="form-control" />
+                                <span asp-validation-for="Phone" class="text-danger"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label asp-for="Note" class="form-label">Ghi Chú (Tùy chọn)</label>
+                            <textarea asp-for="Note" class="form-control" rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">Phương thức thanh toán</h4>
+                        <div class="mb-3">
+                            <label asp-for="PaymentType" class="form-label">Hình thức thanh toán</label>
+                            <!-- ID 'PaymentType' is important for JavaScript targeting -->
+                            <select asp-for="PaymentType" asp-items="Html.GetEnumSelectList<PaymentType>()" class="form-select"></select>
+                            <span asp-validation-for="PaymentType" class="text-danger"></span>
+                        </div>
+
+                        <!-- Payment Method selection wrapped in a container to be toggled -->
+                        <div id="paymentMethodContainer">
+                            <div class="mb-3">
+                                <label asp-for="PaymentMethod" class="form-label">Cổng thanh toán</label>
+                                <select asp-for="PaymentMethod" asp-items="Html.GetEnumSelectList<PaymentMethodType>()" class="form-select"></select>
+                                <span asp-validation-for="PaymentMethod" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Order Summary -->
+            <div class="col-lg-5">
+                <div class="card shadow-sm sticky-top" style="top: 20px;">
+                    <div class="card-body">
+                        <h4 class="card-title mb-3">Tóm tắt đơn hàng</h4>
+                        @if (cart != null && cart.CartItems.Any())
+                        {
+                            <ul class="list-group list-group-flush mb-3">
+                                @foreach (var item in cart.CartItems)
+                                {
+                                    var itemPrice = item.Product?.Price ?? item.Combo?.Price ?? 0;
+                                    var itemTotal = itemPrice * item.Quantity;
+                                    string itemName = "Sản phẩm không xác định";
+                                    string itemType = "";
+                                    string itemImage = "/images/no-image.jpg"; // Default image
+
+                                    if (item.Product != null)
+                                    {
+                                        itemName = item.Product.Name;
+                                        itemType = "Sản phẩm";
+                                        if (!string.IsNullOrEmpty(item.Product.ProductImageUrl))
+                                        {
+                                            itemImage = item.Product.ProductImageUrl;
+                                        }
+                                    }
+                                    else if (item.Combo != null)
+                                    {
+                                        itemName = item.Combo.Name;
+                                        itemType = "Combo";
+                                        if (!string.IsNullOrEmpty(item.Combo.ImageUrl))
+                                        {
+                                            itemImage = item.Combo.ImageUrl;
+                                        }
+                                    }
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <div class="d-flex align-items-center">
+                                            <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                            <div>
+                                                <h6 class="mb-0 small">@itemName</h6>
+                                                <small class="text-muted">@itemType &times; @item.Quantity</small>
+                                            </div>
+                                        </div>
+                                        <span class="fw-bold">@itemTotal.ToString("N0") đ</span>
+                                    </li>
+                                }
+                            </ul>
+
+                            <!-- Voucher Section -->
+                            <div class="input-group mb-3">
+                                <input type="text" id="voucherCode" class="form-control" placeholder="Nhập mã giảm giá">
+                                <button class="btn btn-outline-secondary" type="button" id="applyVoucherBtn">Áp dụng</button>
+                            </div>
+                            <div id="voucher-result" class="mb-2"></div>
+
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>Tạm tính</span>
+                                <strong id="subtotal">@totalPrice.ToString("N0") đ</strong>
+                            </div>
+
+                            <div id="discount-row" class="d-flex justify-content-between mb-2 text-success" style="display: none!important;">
+                                <span>Giảm giá</span>
+                                <strong id="discount-amount"></strong>
+                            </div>
+
+                            <div class="d-flex justify-content-between mb-2">
+                                <span>VAT (15%)</span>
+                                <strong id="vat-amount">@((totalPrice * 0.15).ToString("N0")) đ</strong>
+                            </div>
+                            <hr />
+                            <div class="d-flex justify-content-between h5">
+                                <span>Tổng cộng</span>
+                                <strong class="text-danger" id="total-bill">@((totalPrice * 1.15).ToString("N0")) đ</strong>
+                            </div>
+                        }
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-lock"></i> Đặt Hàng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        $(document).ready(function () {
+
+            // 1. Pass PayNow enum value to JavaScript (default integer is 0)
+            const PAYNOW_VALUE = '@payNowValue'.toString();
+            const paymentTypeSelect = $('#PaymentType');
+            const paymentMethodContainer = $('#paymentMethodContainer');
+            const initialSubtotal = @totalPrice;
+
+            // Function to toggle visibility of Payment Method fields
+            function togglePaymentMethodFields() {
+                // Check if the selected value matches the PayNow value (0)
+                // Note: The value from the select element is always a string.
+                if (paymentTypeSelect.val() === PAYNOW_VALUE) {
+                    paymentMethodContainer.slideDown();
+                } else {
+                    paymentMethodContainer.slideUp();
+                }
+            }
+
+            // Initial state setup: Run once on load to set the correct visibility
+            togglePaymentMethodFields();
+
+            // Event listener: Toggle visibility whenever PaymentType selection changes
+            paymentTypeSelect.on('change', togglePaymentMethodFields);
+
+
+            // --- Existing Voucher Logic ---
+
+            function applyVoucher() {
+                var voucherCode = $('#voucherCode').val();
+                var voucherResultDiv = $('#voucher-result');
+                var applyBtn = $('#applyVoucherBtn');
+
+                if (!voucherCode) {
+                    voucherResultDiv.html('<div class="alert alert-warning p-2">Vui lòng nhập mã giảm giá.</div>');
+                    return;
+                }
+
+                applyBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...');
+                voucherResultDiv.empty();
+
+                $.ajax({
+                    url: '@Url.Action("ApplyVoucher", "Order")',
+                    type: 'POST',
+                    data: { voucherCode: voucherCode },
+                    headers: { "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val() },
+                    success: function (response) {
+                        if (response.success) {
+                            voucherResultDiv.html('<div class="alert alert-success p-2">Áp dụng voucher thành công!</div>');
+                            $('#discount-row').css('display', 'flex');
+                            $('#discount-amount').text('-' + response.discountAmount.toLocaleString('vi-VN') + ' đ');
+                            $('#vat-amount').text(response.vatAmount.toLocaleString('vi-VN') + ' đ');
+                            $('#total-bill').text(response.totalBill.toLocaleString('vi-VN') + ' đ');
+                            $('#appliedVoucherId').val(response.voucherId);
+
+                            $('#voucherCode').prop('disabled', true);
+                            applyBtn.prop('disabled', false).removeClass('btn-outline-secondary').addClass('btn-danger').html('<i class="fas fa-times"></i> Hủy').off('click').on('click', removeVoucher);
+                        } else {
+                            voucherResultDiv.html('<div class="alert alert-danger p-2">' + response.error + '</div>');
+                            applyBtn.prop('disabled', false).html('Áp dụng');
+                        }
+                    },
+                    error: function () {
+                        voucherResultDiv.html('<div class="alert alert-danger p-2">Có lỗi xảy ra. Vui lòng thử lại.</div>');
+                        applyBtn.prop('disabled', false).html('Áp dụng');
+                    }
+                });
+            }
+
+            function removeVoucher() {
+                $('#voucherCode').val('').prop('disabled', false);
+                $('#appliedVoucherId').val('');
+                $('#voucher-result').empty();
+                $('#discount-row').hide();
+                $('#discount-amount').text('');
+
+                // Reset totals
+                var vat = initialSubtotal * 0.15;
+                var totalBill = initialSubtotal + vat;
+                $('#vat-amount').text(vat.toLocaleString('vi-VN') + ' đ');
+                $('#total-bill').text(totalBill.toLocaleString('vi-VN') + ' đ');
+
+                var applyBtn = $('#applyVoucherBtn');
+                applyBtn.removeClass('btn-danger').addClass('btn-outline-secondary').html('Áp dụng').off('click').on('click', applyVoucher);
+            }
+
+            $('#applyVoucherBtn').on('click', applyVoucher);
+        });
+    </script>
+}

@@ -1,0 +1,73 @@
+﻿@using Microsoft.AspNetCore.Identity
+@model IEnumerable<Assignment.Models.Category>
+@inject UserManager<IdentityUser> UserManager
+
+@{
+    ViewData["Title"] = "Danh sách danh mục";
+    Layout = "_AdminLayout";
+}
+
+<!-- Thêm link Font Awesome để sử dụng icons -->
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h4 class="mb-0 text-primary">
+                <i class="fas fa-tags me-2"></i>@ViewData["Title"]
+            </h4>
+            @if (User.HasClaim(c => c.Type == "CreateCategory"))
+            {
+                <a class="btn btn-primary" asp-action="Create">
+                    <i class="fas fa-plus me-2"></i>Tạo mới
+                </a>
+            }
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">@Html.DisplayNameFor(model => model.Name)</th>
+                            <th scope="col">@Html.DisplayNameFor(model => model.Index)</th>
+                            <th scope="col" style="width: 20%;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                                <td>@Html.DisplayFor(modelItem => item.Index)</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        @if (User.HasClaim(c => c.Type == "UpdateCategory" || c.Type == "UpdateCategoryAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        }
+                                        @if (User.HasClaim(c => c.Type == "GetCategory" || c.Type == "GetCategoryAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
+                                                <i class="fas fa-info-circle"></i>
+                                            </a>
+                                        }
+                                        @if (User.HasClaim(c => c.Type == "DeleteCategory") || User.HasClaim(c => c.Type == "DeleteCategoryAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,219 @@
+﻿@model Assignment.Models.Cart
+
+@{
+    ViewData["Title"] = "Giỏ Hàng";
+    double totalPrice = 0;
+    // Lấy thông tin voucher và giảm giá từ TempData (do Controller truyền sang sau khi xử lý)
+    double discount = (double)(TempData["DiscountAmount"] ?? 0.0);
+    string voucherCode = (string)TempData["VoucherCode"];
+    // Giữ lại TempData để hiển thị lại sau khi tải trang
+    TempData.Keep("DiscountAmount");
+    TempData.Keep("VoucherCode");
+}
+
+<div class="container my-5">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-shopping-cart"></i> Giỏ Hàng Của Bạn
+            </h2>
+
+            @if (TempData["Success"] != null)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    @TempData["Success"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            @if (Model.CartItems == null || !Model.CartItems.Any())
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-shopping-cart fa-5x text-muted mb-3"></i>
+                    <h4>Giỏ hàng của bạn đang trống</h4>
+                    <p class="text-muted">Hãy thêm sản phẩm vào giỏ hàng để tiếp tục mua sắm</p>
+                    <a href="@Url.Action("Index", "Home")" class="btn btn-primary mt-3">
+                        <i class="fas fa-shopping-bag"></i> Tiếp tục mua sắm
+                    </a>
+                </div>
+            }
+            else
+            {
+                <div class="row">
+                    <div class="col-lg-8">
+                        <div class="card shadow-sm">
+                            <div class="card-body">
+                                <table class="table align-middle">
+                                    <thead>
+                                        <tr>
+                                            <th>Sản phẩm</th>
+                                            <th>Đơn giá</th>
+                                            <th class="text-center">Số lượng</th>
+                                            <th class="text-end">Thành tiền</th>
+                                            <th></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var item in Model.CartItems)
+                                        {
+                                            double itemPrice = 0;
+                                            string itemName = "";
+                                            string itemImage = "";
+
+                                            if (item.Product != null)
+                                            {
+                                                itemPrice = item.Product.Price;
+                                                itemName = item.Product.Name;
+                                                itemImage = item.Product.ProductImageUrl ?? "/images/no-image.jpg";
+                                            }
+                                            else if (item.Combo != null)
+                                            {
+                                                itemPrice = item.Combo.Price;
+                                                itemName = item.Combo.Name;
+                                                itemImage = item.Combo.ImageUrl ?? "/images/no-image.jpg";
+                                            }
+
+                                            double itemTotal = itemPrice * item.Quantity;
+                                            totalPrice += itemTotal;
+
+                                            <tr>
+                                                <td>
+                                                    <div class="d-flex align-items-center">
+                                                        <img src="@itemImage" alt="@itemName"
+                                                             class="img-thumbnail me-3"
+                                                             style="width: 80px; height: 80px; object-fit: cover;">
+                                                        <div>
+                                                            <h6 class="mb-0">@itemName</h6>
+                                                            @if (item.Product != null)
+                                                            {
+                                                                <small class="text-muted">Sản phẩm</small>
+                                                            }
+                                                            else
+                                                            {
+                                                                <small class="text-muted">Combo</small>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                </td>
+                                                <td>
+                                                    <strong>@itemPrice.ToString("N0") đ</strong>
+                                                </td>
+                                                <td class="text-center">
+                                                    <form asp-controller="Cart" asp-action="UpdateQuantity" method="post" class="d-inline">
+                                                        <input type="hidden" name="cartItemId" value="@item.Id" />
+                                                        <div class="input-group" style="width: 130px; margin: auto;">
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                                    onclick="this.closest('form').querySelector('input[type=number]').stepDown(); this.closest('form').submit();">
+                                                                <i class="fas fa-minus"></i>
+                                                            </button>
+                                                            <input type="number" name="quantity" value="@item.Quantity"
+                                                                   min="1" class="form-control form-control-sm text-center"
+                                                                   onchange="this.form.submit()">
+                                                            <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                                    onclick="this.closest('form').querySelector('input[type=number]').stepUp(); this.closest('form').submit();">
+                                                                <i class="fas fa-plus"></i>
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </td>
+                                                <td class="text-end">
+                                                    <strong class="text-primary">@itemTotal.ToString("N0") đ</strong>
+                                                </td>
+                                                <td class="text-center">
+                                                    <form asp-controller="Cart" asp-action="Remove" method="post" class="d-inline"
+                                                          onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này?')">
+                                                        <input type="hidden" name="cartItemId" value="@item.Id" />
+                                                        <button type="submit" class="btn btn-danger btn-sm">
+                                                            <i class="fas fa-trash"></i>
+                                                        </button>
+                                                    </form>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+
+                                <div class="d-flex justify-content-between mt-3">
+                                    <a href="@Url.Action("Index", "Home")" class="btn btn-outline-secondary">
+                                        <i class="fas fa-arrow-left"></i> Tiếp tục mua sắm
+                                    </a>
+                                    <form asp-controller="Cart" asp-action="Clear" method="post" class="d-inline"
+                                          onsubmit="return confirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')">
+                                        <button type="submit" class="btn btn-outline-danger">
+                                            <i class="fas fa-trash-alt"></i> Xóa giỏ hàng
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-lg-4">
+                        <div class="card shadow-sm sticky-top" style="top: 20px;">
+                            <div class="card-body">
+                                <h5 class="card-title mb-3">Tổng đơn hàng</h5>
+
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Tạm tính:</span>
+                                    <strong>@totalPrice.ToString("N0") đ</strong>
+                                </div>
+
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>Phí vận chuyển:</span>
+                                    <strong class="text-success">Miễn phí</strong>
+                                </div>
+
+                                <hr>
+
+                                @if (discount > 0 && !string.IsNullOrEmpty(voucherCode))
+                                {
+                                    <div class="d-flex justify-content-between mb-2">
+                                        <span class="text-success">
+                                            Giảm giá (@voucherCode)
+                                            <form asp-controller="Cart" asp-action="RemoveVoucher" method="post" class="d-inline ms-2">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger p-0 px-1" style="line-height: 1;">Xóa</button>
+                                            </form>
+                                        </span>
+                                        <strong class="text-success">-@discount.ToString("N0") đ</strong>
+                                    </div>
+                                }
+
+                                <div class="d-flex justify-content-between mb-3">
+                                    <h5>Tổng cộng:</h5>
+                                    <h5 class="text-danger">@((totalPrice - discount).ToString("N0")) đ</h5>
+                                </div>
+
+                                <div class="d-grid">
+                                    <a href="@Url.Action("Checkout", "Order")" class="btn btn-primary w-100 mb-2">
+                                        <i class="fas fa-credit-card"></i> Tiến hành thanh toán
+                                    </a>
+                                </div>
+
+                                <div class="text-center mt-3">
+                                    <small class="text-muted">
+                                        <i class="fas fa-shield-alt"></i> Thanh toán an toàn và bảo mật
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        // This script ensures the user cannot manually enter a quantity less than 1
+        document.querySelectorAll('input[name="quantity"]').forEach(input => {
+            input.addEventListener('change', function () {
+                if (this.value < 1) {
+                    this.value = 1;
+                    this.form.submit(); // Submit the form to update server-side
+                }
+            });
+        });
+    </script>
+}
+

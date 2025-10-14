@@ -1,0 +1,125 @@
+﻿@using Assignment.Enums
+@model Assignment.Models.Voucher
+
+@{
+    ViewData["Title"] = "Chi tiết Voucher";
+    Layout = "_AdminLayout";
+}
+
+<!-- Thêm link Font Awesome để sử dụng icons -->
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<div class="container-fluid pt-4 px-4">
+    <div class="row g-4 justify-content-center">
+        <div class="col-sm-12 col-xl-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h4 class="mb-0 text-primary">
+                        <i class="fas fa-info-circle me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Code)</dt>
+                        <dd class="col-sm-8">@Html.DisplayFor(model => model.Code)</dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Name)</dt>
+                        <dd class="col-sm-8">@Html.DisplayFor(model => model.Name)</dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Description)</dt>
+                        <dd class="col-sm-8">@Html.DisplayFor(model => model.Description)</dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Type)</dt>
+                        <dd class="col-sm-8">
+                            @if (Model.Type == VoucherType.Public)
+                            {
+                                <span class="badge bg-success">Công khai</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-info">Riêng tư</span>
+                            }
+                        </dd>
+
+                        @if (Model.Type == VoucherType.Private && !string.IsNullOrEmpty(Model.UserId))
+                        {
+                            <dt class="col-sm-4">Người dùng</dt>
+                            <dd class="col-sm-8">@ViewData["UserEmail"]</dd>
+                        }
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.DiscountType)</dt>
+                        <dd class="col-sm-8">
+                            @(Model.DiscountType == VoucherDiscountType.Money ? "Tiền mặt" : "Phần trăm")
+                        </dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Discount)</dt>
+                        <dd class="col-sm-8">
+                            @if (Model.DiscountType == VoucherDiscountType.Money)
+                            {
+                                @Model.Discount.ToString("C0")
+                            }
+                            else
+                            {
+                                @($"{Model.Discount}%")
+                            }
+                        </dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Used)</dt>
+                        <dd class="col-sm-8">@Model.Used.ToString("N0")</dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Quantity)</dt>
+                        <dd class="col-sm-8">@Model.Quantity.ToString("N0")</dd>
+
+                        <dt class="col-sm-4">Thời gian bắt đầu</dt>
+                        <dd class="col-sm-8">@Model.StartTime.ToString("dd/MM/yyyy HH:mm")</dd>
+
+                        <dt class="col-sm-4">Thời gian kết thúc</dt>
+                        <dd class="col-sm-8">
+                            @if (Model.IsLifeTime)
+                            {
+                                <span class="badge bg-warning">Vô thời hạn</span>
+                            }
+                            else
+                            {
+                                @Model.EndTime?.ToString("dd/MM/yyyy HH:mm")
+                            }
+                        </dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.MinimumRequirements)</dt>
+                        <dd class="col-sm-8">@Model.MinimumRequirements.ToString("C0")</dd>
+
+                        @if (Model.DiscountType == VoucherDiscountType.Percent)
+                        {
+                            <dt class="col-sm-4">@Html.DisplayNameFor(model => model.UnlimitedPercentageDiscount)</dt>
+                            <dd class="col-sm-8">
+                                @(Model.UnlimitedPercentageDiscount ? "Có" : "Không")
+                            </dd>
+
+                            @if (!Model.UnlimitedPercentageDiscount && Model.MaximumPercentageReduction.HasValue)
+                            {
+                                <dt class="col-sm-4">@Html.DisplayNameFor(model => model.MaximumPercentageReduction)</dt>
+                                <dd class="col-sm-8">@Model.MaximumPercentageReduction?.ToString("C0")</dd>
+                            }
+                        }
+                    </dl>
+                </div>
+                <div class="card-footer bg-transparent border-top d-flex justify-content-start gap-2">
+                    @if (User.HasClaim(c => c.Type == "UpdateVoucher" || c.Type == "UpdateVoucherAll"))
+                    {
+                        <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.Id">
+                            <i class="fas fa-edit me-2"></i>Chỉnh sửa
+                        </a>
+                    }
+                    @if (User.HasClaim(c => c.Type == "GetVoucher" || c.Type == "GetVoucherAll"))
+                    {
+                        <a class="btn btn-secondary" asp-action="Index">
+                            <i class="fas fa-arrow-left me-2"></i>Trở về danh sách
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

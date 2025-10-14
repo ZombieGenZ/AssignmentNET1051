@@ -1,0 +1,94 @@
+﻿@using Microsoft.AspNetCore.Identity
+@model IEnumerable<Assignment.Models.Product>
+@inject UserManager<IdentityUser> UserManager
+
+@{
+    ViewData["Title"] = "Danh sách sản phẩm";
+    Layout = "_AdminLayout";
+}
+
+<!-- Thêm link Font Awesome để sử dụng icons -->
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h4 class="mb-0 text-primary">
+                <i class="fas fa-box-open me-2"></i>@ViewData["Title"]
+            </h4>
+            @if (User.HasClaim(c => c.Type == "CreateProduct"))
+            {
+                <a class="btn btn-primary" asp-action="Create">
+                    <i class="fas fa-plus me-2"></i>Tạo mới
+                </a>
+            }
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover table-bordered text-center">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col" style="width: 8%;">Hình ảnh</th>
+                            <th scope="col">@Html.DisplayNameFor(model => model.Name)</th>
+                            <th scope="col">@Html.DisplayNameFor(model => model.Price)</th>
+                            <th scope="col">@Html.DisplayNameFor(model => model.Stock)</th>
+                            <th scope="col">@Html.DisplayNameFor(model => model.Category)</th>
+                            <th scope="col" style="width: 15%;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in Model)
+                        {
+                            <tr>
+                                <td><img style="width: 50px; height: 50px; object-fit: cover;" src="@item.ProductImageUrl" alt="@item.Name" class="img-thumbnail" /></td>
+                                <td class="align-middle">@Html.DisplayFor(modelItem => item.Name)</td>
+                                <td class="align-middle">
+                                    @if (item.DiscountType == Assignment.Enums.DiscountType.None)
+                                    {
+                                        @item.Price.ToString("C0")
+                                    }
+                                    else if (item.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                    {
+                                        <del class="text-secondary small">@item.Price.ToString("C0")</del>
+                                        <span class="text-danger fw-bold">@((item.Price - (item.Price / 100 * item.Discount))?.ToString("C0"))</span>
+                                    }
+                                    else if (item.DiscountType == Assignment.Enums.DiscountType.FixedAmount)
+                                    {
+                                        <del class="text-secondary small">@item.Price.ToString("C0")</del>
+                                        <span class="text-danger fw-bold">@item.Discount?.ToString("C0")</span>
+                                    }
+                                </td>
+                                <td class="align-middle">@Html.DisplayFor(modelItem => item.Stock)</td>
+                                <td class="align-middle">@Html.DisplayFor(modelItem => item.Category.Name)</td>
+                                <td class="align-middle">
+                                    <div class="btn-group" role="group">
+                                        @if (User.HasClaim(c => c.Type == "UpdateProduct" || c.Type == "UpdateProductAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
+                                                <i class="fas fa-edit"></i>
+                                            </a>
+                                        }
+                                        @if (User.HasClaim(c => c.Type == "GetProduct" || c.Type == "GetProductAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
+                                                <i class="fas fa-info-circle"></i>
+                                            </a>
+                                        }
+                                        @if (User.HasClaim(c => c.Type == "DeleteProduct" || c.Type == "DeleteProductAll"))
+                                        {
+                                            <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
+                                                <i class="fas fa-trash-alt"></i>
+                                            </a>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,96 @@
+﻿@model IEnumerable<Assignment.Models.Order>
+
+@{
+    ViewData["Title"] = "Lịch Sử Mua Hàng";
+}
+
+<div class="container my-5">
+    <h2 class="mb-4">
+        <i class="fas fa-history"></i> Lịch Sử Đơn Hàng
+    </h2>
+
+    @if (!Model.Any())
+    {
+        <div class="text-center py-5">
+            <i class="fas fa-receipt fa-5x text-muted mb-3"></i>
+            <h4>Bạn chưa có đơn hàng nào</h4>
+            <p class="text-muted">Hãy bắt đầu mua sắm để xem lịch sử đơn hàng của bạn tại đây.</p>
+            <a href="@Url.Action("Index", "Home")" class="btn btn-primary mt-3">
+                <i class="fas fa-shopping-bag"></i> Bắt đầu mua sắm
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="accordion" id="orderHistoryAccordion">
+            @foreach (var order in Model)
+            {
+                <div class="accordion-item mb-3 shadow-sm">
+                    <h2 class="accordion-header" id="heading-@order.Id">
+                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-@order.Id" aria-expanded="false" aria-controls="collapse-@order.Id">
+                            <div class="d-flex flex-wrap w-100 justify-content-between">
+                                <span class="me-3"><strong>Mã đơn:</strong> #@order.Id</span>
+                                <span class="me-3"><strong>Ngày đặt:</strong> @order.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                                <span class="me-3"><strong>Tổng tiền:</strong> <strong class="text-danger">@order.TotalBill.ToString("N0") đ</strong></span>
+                                <span><strong>Trạng thái:</strong> <span class="badge bg-info">@order.Status</span></span>
+                            </div>
+                        </button>
+                    </h2>
+                    <div id="collapse-@order.Id" class="accordion-collapse collapse" aria-labelledby="heading-@order.Id" data-bs-parent="#orderHistoryAccordion">
+                        <div class="accordion-body">
+                            <h5>Chi tiết đơn hàng</h5>
+                            <table class="table table-sm table-borderless">
+                                <tbody>
+                                    <tr><td style="width: 150px;"><strong>Tên người nhận:</strong></td><td>@order.Name</td></tr>
+                                    <tr><td><strong>Số điện thoại:</strong></td><td>@order.Phone</td></tr>
+                                    <tr><td><strong>Ghi chú:</strong></td><td>@(order.Note ?? "Không có")</td></tr>
+                                    <tr><td><strong>Thanh toán:</strong></td><td>@order.PaymentType / @order.PaymentMethod</td></tr>
+                                </tbody>
+                            </table>
+
+                            <h6>Các sản phẩm đã mua:</h6>
+                            <ul class="list-group">
+                                @foreach (var item in order.OrderItems)
+                                {
+                                    string itemName = "Sản phẩm không xác định";
+                                    string itemType = "";
+                                    string itemImage = "/images/no-image.jpg"; // Default image
+
+                                    if (item.Product != null)
+                                    {
+                                        itemName = item.Product.Name;
+                                        itemType = "Sản phẩm";
+                                        if (!string.IsNullOrEmpty(item.Product.ProductImageUrl))
+                                        {
+                                            itemImage = item.Product.ProductImageUrl;
+                                        }
+                                    }
+                                    else if (item.Combo != null)
+                                    {
+                                        itemName = item.Combo.Name;
+                                        itemType = "Combo";
+                                        if (!string.IsNullOrEmpty(item.Combo.ImageUrl))
+                                        {
+                                            itemImage = item.Combo.ImageUrl;
+                                        }
+                                    }
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center">
+                                            <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                            <div>
+                                                <h6 class="mb-0">@itemName</h6>
+                                                <small class="text-muted">@itemType</small>
+                                            </div>
+                                        </div>
+                                        <span>@item.Quantity x @item.Price.ToString("N0") đ</span>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

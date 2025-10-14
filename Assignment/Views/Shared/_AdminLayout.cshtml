@@ -1,0 +1,315 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<IdentityUser> SignInManager
+@inject UserManager<IdentityUser> UserManager
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] - Hệ Thống Quản Lý</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+    <link href="~/css/admin-layout.css" rel="stylesheet" />
+    <script src="https://kit.fontawesome.com/476445fe42.js" crossorigin="anonymous"></script>
+    <style>
+        /* CSS cho dropdown người dùng */
+        .user-profile-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        .user-profile {
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+        }
+
+        .dropdown-menu-user {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 120%; /* Vị trí ngay dưới user profile */
+            background-color: #fff;
+            min-width: 180px;
+            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+            border: 1px solid rgba(0,0,0,.125);
+            border-radius: 0.375rem;
+            z-index: 1000;
+            list-style: none;
+            padding: 0.5rem 0;
+        }
+
+            .dropdown-menu-user.show {
+                display: block;
+            }
+
+            .dropdown-menu-user .dropdown-item {
+                display: flex;
+                align-items: center;
+                width: 100%;
+                padding: 0.5rem 1.5rem;
+                clear: both;
+                font-weight: 400;
+                color: #212529;
+                text-align: inherit;
+                white-space: nowrap;
+                background-color: transparent;
+                border: 0;
+                text-decoration: none;
+            }
+
+                .dropdown-menu-user .dropdown-item:hover {
+                    background-color: #f8f9fa;
+                }
+
+                .dropdown-menu-user .dropdown-item i {
+                    margin-right: 10px;
+                    color: #b7b9cc;
+                }
+
+            .dropdown-menu-user .dropdown-divider {
+                height: 0;
+                margin: 0.5rem 0;
+                overflow: hidden;
+                border-top: 1px solid #e3e6f0;
+            }
+
+            /* CSS cho nút logout trong form */
+            .dropdown-menu-user form {
+                padding: 0;
+                margin: 0;
+            }
+
+                .dropdown-menu-user form .dropdown-item {
+                    width: 100%;
+                    text-align: left;
+                }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <a asp-action="Index" asp-controller="Home" class="sidebar-brand">
+            <i class="fas fa-tachometer-alt"></i>
+            <span>Quản Lý</span>
+        </a>
+        <ul class="sidebar-menu">
+            @if (User.HasClaim(c => c.Type == "GetCategoryAll" || c.Type == "GetCategory"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Categories" class="sidebar-menu-link">
+                        <i class="fa-solid fa-list-ul"></i>
+                        <span>Category</span>
+                    </a>
+                </li>
+            }
+            @if (User.HasClaim(c => c.Type == "GetProductAll" || c.Type == "GetProduct"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Products" class="sidebar-menu-link">
+                        <i class="fa-solid fa-box"></i>
+                        <span>Product</span>
+                    </a>
+                </li>
+            }
+            @if (User.HasClaim(c => c.Type == "GetComboAll" || c.Type == "GetCombo"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Combos" class="sidebar-menu-link">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                        <span>Combo</span>
+                    </a>
+                </li>
+            }
+            @if (User.HasClaim(c => c.Type == "GetVoucherAll" || c.Type == "GetVoucher"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Vouchers" class="sidebar-menu-link">
+                        <i class="fa-solid fa-ticket"></i>
+                        <span>Voucher</span>
+                    </a>
+                </li>
+            }
+
+@*             <li class="sidebar-menu-item">
+                <a href="#" class="sidebar-menu-link">
+                    <i class="fas fa-users"></i>
+                    <span>Người dùng</span>
+                </a>
+            </li>
+            <li class="sidebar-menu-item">
+                <a href="#" class="sidebar-menu-link">
+                    <i class="fas fa-box"></i>
+                    <span>Sản phẩm</span>
+                </a>
+            </li>
+            <li class="sidebar-menu-item">
+                <a href="#" class="sidebar-menu-link">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>Đơn hàng</span>
+                </a>
+            </li>
+            <li class="sidebar-menu-item">
+                <a href="#" class="sidebar-menu-link">
+                    <i class="fas fa-chart-line"></i>
+                    <span>Báo cáo</span>
+                </a>
+            </li>
+            <li class="sidebar-menu-item">
+                <a href="#" class="sidebar-menu-link">
+                    <i class="fas fa-cog"></i>
+                    <span>Cài đặt</span>
+                </a>
+            </li> *@
+        </ul>
+    </aside>
+
+    <div class="overlay" id="overlay"></div>
+
+    <div class="main-content">
+        <header class="top-header">
+            <button class="header-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+
+            <div class="header-search">
+                @* <i class="fas fa-search"></i>
+                <input type="text" placeholder="Tìm kiếm..."> *@
+            </div>
+
+            <div class="header-right">
+                @if (SignInManager.IsSignedIn(User))
+                {
+                    var userName = User.Identity?.Name ?? "User";
+                    var initials = string.IsNullOrWhiteSpace(userName)
+                    ? "?"
+                    : string.Concat(userName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                    .Where(s => s.Length > 0)
+                    .Select(s => s[0]));
+
+                    <div class="user-profile-container">
+                        <div class="user-profile" id="userProfileToggle">
+                            <div class="user-avatar">@initials</div>
+                            <span class="user-name">@userName</span>
+                            <i class="fas fa-chevron-down" style="font-size: 0.7rem; color: #858796; margin-left: 5px;"></i>
+                        </div>
+                        <div class="dropdown-menu-user" id="userDropdown">
+                            <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">
+                                <i class="fas fa-user fa-sm fa-fw"></i>
+                                Hồ sơ
+                            </a>
+                            <a asp-action="Index" asp-controller="Home" class="dropdown-item">
+                                <i class="fas fa-cogs fa-sm fa-fw"></i>
+                                Trang chủ
+                            </a>
+                            <div class="dropdown-divider"></div>
+                            <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+                                <button type="submit" class="dropdown-item">
+                                    <i class="fas fa-sign-out-alt fa-sm fa-fw"></i>
+                                    Đăng xuất
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                }
+            </div>
+        </header>
+
+        <div class="content-wrapper">
+@*             <div class="page-header">
+                <h1 class="page-title">Dashboard</h1>
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="#">Trang chủ</a></li>
+                        <li class="breadcrumb-item active">Dashboard</li>
+                    </ol>
+                </nav>
+            </div> *@
+
+            <main role="main">
+                @RenderBody()
+            </main>
+        </div>
+@* 
+        <footer class="footer">
+            <div class="container-fluid">
+                &copy; 2025 - Hệ Thống Quản Lý -
+                <a href="#" style="color: var(--primary-color); text-decoration: none;">Privacy</a>
+            </div>
+        </footer> *@
+    </div>
+
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Logic cho sidebar menu toggle
+            const menuToggle = document.getElementById('menuToggle');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+
+            menuToggle.addEventListener('click', function () {
+                sidebar.classList.toggle('active');
+                overlay.classList.toggle('active');
+            });
+
+            overlay.addEventListener('click', function () {
+                sidebar.classList.remove('active');
+                overlay.classList.remove('active');
+            });
+
+            // Logic tự động active sidebar link dựa trên URL
+            const menuLinks = document.querySelectorAll('.sidebar-menu-link');
+            const currentPath = window.location.pathname.toLowerCase();
+            let bestMatch = null;
+
+            menuLinks.forEach(link => {
+                const linkHref = link.getAttribute('href');
+                if (!linkHref) return;
+
+                const linkPath = linkHref.toLowerCase();
+
+                // Tìm link khớp với URL nhất (dài nhất)
+                if (currentPath.startsWith(linkPath)) {
+                    // Xử lý trường hợp đặc biệt cho trang chủ
+                    if (linkPath === '/' && currentPath !== '/') {
+                        return;
+                    }
+
+                    const bestMatchHref = bestMatch ? bestMatch.getAttribute('href').toLowerCase() : '';
+                    if (linkPath.length > bestMatchHref.length) {
+                        bestMatch = link;
+                    }
+                }
+            });
+
+            if (bestMatch) {
+                bestMatch.classList.add('active');
+            }
+
+            // Logic cho dropdown người dùng
+            const userProfileToggle = document.getElementById('userProfileToggle');
+            const userDropdown = document.getElementById('userDropdown');
+
+            if (userProfileToggle) {
+                userProfileToggle.addEventListener('click', function (event) {
+                    // Ngăn sự kiện click lan ra window, tránh việc đóng dropdown ngay lập tức
+                    event.stopPropagation();
+                    userDropdown.classList.toggle('show');
+                });
+            }
+
+            // Đóng dropdown khi click ra ngoài
+            window.addEventListener('click', function (event) {
+                if (userDropdown && userDropdown.classList.contains('show')) {
+                    // Kiểm tra xem vị trí click có nằm ngoài dropdown và ngoài nút toggle không
+                    if (!userProfileToggle.contains(event.target)) {
+                        userDropdown.classList.remove('show');
+                    }
+                }
+            });
+        });
+    </script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>
+

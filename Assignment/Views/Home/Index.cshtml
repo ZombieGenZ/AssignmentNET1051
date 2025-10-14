@@ -1,0 +1,408 @@
+﻿@model Assignment.Models.HomeViewModel
+
+@{
+    ViewData["Title"] = "Trang chủ";
+}
+
+<style>
+    .product-card {
+        transition: all 0.3s ease;
+        border: 1px solid #e0e0e0;
+        border-radius: 12px;
+        overflow: hidden;
+        background: white;
+        height: 100%;
+    }
+
+        .product-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+    .product-image {
+        width: 100%;
+        height: 250px;
+        object-fit: cover;
+    }
+
+    .badge-discount {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #ff4444;
+        color: white;
+        padding: 5px 12px;
+        border-radius: 20px;
+        font-weight: bold;
+        font-size: 14px;
+    }
+
+    .original-price {
+        text-decoration: line-through;
+        color: #999;
+        font-size: 14px;
+    }
+
+    .final-price {
+        color: #ff4444;
+        font-size: 24px;
+        font-weight: bold;
+    }
+
+    .section-title {
+        font-size: 32px;
+        font-weight: bold;
+        margin: 40px 0 30px;
+        padding-bottom: 15px;
+        border-bottom: 3px solid #ff4444;
+    }
+
+    .btn-add-cart {
+        background: #ff4444;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 25px;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+
+        .btn-add-cart:hover {
+            background: #cc0000;
+            transform: scale(1.05);
+        }
+
+    .product-info {
+        padding: 15px;
+    }
+
+    .product-name {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 10px;
+        height: 48px;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+    }
+
+    .product-badges {
+        margin: 10px 0;
+    }
+
+    .badge-spicy {
+        background: #ff6b6b;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        margin-right: 5px;
+    }
+
+    .badge-vegetarian {
+        background: #51cf66;
+        color: white;
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+    }
+
+    .rating {
+        color: #ffa500;
+        margin: 10px 0;
+    }
+</style>
+
+<div class="container mt-4">
+    @Html.AntiForgeryToken()
+    <!-- Combos Section -->
+    @if (Model.Combos.Any())
+    {
+        <h2 class="section-title">🎁 Combo Đặc Biệt</h2>
+        <div class="row g-4">
+            @foreach (var combo in Model.Combos)
+            {
+                <div class="col-md-4 col-lg-3">
+                    <div class="product-card">
+                        <div class="position-relative">
+                            <img src="@combo.ImageUrl" class="product-image" alt="@combo.Name" />
+                            @if (combo.DiscountType != Assignment.Enums.DiscountType.None)
+                            {
+                                <span class="badge-discount">
+                                    @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                    {
+                                        @:-@combo.Discount%
+                                    }
+                                    else
+                                    {
+                                        @:Giá sốc
+                                    }
+                                </span>
+                            }
+                        </div>
+                        <div class="product-info">
+                            <h5 class="product-name">@combo.Name</h5>
+
+                            <div class="product-badges">
+                                @if (combo.ComboItems.Any(ci => ci.Product.IsSpicy))
+                                {
+                                    <span class="badge-spicy">🌶️ Cay</span>
+                                }
+                                @if (combo.ComboItems.All(ci => ci.Product.IsVegetarian))
+                                {
+                                    <span class="badge-vegetarian">🥗 Chay</span>
+                                }
+                            </div>
+
+                            <div class="rating">
+                                @for (int i = 1; i <= 5; i++)
+                                {
+                                    if (i <= Math.Floor(combo.AverageEvaluate))
+                                    {
+                                        <i class="fas fa-star"></i>
+                                    }
+                                    else if (i - 0.5 <= combo.AverageEvaluate)
+                                    {
+                                        <i class="fas fa-star-half-alt"></i>
+                                    }
+                                    else
+                                    {
+                                        <i class="far fa-star"></i>
+                                    }
+                                }
+                                <small>(@combo.TotalEvaluate)</small>
+                            </div>
+
+                            <div class="mb-3">
+                                @if (combo.DiscountType == Assignment.Enums.DiscountType.None)
+                                {
+                                    <span class="final-price">@combo.Price.ToString("N0") ₫</span>
+                                }
+                                else if (combo.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                {
+                                    <div>
+                                        <span class="original-price">@combo.Price.ToString("N0") ₫</span>
+                                    </div>
+                                    <span class="final-price">@((combo.Price - (combo.Price * combo.Discount.Value / 100)).ToString("N0")) ₫</span>
+                                }
+                                else
+                                {
+                                    <div>
+                                        <span class="original-price">@combo.Price.ToString("N0") ₫</span>
+                                    </div>
+                                    <span class="final-price">@combo.Discount.Value.ToString("N0") ₫</span>
+                                }
+                            </div>
+
+                            <div class="d-flex gap-2">
+                                <a href="@Url.Action("ComboDetail", "Home", new { id = combo.Id })"
+                                   class="btn btn-outline-primary flex-grow-1">Chi tiết</a>
+                                <button class="btn btn-add-cart" data-id="@combo.Id" data-type="combo">
+                                    <i class="fas fa-shopping-cart"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    <!-- Products by Category Section -->
+    @{
+        var productsByCategory = Model.Products.GroupBy(p => p.Category).OrderBy(g => g.Key?.Index ?? 0);
+    }
+
+    @foreach (var categoryGroup in productsByCategory)
+    {
+        var category = categoryGroup.Key;
+        var products = categoryGroup.ToList();
+
+        if (products.Any())
+        {
+            <h2 class="section-title">🍽️ @(category?.Name ?? "Khác")</h2>
+            <div class="row g-4">
+                @foreach (var product in products)
+                {
+                    <div class="col-md-4 col-lg-3">
+                        <div class="product-card">
+                            <div class="position-relative">
+                                <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
+                                @if (product.DiscountType != Assignment.Enums.DiscountType.None)
+                                {
+                                    <span class="badge-discount">
+                                        @if (product.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                        {
+                                            @:-@product.Discount%
+                                        }
+                                        else
+                                        {
+                                            @:Giá sốc
+                                        }
+                                    </span>
+                                }
+                            </div>
+                            <div class="product-info">
+                                <h5 class="product-name">@product.Name</h5>
+
+                                <div class="product-badges">
+                                    @if (product.IsSpicy)
+                                    {
+                                        <span class="badge-spicy">🌶️ Cay</span>
+                                    }
+                                    @if (product.IsVegetarian)
+                                    {
+                                        <span class="badge-vegetarian">🥗 Chay</span>
+                                    }
+                                </div>
+
+                                <div class="rating">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        if (i <= Math.Floor(product.AverageEvaluate))
+                                        {
+                                            <i class="fas fa-star"></i>
+                                        }
+                                        else if (i - 0.5 <= product.AverageEvaluate)
+                                        {
+                                            <i class="fas fa-star-half-alt"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="far fa-star"></i>
+                                        }
+                                    }
+                                    <small>(@product.TotalEvaluate)</small>
+                                </div>
+
+                                <div class="mb-3">
+                                    @if (product.DiscountType == Assignment.Enums.DiscountType.None)
+                                    {
+                                        <span class="final-price">@product.Price.ToString("N0") ₫</span>
+                                    }
+                                    else if (product.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                    {
+                                        <div>
+                                            <span class="original-price">@product.Price.ToString("N0") ₫</span>
+                                        </div>
+                                        <span class="final-price">@((product.Price - (product.Price * product.Discount.Value / 100)).ToString("N0")) ₫</span>
+                                    }
+                                    else
+                                    {
+                                        <div>
+                                            <span class="original-price">@product.Price.ToString("N0") ₫</span>
+                                        </div>
+                                        <span class="final-price">@product.Discount.Value.ToString("N0") ₫</span>
+                                    }
+                                </div>
+
+                                <div class="d-flex gap-2">
+                                    <a href="@Url.Action("ProductDetail", "Home", new { id = product.Id })"
+                                       class="btn btn-outline-primary flex-grow-1">Chi tiết</a>
+                                    <button class="btn btn-add-cart" data-id="@product.Id" data-type="product">
+                                        <i class="fas fa-shopping-cart"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@section Scripts {
+    <script>
+        function addToCart(id, type) {
+            console.log(`Bắt đầu addToCart với id: ${id}, type: ${type}`);
+
+            const url = type === 'product'
+                ? '@Url.Action("AddProduct", "Cart")'
+                : '@Url.Action("AddCombo", "Cart")';
+            console.log(`URL được tạo: ${url}`);
+
+            const paramName = type === 'product' ? 'productId' : 'comboId';
+            const data = { [paramName]: id, quantity: 1 };
+            const token = $('input[name="__RequestVerificationToken"]').val();
+
+            // if (!token) {
+            //     console.error("Không tìm thấy __RequestVerificationToken! Hãy chắc chắn @Html.AntiForgeryToken() đã được render trên trang.");
+            //     showNotification('Lỗi bảo mật, không thể thêm vào giỏ hàng.', 'error');
+            //     return;
+            // }
+            console.log("Token đã được tìm thấy.");
+
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: { ...data, __RequestVerificationToken: token },
+                success: function (response) {
+                    console.log("Thêm vào giỏ hàng thành công!", response);
+                    updateCartCount();
+                    showNotification('Đã thêm vào giỏ hàng!', 'success');
+                },
+                error: function (xhr, status, error) {
+                    console.error("Lỗi khi thêm vào giỏ hàng (AJAX Error):", {
+                        status: xhr.status,
+                        statusText: xhr.statusText,
+                        responseText: xhr.responseText,
+                        errorThrown: error
+                    });
+
+                    if (xhr.status === 401) {
+                        showNotification('Vui lòng đăng nhập để thêm sản phẩm.', 'error');
+                        setTimeout(() => { window.location.href = '/Identity/Account/Login'; }, 1500);
+                    } else {
+                        showNotification('Có lỗi xảy ra khi thêm vào giỏ hàng.', 'error');
+                    }
+                }
+            });
+        }
+
+        function updateCartCount() {
+            $.get('@Url.Action("GetCount", "Cart")', function (response) {
+                $('#cart-count').text(response.count);
+            });
+        }
+
+        function showNotification(message, type) {
+            const bgColor = type === 'success' ? '#4caf50' : '#f44336';
+            const notification = $('<div>')
+                .css({
+                    position: 'fixed',
+                    top: '20px',
+                    right: '20px',
+                    background: bgColor,
+                    color: 'white',
+                    padding: '15px 25px',
+                    borderRadius: '5px',
+                    zIndex: 9999,
+                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
+                })
+                .text(message)
+                .appendTo('body');
+
+            setTimeout(() => notification.fadeOut(() => notification.remove()), 3000);
+        }
+
+        $(document).ready(function () {
+            // Gắn sự kiện click vào tất cả các nút có class 'btn-add-cart'
+            $('.btn-add-cart').on('click', function () {
+                const button = $(this);
+                const id = button.data('id');
+                const type = button.data('type');
+
+                // Gọi hàm addToCart với dữ liệu lấy từ thuộc tính data-*
+                addToCart(id, type);
+            });
+
+            // Cập nhật số lượng giỏ hàng nếu người dùng đã đăng nhập
+            if ($('#cart-count').length > 0) {
+               updateCartCount();
+            }
+        });
+    </script>
+}
+
