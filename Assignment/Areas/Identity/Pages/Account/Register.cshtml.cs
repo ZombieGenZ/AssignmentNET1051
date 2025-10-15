@@ -72,6 +72,11 @@ namespace Assignment.Areas.Identity.Pages.Account
             public string FullName { get; set; }
 
             [Required]
+            [StringLength(32, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 3)]
+            [Display(Name = "User Name")]
+            public string UserName { get; set; }
+
+            [Required]
             [EmailAddress]
             [Display(Name = "Email")]
             public string Email { get; set; }
@@ -110,17 +115,21 @@ namespace Assignment.Areas.Identity.Pages.Account
             ExternalLogins = (await _signInManager.GetExternalAuthenticationSchemesAsync()).ToList();
             if (ModelState.IsValid)
             {
+                Input.FullName = Input.FullName?.Trim();
+                Input.UserName = Input.UserName?.Trim();
+                Input.Phone = Input.Phone?.Trim();
+
                 var user = new ApplicationUser
                 {
-                    UserName = Input.Email,
+                    UserName = Input.UserName,
                     Email = Input.Email,
                     PhoneNumber = Input.Phone,
-                    FullName = Input.FullName ?? "NULL",
+                    FullName = Input.FullName ?? string.Empty,
                     DateOfBirth = Input.DateOfBirth
                 };
 
 
-                await _userStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
+                await _userStore.SetUserNameAsync(user, Input.UserName, CancellationToken.None);
                 await _emailStore.SetEmailAsync(user, Input.Email, CancellationToken.None);
                 var result = await _userManager.CreateAsync(user, Input.Password);
 
