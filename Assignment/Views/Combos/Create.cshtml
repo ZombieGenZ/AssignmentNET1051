@@ -34,9 +34,10 @@
                                 <span asp-validation-for="Name" class="text-danger"></span>
                             </div>
                             <div class="col-md-6">
-                                <label asp-for="Price" class="form-label"></label>
-                                <input asp-for="Price" class="form-control" type="number" placeholder="Nhập giá bán">
-                                <span asp-validation-for="Price" class="text-danger"></span>
+                                <label class="form-label">Giá combo</label>
+                                <div class="form-control-plaintext border rounded px-3 py-2 bg-light">
+                                    Giá combo sẽ được tự động tính dựa trên giá của các sản phẩm đã chọn.
+                                </div>
                             </div>
                         </div>
 
@@ -77,7 +78,10 @@
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label asp-for="DiscountType" class="form-label"></label>
-                                <select asp-for="DiscountType" class="form-select" id="DiscountType" asp-items="Html.GetEnumSelectList<Assignment.Enums.DiscountType>()"></select>
+                                <select asp-for="DiscountType" class="form-select" id="DiscountType">
+                                    <option value="0">Không giảm giá</option>
+                                    <option value="1">Giảm theo %</option>
+                                </select>
                                 <span asp-validation-for="DiscountType" class="text-danger"></span>
                             </div>
                             <div class="col-md-6" id="DiscountField" style="display: none;">
@@ -174,16 +178,13 @@
                 discountField.style.display = 'none';
                 discountInput.value = '';
                 discountInput.removeAttribute('required');
-            } else {
+                discountInput.removeAttribute('max');
+                discountInput.setAttribute('min', '0');
+            } else if (discountType === '1') {
                 discountField.style.display = 'block';
                 discountInput.setAttribute('required', 'required');
-                if (discountType === '1') {
-                    discountInput.setAttribute('max', '100');
-                    discountInput.setAttribute('min', '0');
-                } else {
-                    discountInput.removeAttribute('max');
-                    discountInput.setAttribute('min', '0');
-                }
+                discountInput.setAttribute('max', '100');
+                discountInput.setAttribute('min', '0');
             }
         }
 
