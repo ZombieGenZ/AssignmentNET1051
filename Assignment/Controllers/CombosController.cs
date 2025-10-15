@@ -1,9 +1,12 @@
 ﻿using Assignment.Data;
 using Assignment.Models;
+using Assignment.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Linq;
 using System.Security.Claims;
 
 namespace Assignment.Controllers
@@ -91,55 +94,99 @@ namespace Assignment.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateComboPolicy")]
-        public async Task<IActionResult> Create([Bind("Name,Description,Price,Stock,DiscountType,Discount,IsPublish,ImageUrl,Index")] Combo combo, List<long> ProductIds, List<long> Quantities)
+        public async Task<IActionResult> Create([Bind("Name,Description,Stock,DiscountType,Discount,IsPublish,ImageUrl,Index")] Combo combo, List<long> ProductIds, List<long> Quantities)
         {
+            var selectedProductIds = ProductIds ?? new List<long>();
+            var selectedQuantities = Quantities ?? new List<long>();
+            var comboItemsInput = new List<(long productId, long quantity)>();
+
+            if (selectedProductIds.Count != selectedQuantities.Count)
+            {
+                ModelState.AddModelError(string.Empty, "Danh sách sản phẩm không hợp lệ.");
+            }
+            else
+            {
+                for (int i = 0; i < selectedProductIds.Count; i++)
+                {
+                    if (selectedProductIds[i] <= 0 || selectedQuantities[i] <= 0)
+                    {
+                        ModelState.AddModelError(string.Empty, "Sản phẩm và số lượng phải lớn hơn 0.");
+                        break;
+                    }
+
+                    comboItemsInput.Add((selectedProductIds[i], selectedQuantities[i]));
+                }
+
+                if (!comboItemsInput.Any())
+                {
+                    ModelState.AddModelError(string.Empty, "Combo phải có ít nhất một sản phẩm.");
+                }
+            }
+
+            if (combo.DiscountType == Enums.DiscountType.None)
+            {
+                combo.Discount = null;
+            }
+            else if (combo.DiscountType == Enums.DiscountType.FixedAmount)
+            {
+                ModelState.AddModelError(nameof(combo.DiscountType), "Combo không hỗ trợ giảm giá cố định.");
+            }
+
             if (ModelState.IsValid)
             {
-                if (combo.DiscountType == Enums.DiscountType.None)
+                var distinctProductIds = comboItemsInput.Select(ci => ci.productId).Distinct().ToList();
+                var products = await _context.Products
+                    .Where(p => distinctProductIds.Contains(p.Id) && !p.IsDeleted)
+                    .ToListAsync();
+
+                if (products.Count != distinctProductIds.Count)
                 {
-                    combo.Discount = null;
+                    ModelState.AddModelError(string.Empty, "Có sản phẩm không hợp lệ hoặc đã bị xóa.");
                 }
-
-                combo.CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                combo.CreatedAt = DateTime.Now;
-                combo.UpdatedAt = null;
-                combo.DeletedAt = null;
-                // Đặt cờ IsDeleted thành false một cách tường minh khi tạo mới.
-                combo.IsDeleted = false;
-
-                _context.Add(combo);
-                await _context.SaveChangesAsync();
-
-                // Add ComboItems
-                if (ProductIds != null && ProductIds.Count > 0)
+                else
                 {
-                    for (int i = 0; i < ProductIds.Count; i++)
+                    double totalPrice = 0;
+                    foreach (var item in comboItemsInput)
                     {
-                        if (ProductIds[i] > 0 && Quantities[i] > 0)
-                        {
-                            var comboItem = new ComboItem
-                            {
-                                ComboId = combo.Id,
-                                ProductId = ProductIds[i],
-                                Quantity = Quantities[i],
-                                CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
-                                CreatedAt = DateTime.Now,
-                                IsDeleted = false // Đảm bảo các item mới cũng không bị xóa
-                            };
-                            _context.ComboItems.Add(comboItem);
-                        }
+                        var product = products.First(p => p.Id == item.productId);
+                        totalPrice += PriceCalculator.GetProductFinalPrice(product) * item.quantity;
                     }
-                    await _context.SaveChangesAsync();
-                }
 
-                return RedirectToAction(nameof(Index));
+                    combo.Price = Math.Round(totalPrice, 2);
+                    combo.CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    combo.CreatedAt = DateTime.Now;
+                    combo.UpdatedAt = null;
+                    combo.DeletedAt = null;
+                    combo.IsDeleted = false;
+
+                    _context.Add(combo);
+                    await _context.SaveChangesAsync();
+
+                    foreach (var item in comboItemsInput)
+                    {
+                        var comboItem = new ComboItem
+                        {
+                            ComboId = combo.Id,
+                            ProductId = item.productId,
+                            Quantity = item.quantity,
+                            CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                            CreatedAt = DateTime.Now,
+                            IsDeleted = false
+                        };
+                        _context.ComboItems.Add(comboItem);
+                    }
+
+                    await _context.SaveChangesAsync();
+
+                    return RedirectToAction(nameof(Index));
+                }
             }
 
             // Giữ lại dữ liệu sản phẩm khi có lỗi
             var authorizedProducts = await GetAuthorizedProducts();
             ViewData["Products"] = new SelectList(authorizedProducts, "Id", "Name");
-            ViewData["SelectedProductIds"] = ProductIds;
-            ViewData["SelectedQuantities"] = Quantities;
+            ViewData["SelectedProductIds"] = selectedProductIds;
+            ViewData["SelectedQuantities"] = selectedQuantities;
 
             return View(combo);
         }
@@ -178,7 +225,7 @@ namespace Assignment.Controllers
         // POST: Combos/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(long id, [Bind("Name,Description,Price,Stock,DiscountType,Discount,IsPublish,ImageUrl,Id,Index")] Combo combo, List<long> ProductIds, List<long> Quantities)
+        public async Task<IActionResult> Edit(long id, [Bind("Name,Description,Stock,DiscountType,Discount,IsPublish,ImageUrl,Id,Index")] Combo combo, List<long> ProductIds, List<long> Quantities)
         {
             if (id != combo.Id)
             {
@@ -201,52 +248,94 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
+            var selectedProductIds = ProductIds ?? new List<long>();
+            var selectedQuantities = Quantities ?? new List<long>();
+            var comboItemsInput = new List<(long productId, long quantity)>();
+
+            if (selectedProductIds.Count != selectedQuantities.Count)
+            {
+                ModelState.AddModelError(string.Empty, "Danh sách sản phẩm không hợp lệ.");
+            }
+            else
+            {
+                for (int i = 0; i < selectedProductIds.Count; i++)
+                {
+                    if (selectedProductIds[i] <= 0 || selectedQuantities[i] <= 0)
+                    {
+                        ModelState.AddModelError(string.Empty, "Sản phẩm và số lượng phải lớn hơn 0.");
+                        break;
+                    }
+
+                    comboItemsInput.Add((selectedProductIds[i], selectedQuantities[i]));
+                }
+
+                if (!comboItemsInput.Any())
+                {
+                    ModelState.AddModelError(string.Empty, "Combo phải có ít nhất một sản phẩm.");
+                }
+            }
+
+            if (combo.DiscountType == Enums.DiscountType.None)
+            {
+                combo.Discount = null;
+            }
+            else if (combo.DiscountType == Enums.DiscountType.FixedAmount)
+            {
+                ModelState.AddModelError(nameof(combo.DiscountType), "Combo không hỗ trợ giảm giá cố định.");
+            }
+
             if (ModelState.IsValid)
             {
                 try
                 {
-                    if (combo.DiscountType == Enums.DiscountType.None)
+                    var distinctProductIds = comboItemsInput.Select(ci => ci.productId).Distinct().ToList();
+                    var products = await _context.Products
+                        .Where(p => distinctProductIds.Contains(p.Id) && !p.IsDeleted)
+                        .ToListAsync();
+
+                    if (products.Count != distinctProductIds.Count)
                     {
-                        combo.Discount = null;
+                        ModelState.AddModelError(string.Empty, "Có sản phẩm không hợp lệ hoặc đã bị xóa.");
                     }
-
-                    // Giữ lại các thông tin gốc (người tạo, ngày tạo, trạng thái xóa).
-                    combo.CreateBy = existingCombo.CreateBy;
-                    combo.CreatedAt = existingCombo.CreatedAt;
-                    combo.IsDeleted = existingCombo.IsDeleted;
-                    combo.DeletedAt = existingCombo.DeletedAt;
-
-                    // Cập nhật thời gian chỉnh sửa.
-                    combo.UpdatedAt = DateTime.Now;
-
-                    _context.Update(combo);
-
-                    // Xóa các ComboItems cũ (bằng cách xóa mềm nếu cần, hoặc xóa hẳn tùy logic)
-                    var existingItems = _context.ComboItems.Where(ci => ci.ComboId == id);
-                    _context.ComboItems.RemoveRange(existingItems);
-
-                    // Thêm ComboItems mới
-                    if (ProductIds != null && ProductIds.Count > 0)
+                    else
                     {
-                        for (int i = 0; i < ProductIds.Count; i++)
+                        double totalPrice = 0;
+                        foreach (var item in comboItemsInput)
                         {
-                            if (ProductIds[i] > 0 && Quantities[i] > 0)
-                            {
-                                var comboItem = new ComboItem
-                                {
-                                    ComboId = combo.Id,
-                                    ProductId = ProductIds[i],
-                                    Quantity = Quantities[i],
-                                    CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
-                                    CreatedAt = DateTime.Now,
-                                    IsDeleted = false
-                                };
-                                _context.ComboItems.Add(comboItem);
-                            }
+                            var product = products.First(p => p.Id == item.productId);
+                            totalPrice += PriceCalculator.GetProductFinalPrice(product) * item.quantity;
                         }
-                    }
 
-                    await _context.SaveChangesAsync();
+                        combo.Price = Math.Round(totalPrice, 2);
+                        combo.CreateBy = existingCombo.CreateBy;
+                        combo.CreatedAt = existingCombo.CreatedAt;
+                        combo.IsDeleted = existingCombo.IsDeleted;
+                        combo.DeletedAt = existingCombo.DeletedAt;
+                        combo.UpdatedAt = DateTime.Now;
+
+                        _context.Update(combo);
+
+                        var existingItems = _context.ComboItems.Where(ci => ci.ComboId == id);
+                        _context.ComboItems.RemoveRange(existingItems);
+
+                        foreach (var item in comboItemsInput)
+                        {
+                            var comboItem = new ComboItem
+                            {
+                                ComboId = combo.Id,
+                                ProductId = item.productId,
+                                Quantity = item.quantity,
+                                CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value,
+                                CreatedAt = DateTime.Now,
+                                IsDeleted = false
+                            };
+                            _context.ComboItems.Add(comboItem);
+                        }
+
+                        await _context.SaveChangesAsync();
+
+                        return RedirectToAction(nameof(Index));
+                    }
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -259,14 +348,12 @@ namespace Assignment.Controllers
                         throw;
                     }
                 }
-                return RedirectToAction(nameof(Index));
             }
 
-            // Giữ lại dữ liệu sản phẩm khi có lỗi
             var authorizedProducts = await GetAuthorizedProducts();
             ViewData["Products"] = new SelectList(authorizedProducts, "Id", "Name");
-            ViewData["SelectedProductIds"] = ProductIds;
-            ViewData["SelectedQuantities"] = Quantities;
+            ViewData["SelectedProductIds"] = selectedProductIds;
+            ViewData["SelectedQuantities"] = selectedQuantities;
 
             return View(combo);
         }

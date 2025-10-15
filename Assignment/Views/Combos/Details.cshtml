@@ -50,14 +50,8 @@
                                     {
                                         <span>Phần trăm</span>
                                     }
-                                    else if (Model.DiscountType == Assignment.Enums.DiscountType.FixedAmount)
-                                    {
-
-                                        <span>Tiền cố định</span>
-                                    }
                                     else
                                     {
-
                                         <span>Không giảm giá</span>
                                     }
                                 </dd>
@@ -69,11 +63,6 @@
                                         @if (Model.DiscountType == Assignment.Enums.DiscountType.Percent)
                                         {
                                             <span>@Model.Discount%</span>
-                                        }
-                                        else
-                                        {
-
-                                            <span>@Model.Discount?.ToString("C0")</span>
                                         }
                                     </dd>
                                 }

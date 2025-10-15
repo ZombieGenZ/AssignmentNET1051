@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Assignment.Data;
 using Assignment.Models;
 using Assignment.Enums;
+using Assignment.Services;
 
 namespace Assignment.Controllers
 {
@@ -188,6 +189,8 @@ namespace Assignment.Controllers
 
                     _context.Update(product);
                     await _context.SaveChangesAsync();
+
+                    await UpdateRelatedComboPrices(product.Id);
                 }
                 catch (DbUpdateConcurrencyException)
                 {
@@ -311,6 +314,49 @@ namespace Assignment.Controllers
                     .Where(c => c.CreateBy == userId)
                     .ToListAsync();
             }
+        }
+
+        [NonAction]
+        private async Task UpdateRelatedComboPrices(long productId)
+        {
+            var combos = await _context.Combos
+                .Where(c => !c.IsDeleted && c.ComboItems.Any(ci => ci.ProductId == productId && !ci.IsDeleted))
+                .Include(c => c.ComboItems)
+                .ToListAsync();
+
+            if (!combos.Any())
+            {
+                return;
+            }
+
+            var productIds = combos
+                .SelectMany(c => c.ComboItems.Where(ci => !ci.IsDeleted).Select(ci => ci.ProductId))
+                .Distinct()
+                .ToList();
+
+            var products = await _context.Products
+                .Where(p => productIds.Contains(p.Id) && !p.IsDeleted)
+                .ToListAsync();
+
+            var productLookup = products.ToDictionary(p => p.Id);
+
+            foreach (var combo in combos)
+            {
+                double totalPrice = 0;
+
+                foreach (var item in combo.ComboItems.Where(ci => !ci.IsDeleted))
+                {
+                    if (productLookup.TryGetValue(item.ProductId, out var product))
+                    {
+                        totalPrice += PriceCalculator.GetProductFinalPrice(product) * item.Quantity;
+                    }
+                }
+
+                combo.Price = Math.Round(totalPrice, 2);
+                combo.UpdatedAt = DateTime.Now;
+            }
+
+            await _context.SaveChangesAsync();
         }
     }
 }
