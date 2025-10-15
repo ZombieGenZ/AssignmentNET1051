@@ -1,6 +1,7 @@
 ﻿using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Models;
+using Assignment.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,12 +23,7 @@ namespace Assignment.Controllers
         public async Task<IActionResult> Checkout()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Product)
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Combo)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null || !cart.CartItems.Any())
             {
@@ -52,12 +48,7 @@ namespace Assignment.Controllers
         public async Task<IActionResult> Checkout(Order order)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Product)
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Combo)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null || !cart.CartItems.Any())
             {
@@ -159,10 +150,7 @@ namespace Assignment.Controllers
         public async Task<IActionResult> ApplyVoucher(string voucherCode)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var cart = await _context.Carts
-                .Include(c => c.CartItems).ThenInclude(ci => ci.Product)
-                .Include(c => c.CartItems).ThenInclude(ci => ci.Combo)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null || !cart.CartItems.Any())
             {
