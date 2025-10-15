@@ -5,6 +5,10 @@
 }
 
 <style>
+    :root {
+        --text-color: #2f2d30;
+    }
+
     .product-card {
         transition: all 0.3s ease;
         border: 1px solid #e0e0e0;
@@ -111,6 +115,117 @@
     .rating {
         color: #ffa500;
         margin: 10px 0;
+    }
+
+    .toast-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 1050;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .toast-notification {
+        background: #fff;
+        color: var(--text-color);
+        padding: 16px 20px;
+        border-radius: 12px;
+        box-shadow: 0 12px 30px -18px rgba(0, 0, 0, 0.35);
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        min-width: 320px;
+        opacity: 0;
+        transform: translateX(100%);
+        animation: slideIn 0.45s forwards;
+        position: relative;
+        overflow: hidden;
+    }
+
+        .toast-notification.success .toast-icon {
+            color: #28a745;
+        }
+
+        .toast-notification.error .toast-icon {
+            color: #dc3545;
+        }
+
+    .toast-notification .toast-icon {
+        font-size: 1.5rem;
+        margin-top: 2px;
+    }
+
+    .toast-notification .toast-close {
+        position: absolute;
+        top: 12px;
+        right: 12px;
+        border: none;
+        background: transparent;
+        color: rgba(47, 45, 48, 0.55);
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+
+        .toast-notification .toast-close:hover {
+            color: rgba(47, 45, 48, 0.9);
+            transform: scale(1.1);
+        }
+
+    .toast-notification .toast-body .title {
+        font-weight: 600;
+        margin-bottom: 4px;
+        font-size: 1rem;
+    }
+
+    .toast-notification .toast-body .message {
+        font-size: 0.9rem;
+        margin: 0;
+        color: rgba(47, 45, 48, 0.75);
+    }
+
+    .toast-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        width: 100%;
+        background-color: #28a745;
+        animation: progress 3.5s linear forwards;
+    }
+
+    .toast-notification.error .toast-progress {
+        background-color: #dc3545;
+    }
+
+    .toast-notification.hide {
+        animation: fadeOut 0.35s forwards;
+    }
+
+    @keyframes slideIn {
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    @keyframes fadeOut {
+        to {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+    }
+
+    @keyframes progress {
+        from {
+            width: 100%;
+        }
+
+        to {
+            width: 0%;
+        }
     }
 </style>
 
@@ -368,23 +483,44 @@
         }
 
         function showNotification(message, type) {
-            const bgColor = type === 'success' ? '#4caf50' : '#f44336';
-            const notification = $('<div>')
-                .css({
-                    position: 'fixed',
-                    top: '20px',
-                    right: '20px',
-                    background: bgColor,
-                    color: 'white',
-                    padding: '15px 25px',
-                    borderRadius: '5px',
-                    zIndex: 9999,
-                    boxShadow: '0 4px 6px rgba(0,0,0,0.1)'
-                })
-                .text(message)
-                .appendTo('body');
+            const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            const title = type === 'success' ? 'Thành công' : 'Thông báo';
 
-            setTimeout(() => notification.fadeOut(() => notification.remove()), 3000);
+            let container = $('.toast-container');
+            if (container.length === 0) {
+                container = $('<div>', { class: 'toast-container' }).appendTo('body');
+            }
+
+            const toast = $(
+                `<div class="toast-notification ${type}">
+                    <div class="toast-icon"><i class="fas ${iconClass}"></i></div>
+                    <div class="toast-body">
+                        <p class="title"></p>
+                        <p class="message"></p>
+                    </div>
+                    <button type="button" class="toast-close" aria-label="Đóng thông báo">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="toast-progress"></div>
+                </div>`
+            );
+
+            toast.find('.title').text(title);
+            toast.find('.message').text(message);
+
+            container.append(toast);
+
+            const removeToast = () => {
+                toast.addClass('hide');
+                setTimeout(() => toast.remove(), 400);
+            };
+
+            const autoRemove = setTimeout(removeToast, 3500);
+
+            toast.find('.toast-close').on('click', () => {
+                clearTimeout(autoRemove);
+                removeToast();
+            });
         }
 
         $(document).ready(function () {
