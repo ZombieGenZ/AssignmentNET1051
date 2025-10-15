@@ -55,40 +55,64 @@
     gap: 1.25rem;
 }
 
-.auth-form .form-floating > .form-control {
+.auth-form .form-floating {
+    position: relative;
+}
+
+.auth-form .form-floating > .form-control,
+.auth-form .form-floating > .form-select {
     border-radius: 0.75rem;
     border: 1px solid #d4d8e1;
     background-color: #f8fafc;
-    padding: 1rem 1.25rem;
+    padding: 1.2rem 1.25rem 0.65rem;
     height: auto;
     min-height: 56px;
     font-size: 0.95rem;
     transition: all 0.2s ease;
 }
 
-.auth-form .form-floating > .form-control:focus {
+.auth-form .form-floating > .form-control::placeholder {
+    color: transparent;
+}
+
+.auth-form .form-floating > .form-control:focus,
+.auth-form .form-floating > .form-select:focus {
     background-color: #ffffff;
     border-color: #2563eb;
     box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
 }
 
 .auth-form .form-floating > label {
+    position: absolute;
+    top: 50%;
+    left: 1.25rem;
+    display: inline-flex;
+    align-items: center;
+    height: auto;
+    margin: 0;
+    padding: 0;
     color: #64748b;
-    padding: 1rem 1.25rem;
+    background-color: transparent;
+    transform: translateY(-50%);
     transition: all 0.2s ease;
     pointer-events: none;
+    line-height: 1;
+    z-index: 1;
 }
 
 .auth-form .form-floating > .form-control:focus ~ label,
 .auth-form .form-floating > .form-control:not(:placeholder-shown) ~ label,
 .auth-form .form-floating > .form-select:focus ~ label,
 .auth-form .form-floating > .form-select:not(:placeholder-shown) ~ label {
+    top: 0.4rem;
+    left: 1rem;
     color: #1d4ed8;
-    opacity: 0.9;
-    transform: scale(0.85) translateY(-0.85rem) translateX(0.35rem);
+    opacity: 0.95;
+    transform: scale(0.85) translateY(0);
     background-color: #ffffff;
-    padding: 0 0.5rem;
+    padding: 0 0.55rem;
     border-radius: 999px;
+    box-shadow: 0 1px 0 rgba(15, 23, 42, 0.05);
 }
 
 .auth-options {
