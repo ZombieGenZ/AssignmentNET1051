@@ -1,5 +1,6 @@
 ﻿using Assignment.Data;
 using Assignment.Models;
+using Assignment.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -22,16 +23,10 @@ namespace Assignment.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Product)
-                .Include(c => c.CartItems)
-                    .ThenInclude(ci => ci.Combo)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null)
             {
-                // Nếu người dùng chưa có giỏ hàng, tạo một giỏ hàng rỗng để hiển thị
                 cart = new Cart
                 {
                     UserId = userId,
@@ -48,15 +43,18 @@ namespace Assignment.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted && p.IsPublish);
+            if (product == null)
+            {
+                return Json(new { success = false, error = "Sản phẩm không khả dụng." });
+            }
+
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null)
             {
-                cart = new Cart { UserId = userId };
+                cart = new Cart { UserId = userId, CartItems = new List<CartItem>() };
                 _context.Carts.Add(cart);
-                // Lưu để tạo cart.Id
                 await _context.SaveChangesAsync();
             }
 
@@ -80,8 +78,10 @@ namespace Assignment.Controllers
 
             await _context.SaveChangesAsync();
 
+            var updatedCart = await _context.LoadCartWithAvailableItemsAsync(userId);
+
             // Tính toán và trả về số lượng mới
-            var newCount = cart.CartItems.Sum(ci => ci.Quantity);
+            var newCount = updatedCart?.CartItems.Sum(ci => ci.Quantity) ?? 0;
             return Json(new { success = true, count = newCount });
         }
 
@@ -91,13 +91,17 @@ namespace Assignment.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+            var combo = await _context.Combos.FirstOrDefaultAsync(c => c.Id == comboId && !c.IsDeleted && c.IsPublish);
+            if (combo == null)
+            {
+                return Json(new { success = false, error = "Combo không khả dụng." });
+            }
+
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null)
             {
-                cart = new Cart { UserId = userId };
+                cart = new Cart { UserId = userId, CartItems = new List<CartItem>() };
                 _context.Carts.Add(cart);
                 await _context.SaveChangesAsync();
             }
@@ -122,8 +126,10 @@ namespace Assignment.Controllers
 
             await _context.SaveChangesAsync();
 
+            var updatedCart = await _context.LoadCartWithAvailableItemsAsync(userId);
+
             // Tính toán và trả về số lượng mới
-            var newCount = cart.CartItems.Sum(ci => ci.Quantity);
+            var newCount = updatedCart?.CartItems.Sum(ci => ci.Quantity) ?? 0;
             return Json(new { success = true, count = newCount });
         }
 
@@ -197,9 +203,7 @@ namespace Assignment.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var cart = await _context.Carts
-                .Include(c => c.CartItems)
-                .FirstOrDefaultAsync(c => c.UserId == userId);
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             var count = cart?.CartItems.Sum(ci => ci.Quantity) ?? 0;
 
