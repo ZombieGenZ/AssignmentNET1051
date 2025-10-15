@@ -1,0 +1,231 @@
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1rem;
+    background-color: #f3f4f6;
+}
+
+.auth-card {
+    width: 100%;
+    background: #ffffff;
+    border-radius: 1rem;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 25px 60px -30px rgba(15, 23, 42, 0.35);
+    padding: 2.5rem 2.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+}
+
+.auth-card--narrow {
+    max-width: 480px;
+}
+
+.auth-card--wide {
+    max-width: 720px;
+}
+
+.auth-body {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.auth-header {
+    text-align: center;
+}
+
+.auth-header h1 {
+    font-size: 2rem;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 0.5rem;
+}
+
+.auth-header p {
+    color: #64748b;
+    margin-bottom: 0;
+}
+
+.auth-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.auth-form .form-floating > .form-control {
+    border-radius: 0.75rem;
+    border: 1px solid #d4d8e1;
+    background-color: #f8fafc;
+    padding: 1rem 1.25rem;
+    height: auto;
+    min-height: 56px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+}
+
+.auth-form .form-floating > .form-control:focus {
+    background-color: #ffffff;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.15);
+}
+
+.auth-form .form-floating > label {
+    color: #64748b;
+    padding: 1rem 1.25rem;
+}
+
+.auth-options {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.auth-link {
+    color: #2563eb;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.auth-link:hover {
+    color: #1d4ed8;
+    text-decoration: underline;
+}
+
+.auth-card .btn-primary {
+    background-color: #2563eb;
+    border-color: #2563eb;
+    border-radius: 0.75rem;
+    padding: 0.9rem 1rem;
+    font-weight: 600;
+    transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.auth-card .btn-primary:hover {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
+    box-shadow: 0 12px 25px -12px rgba(37, 99, 235, 0.45);
+}
+
+.auth-card .btn-outline-secondary {
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+    font-weight: 600;
+    border-color: #d1d5db;
+    color: #1f2937;
+    transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+
+.auth-card .btn-outline-secondary:hover {
+    background-color: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+.auth-switch {
+    text-align: center;
+    color: #64748b;
+    margin: 0;
+}
+
+.auth-separator {
+    position: relative;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.auth-separator::before,
+.auth-separator::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    width: 32%;
+    height: 1px;
+    background-color: #e2e8f0;
+}
+
+.auth-separator::before {
+    left: 0;
+}
+
+.auth-separator::after {
+    right: 0;
+}
+
+.auth-separator span {
+    display: inline-block;
+    padding: 0 0.75rem;
+    background-color: #ffffff;
+}
+
+.auth-social {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.auth-social .row {
+    --bs-gutter-x: 0.75rem;
+}
+
+.auth-social .btn {
+    border-radius: 0.75rem;
+    padding: 0.85rem 1rem;
+    font-weight: 600;
+}
+
+.auth-note {
+    text-align: center;
+    color: #94a3b8;
+    margin: 0;
+}
+
+.auth-footer {
+    margin-top: 0.75rem;
+}
+
+.auth-footer .btn {
+    width: 100%;
+}
+
+.auth-cta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+@media (max-width: 767.98px) {
+    .auth-card {
+        padding: 2rem 1.75rem;
+        gap: 1.5rem;
+    }
+
+    .auth-form {
+        gap: 1rem;
+    }
+
+    .auth-separator::before,
+    .auth-separator::after {
+        width: 24%;
+    }
+}
+
+@media (max-width: 575.98px) {
+    .auth-card {
+        padding: 1.75rem 1.25rem;
+    }
+
+    .auth-separator::before,
+    .auth-separator::after {
+        display: none;
+    }
+
+    .auth-separator span {
+        padding: 0;
+    }
+}

@@ -4,127 +4,106 @@
     ViewData["Title"] = "Đăng ký";
 }
 
-<link href="~/css/register.css" rel="stylesheet" />
+<link href="~/css/auth.css" rel="stylesheet" />
 
-<div class="auth-wrapper">
-    <div class="auth-card">
-        <div class="row g-0">
-            <div class="col-lg-5 auth-hero d-none d-lg-flex align-items-center">
-                <div class="hero-content p-5">
-                    <span class="badge bg-white text-danger mb-3">Chào mừng bạn</span>
-                    <h2 class="fw-bold mb-3">Tạo tài khoản FoodApp</h2>
-                    <p class="mb-4 opacity-75">Khám phá những ưu đãi độc quyền, đặt món nhanh chóng và theo dõi đơn hàng mọi lúc mọi nơi.</p>
-                    <ul class="list-unstyled d-flex flex-column gap-2 opacity-75">
-                        <li><i class="fas fa-check-circle me-2"></i>Nhận thông báo về combo mới mỗi tuần</li>
-                        <li><i class="fas fa-check-circle me-2"></i>Lưu địa chỉ giao hàng ưa thích của bạn</li>
-                        <li><i class="fas fa-check-circle me-2"></i>Tích điểm và đổi quà hấp dẫn</li>
-                    </ul>
+<div class="auth-page">
+    <div class="auth-card auth-card--wide">
+        <div class="auth-header">
+            <h1>Tạo tài khoản</h1>
+            <p>Điền thông tin của bạn để khám phá các ưu đãi và tính năng quản lý đơn hàng của FoodApp.</p>
+        </div>
+
+        <section class="auth-body">
+            <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="auth-form">
+                <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+
+                <div class="form-floating">
+                    <input asp-for="Input.FullName" class="form-control" placeholder="Tên đầy đủ" />
+                    <label asp-for="Input.FullName"></label>
+                    <span asp-validation-for="Input.FullName" class="text-danger"></span>
                 </div>
-            </div>
-            <div class="col-lg-7 bg-white">
-                <div class="auth-form h-100 d-flex flex-column">
-                    <div class="text-center mb-4">
-                        <span class="badge">Bước đầu tiên</span>
-                        <h2 class="mt-3">Đăng ký tài khoản</h2>
-                        <p class="text-muted mb-0">Nhập thông tin của bạn để bắt đầu trải nghiệm cùng FoodApp.</p>
-                    </div>
 
-                    <form id="registerForm" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="flex-grow-1 d-flex flex-column">
-                        <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+                <div class="form-floating">
+                    <input asp-for="Input.UserName" class="form-control" autocomplete="off" placeholder="Tên đăng nhập" />
+                    <label asp-for="Input.UserName"></label>
+                    <span asp-validation-for="Input.UserName" class="text-danger"></span>
+                </div>
 
-                        <div class="form-floating mb-3 position-relative">
-                            <span class="input-icon"><i class="fas fa-signature"></i></span>
-                            <input asp-for="Input.FullName" class="form-control" placeholder="Tên đầy đủ" />
-                            <label asp-for="Input.FullName"></label>
-                            <span asp-validation-for="Input.FullName" class="text-danger"></span>
-                        </div>
+                <div class="form-floating">
+                    <input asp-for="Input.Email" class="form-control" autocomplete="email" placeholder="name@example.com" />
+                    <label asp-for="Input.Email"></label>
+                    <span asp-validation-for="Input.Email" class="text-danger"></span>
+                </div>
 
-                        <div class="form-floating mb-3 position-relative">
-                            <span class="input-icon"><i class="fas fa-user"></i></span>
-                            <input asp-for="Input.UserName" class="form-control" placeholder="Tên đăng nhập" autocomplete="off" />
-                            <label asp-for="Input.UserName"></label>
-                            <span asp-validation-for="Input.UserName" class="text-danger"></span>
-                        </div>
-
-                        <div class="form-floating mb-3 position-relative">
-                            <span class="input-icon"><i class="fas fa-envelope"></i></span>
-                            <input asp-for="Input.Email" class="form-control" autocomplete="email" placeholder="name@example.com" />
-                            <label asp-for="Input.Email"></label>
-                            <span asp-validation-for="Input.Email" class="text-danger"></span>
-                        </div>
-
-                        <div class="form-floating mb-3 position-relative">
-                            <span class="input-icon"><i class="fas fa-birthday-cake"></i></span>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-floating">
                             <input asp-for="Input.DateOfBirth" type="date" class="form-control" placeholder="Ngày sinh" />
                             <label asp-for="Input.DateOfBirth"></label>
                             <span asp-validation-for="Input.DateOfBirth" class="text-danger"></span>
                         </div>
-
-                        <div class="form-floating mb-3 position-relative">
-                            <span class="input-icon"><i class="fas fa-phone"></i></span>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
                             <input asp-for="Input.Phone" class="form-control" autocomplete="tel" placeholder="Số điện thoại" />
                             <label asp-for="Input.Phone"></label>
                             <span asp-validation-for="Input.Phone" class="text-danger"></span>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <div class="form-floating position-relative">
-                                    <span class="input-icon"><i class="fas fa-lock"></i></span>
-                                    <input asp-for="Input.Password" class="form-control" autocomplete="new-password" placeholder="Mật khẩu" />
-                                    <label asp-for="Input.Password"></label>
-                                    <span asp-validation-for="Input.Password" class="text-danger"></span>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-floating position-relative">
-                                    <span class="input-icon"><i class="fas fa-shield-alt"></i></span>
-                                    <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" placeholder="Xác nhận mật khẩu" />
-                                    <label asp-for="Input.ConfirmPassword"></label>
-                                    <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
-                                </div>
-                            </div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input asp-for="Input.Password" class="form-control" autocomplete="new-password" placeholder="Mật khẩu" />
+                            <label asp-for="Input.Password"></label>
+                            <span asp-validation-for="Input.Password" class="text-danger"></span>
                         </div>
-
-                        <div class="auth-cta mt-4">
-                            <button id="registerSubmit" type="submit" class="btn btn-primary">Tạo tài khoản</button>
-                            <a class="btn btn-outline-secondary" asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Đã có tài khoản? Đăng nhập</a>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-floating">
+                            <input asp-for="Input.ConfirmPassword" class="form-control" autocomplete="new-password" placeholder="Xác nhận mật khẩu" />
+                            <label asp-for="Input.ConfirmPassword"></label>
+                            <span asp-validation-for="Input.ConfirmPassword" class="text-danger"></span>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="auth-divider">
-                            <span>Hoặc tiếp tục với</span>
-                        </div>
+                <div class="auth-cta">
+                    <button id="registerSubmit" type="submit" class="btn btn-primary">Tạo tài khoản</button>
+                    <a class="btn btn-outline-secondary" asp-page="./Login" asp-route-returnUrl="@Model.ReturnUrl">Đã có tài khoản? Đăng nhập</a>
+                </div>
 
-                        <div class="social-login">
-                            @if ((Model.ExternalLogins?.Count ?? 0) == 0)
-                            {
-                                <div class="text-center text-muted small">
-                                    Hiện chưa có phương thức đăng ký nhanh được cấu hình.
-                                </div>
-                            }
-                            else
-                            {
-                                <div class="row g-3">
-                                    @foreach (var provider in Model.ExternalLogins!)
-                                    {
-                                        <div class="col-sm-6">
-                                            <button type="submit" class="btn btn-outline-secondary w-100" name="provider" value="@provider.Name" form="external-account">
-                                                <i class="fas fa-sign-in-alt me-2"></i>@provider.DisplayName
-                                            </button>
-                                        </div>
-                                    }
-                                </div>
-                            }
-                        </div>
-                    </form>
+                <div class="auth-separator" aria-hidden="true">
+                    <span>Hoặc tiếp tục với</span>
+                </div>
 
-                    @if ((Model.ExternalLogins?.Count ?? 0) > 0)
+                <div class="auth-social">
+                    @if ((Model.ExternalLogins?.Count ?? 0) == 0)
                     {
-                        <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-none"></form>
+                        <p class="auth-note">Hiện chưa có phương thức đăng ký nhanh được cấu hình.</p>
+                    }
+                    else
+                    {
+                        <div class="row g-2">
+                            @foreach (var provider in Model.ExternalLogins!)
+                            {
+                                <div class="col-sm-6">
+                                    <button type="submit" class="btn btn-outline-secondary w-100" name="provider" value="@provider.Name" form="external-account">
+                                        <i class="fas fa-sign-in-alt me-2"></i>@provider.DisplayName
+                                    </button>
+                                </div>
+                            }
+                        </div>
                     }
                 </div>
-            </div>
-        </div>
+            </form>
+
+            @if ((Model.ExternalLogins?.Count ?? 0) > 0)
+            {
+                <form id="external-account" asp-page="./ExternalLogin" asp-route-returnUrl="@Model.ReturnUrl" method="post" class="d-none"></form>
+            }
+        </section>
     </div>
 </div>
 
