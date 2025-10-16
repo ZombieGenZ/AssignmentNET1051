@@ -1,30 +1,61 @@
 using System;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Assignment.Services.PayOs
 {
-    public class PayOsOptionsPostConfigure : IPostConfigureOptions<PayOsOptions>
+    /// <summary>
+    /// Binds <see cref="PayOsOptions"/> from configuration and post-configures
+    /// the values so they can transparently resolve environment placeholders.
+    /// </summary>
+    public sealed class PayOsOptionsSetup : IConfigureOptions<PayOsOptions>, IPostConfigureOptions<PayOsOptions>
     {
-        public void PostConfigure(string name, PayOsOptions options)
+        private readonly IConfiguration _configuration;
+
+        public PayOsOptionsSetup(IConfiguration configuration)
+            => _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+
+        public void Configure(PayOsOptions options)
         {
             if (options is null)
             {
                 throw new ArgumentNullException(nameof(options));
             }
 
-            options.ClientId = ResolveEnvironmentPlaceholder(options.ClientId);
-            options.ApiKey = ResolveEnvironmentPlaceholder(options.ApiKey);
-            options.ChecksumKey = ResolveEnvironmentPlaceholder(options.ChecksumKey);
-            options.BaseUrl = ResolveEnvironmentPlaceholder(options.BaseUrl);
+            _configuration.GetSection(PayOsOptions.SectionName).Bind(options);
+        }
+
+        public void PostConfigure(string? name, PayOsOptions options)
+        {
+            if (options is null)
+            {
+                throw new ArgumentNullException(nameof(options));
+            }
+
+            options.ClientId = ResolveValue(options.ClientId, "PAYOS_CLIENT_ID");
+            options.ApiKey = ResolveValue(options.ApiKey, "PAYOS_API_KEY");
+            options.ChecksumKey = ResolveValue(options.ChecksumKey, "PAYOS_CHECKSUM_KEY");
+            options.BaseUrl = ResolveValue(options.BaseUrl, "PAYOS_BASE_URL");
+        }
+
+        private static string ResolveValue(string? value, string environmentFallbackKey)
+        {
+            if (!string.IsNullOrWhiteSpace(value))
+            {
+                return ResolveEnvironmentPlaceholder(value);
+            }
+
+            var environmentValue = GetEnvironmentVariableAcrossTargets(environmentFallbackKey);
+            if (!string.IsNullOrWhiteSpace(environmentValue))
+            {
+                return environmentValue!;
+            }
+
+            return string.Empty;
         }
 
         private static string ResolveEnvironmentPlaceholder(string value)
         {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                return value;
-            }
-
             var trimmed = value.Trim();
             if (trimmed.Length >= 4 && trimmed.StartsWith("${", StringComparison.Ordinal) && trimmed.EndsWith("}", StringComparison.Ordinal))
             {
