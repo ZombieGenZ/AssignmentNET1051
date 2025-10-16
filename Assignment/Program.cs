@@ -1,10 +1,13 @@
 using Assignment.Models;
 using Assignment.Data;
 using Assignment.Services;
+using Assignment.Services.PayOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using System.Security.Claims;
+using Microsoft.Extensions.Options;
+using System.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -53,6 +56,28 @@ builder.Services.AddAuthentication()
 builder.Services.AddHttpClient("AssignmentApi", client =>
 {
     client.BaseAddress = new Uri("https://localhost:443/");
+});
+
+builder.Services.Configure<PayOsOptions>(builder.Configuration.GetSection("PayOs"));
+builder.Services.AddHttpClient<IPayOsService, PayOsService>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<PayOsOptions>>().Value;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? "https://api-merchant.payos.vn/" : options.BaseUrl;
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Accept.Clear();
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+    if (!string.IsNullOrWhiteSpace(options.ClientId))
+    {
+        client.DefaultRequestHeaders.Remove("x-client-id");
+        client.DefaultRequestHeaders.Add("x-client-id", options.ClientId);
+    }
+
+    if (!string.IsNullOrWhiteSpace(options.ApiKey))
+    {
+        client.DefaultRequestHeaders.Remove("x-api-key");
+        client.DefaultRequestHeaders.Add("x-api-key", options.ApiKey);
+    }
 });
 
 builder.Services.AddAuthorization(options =>
