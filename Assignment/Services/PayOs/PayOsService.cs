@@ -150,6 +150,10 @@ namespace Assignment.Services.PayOs
 
         private static string BuildSignature(PayOsCreatePaymentRequest request, string checksumKey)
         {
+            // The PayOS signature is calculated from a fixed set of fields in
+            // alphabetical order. Optional buyer information must not be
+            // included; otherwise PayOS will compute a different signature and
+            // reject the request with error 201 (invalid signature).
             var parts = new SortedDictionary<string, string>(StringComparer.Ordinal)
             {
                 ["amount"] = request.Amount.ToString(),
@@ -158,21 +162,6 @@ namespace Assignment.Services.PayOs
                 ["orderCode"] = request.OrderCode.ToString(),
                 ["returnUrl"] = request.ReturnUrl
             };
-
-            if (!string.IsNullOrWhiteSpace(request.BuyerName))
-            {
-                parts["buyerName"] = request.BuyerName;
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.BuyerEmail))
-            {
-                parts["buyerEmail"] = request.BuyerEmail;
-            }
-
-            if (!string.IsNullOrWhiteSpace(request.BuyerPhone))
-            {
-                parts["buyerPhone"] = request.BuyerPhone;
-            }
 
             var payload = string.Join("|", parts.Select(kv => $"{kv.Key}={kv.Value}"));
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(checksumKey));
