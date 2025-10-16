@@ -5,6 +5,7 @@ using Assignment.Services.PayOs;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity.UI.Services;
+using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
@@ -58,17 +59,14 @@ builder.Services.AddHttpClient("AssignmentApi", client =>
     client.BaseAddress = new Uri("https://localhost:443/");
 });
 
-builder.Services.AddOptions<PayOsOptions>()
-    .Bind(builder.Configuration.GetRequiredSection(PayOsOptions.SectionName))
-    .PostConfigure(options =>
-    {
-        options.ClientId = Normalize(options.ClientId);
-        options.ApiKey = Normalize(options.ApiKey);
-        options.ChecksumKey = Normalize(options.ChecksumKey);
-        options.BaseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
-            ? PayOsOptions.DefaultBaseUrl
-            : Normalize(options.BaseUrl);
-    });
+builder.Services.Configure<PayOsOptions>(builder.Configuration.GetSection(PayOsOptions.SectionName));
+builder.Services.PostConfigure<PayOsOptions>(options =>
+{
+    options.ClientId = ResolvePayOsSetting(builder.Configuration, nameof(PayOsOptions.ClientId), options.ClientId);
+    options.ApiKey = ResolvePayOsSetting(builder.Configuration, nameof(PayOsOptions.ApiKey), options.ApiKey);
+    options.ChecksumKey = ResolvePayOsSetting(builder.Configuration, nameof(PayOsOptions.ChecksumKey), options.ChecksumKey);
+    options.BaseUrl = ResolvePayOsSetting(builder.Configuration, nameof(PayOsOptions.BaseUrl), options.BaseUrl, PayOsOptions.DefaultBaseUrl);
+});
 builder.Services.AddHttpClient<IPayOsService, PayOsService>((sp, client) =>
 {
     var options = sp.GetRequiredService<IOptions<PayOsOptions>>().Value;
@@ -92,6 +90,49 @@ builder.Services.AddHttpClient<IPayOsService, PayOsService>((sp, client) =>
 
 static string Normalize(string? value)
     => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
+
+static string ResolvePayOsSetting(IConfiguration configuration, string key, string? currentValue, string? fallback = null)
+{
+    var normalized = Normalize(currentValue);
+    if (!string.IsNullOrWhiteSpace(normalized))
+    {
+        return normalized;
+    }
+
+    var configurationKeys = new[]
+    {
+        $"{PayOsOptions.SectionName}:{key}",
+        $"{PayOsOptions.SectionName}:{key}".ToUpperInvariant(),
+        $"PayOS:{key}",
+        $"PayOs:{key}"
+    };
+
+    foreach (var configurationKey in configurationKeys)
+    {
+        var value = configuration[configurationKey];
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return Normalize(value);
+        }
+    }
+
+    var environmentKeys = new[]
+    {
+        $"PAYOS_{key}".ToUpperInvariant(),
+        $"{PayOsOptions.SectionName}_{key}".ToUpperInvariant()
+    };
+
+    foreach (var environmentKey in environmentKeys)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentKey);
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            return Normalize(value);
+        }
+    }
+
+    return Normalize(fallback);
+}
 
 builder.Services.AddAuthorization(options =>
 {
