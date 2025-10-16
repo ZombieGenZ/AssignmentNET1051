@@ -207,6 +207,16 @@ app.MapControllerRoute(
 
 using (var scope = app.Services.CreateScope())
 {
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var usersWithoutSecurityStamp = await userManager.Users
+        .Where(u => string.IsNullOrEmpty(u.SecurityStamp))
+        .ToListAsync();
+
+    foreach (var user in usersWithoutSecurityStamp)
+    {
+        await userManager.UpdateSecurityStampAsync(user);
+    }
+
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var adminRole = "Admin";
 
