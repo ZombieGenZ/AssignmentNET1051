@@ -2,11 +2,13 @@
 using Assignment.Models;
 using Assignment.Enums;
 using Assignment.Services;
+using Assignment.Services.PayOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Logging;
 
 namespace Assignment.Controllers
 {
@@ -15,11 +17,15 @@ namespace Assignment.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
+        private readonly IPayOsService _payOsService;
+        private readonly ILogger<OrderController> _logger;
 
-        public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IPayOsService payOsService, ILogger<OrderController> logger)
         {
             _context = context;
             _userManager = userManager;
+            _payOsService = payOsService;
+            _logger = logger;
         }
 
         // GET: Order/Checkout
@@ -164,10 +170,29 @@ namespace Assignment.Controllers
 
                 if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)
                 {
-                    return RedirectToAction(nameof(PayOsPayment), new { id = order.Id });
+                    var successUrl = Url.Action(nameof(PayOsReturn), "Order", new { id = order.Id }, Request.Scheme, Request.Host.ToString());
+                    var cancelUrl = Url.Action(nameof(PayOsCancel), "Order", new { id = order.Id }, Request.Scheme, Request.Host.ToString());
+
+                    if (string.IsNullOrWhiteSpace(successUrl) || string.IsNullOrWhiteSpace(cancelUrl))
+                    {
+                        _logger.LogWarning("Cannot build PayOS return or cancel URL for order {OrderId}.", order.Id);
+                        TempData["Error"] = "Không thể xác định địa chỉ phản hồi từ PayOS. Vui lòng thử lại sau.";
+                        return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+                    }
+
+                    try
+                    {
+                        var payUrl = await _payOsService.CreatePaymentUrlAsync(order, successUrl, cancelUrl);
+                        return Redirect(payUrl);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Unable to create PayOS payment link for order {OrderId}.", order.Id);
+                        TempData["Error"] = "Không thể khởi tạo thanh toán PayOS. Vui lòng thử lại sau hoặc chọn phương thức thanh toán khác.";
+                    }
                 }
 
-                return RedirectToAction("OrderConfirmation", new { id = order.Id });
+                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
             }
 
             ViewBag.Cart = cart; // Pass cart data again
@@ -248,60 +273,74 @@ namespace Assignment.Controllers
             return View(orders);
         }
 
-        public async Task<IActionResult> PayOsPayment(long id)
+        public async Task<IActionResult> PayOsReturn(long id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var order = await _context.Orders
-                .Include(o => o.OrderItems)
-                    .ThenInclude(oi => oi.Product)
-                .Include(o => o.OrderItems)
-                    .ThenInclude(oi => oi.Combo)
-                .FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
-
-            if (order == null || order.PaymentType != PaymentType.PayNow || order.PaymentMethod != PaymentMethodType.Bank)
-            {
-                return RedirectToAction(nameof(History));
-            }
-
-            return View(order);
-        }
-
-        [HttpPost]
-        [ValidateAntiForgeryToken]
-        public async Task<IActionResult> CompletePayOsPayment(long id)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var order = await _context.Orders
-                .FirstOrDefaultAsync(o => o.Id == id
-                    && o.UserId == userId
-                    && o.PaymentType == PaymentType.PayNow
-                    && o.PaymentMethod == PaymentMethodType.Bank);
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
 
             if (order == null)
             {
                 return NotFound();
             }
 
-            order.Status = OrderStatus.Paid;
-            order.UpdatedAt = DateTime.Now;
-            await _context.SaveChangesAsync();
+            if (order.PaymentType != PaymentType.PayNow || order.PaymentMethod != PaymentMethodType.Bank)
+            {
+                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+            }
 
-            return RedirectToAction(nameof(PaymentSuccess), new { id = order.Id });
+            if (!_payOsService.ValidateRedirectSignature(Request.Query))
+            {
+                TempData["Error"] = "Không thể xác thực kết quả thanh toán PayOS.";
+                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+            }
+
+            var status = Request.Query["status"].ToString();
+            if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "PAID", StringComparison.OrdinalIgnoreCase) && !string.Equals(status, "SUCCESS", StringComparison.OrdinalIgnoreCase))
+            {
+                TempData["Error"] = "Thanh toán PayOS chưa được xác nhận.";
+                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+            }
+
+            if (order.Status != OrderStatus.Paid)
+            {
+                order.Status = OrderStatus.Paid;
+                order.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
         }
 
-        public async Task<IActionResult> PaymentSuccess(long id)
+        public async Task<IActionResult> PayOsCancel(long id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var order = await _context.Orders
-                .AsNoTracking()
-                .FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
 
             if (order == null)
             {
                 return NotFound();
             }
 
-            return View(order);
+            if (order.PaymentType != PaymentType.PayNow || order.PaymentMethod != PaymentMethodType.Bank)
+            {
+                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+            }
+
+            if (!_payOsService.ValidateRedirectSignature(Request.Query))
+            {
+                TempData["Error"] = "Không thể xác thực yêu cầu hủy thanh toán PayOS.";
+                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+            }
+
+            if (order.Status != OrderStatus.Paid)
+            {
+                order.Status = OrderStatus.Cancelled;
+                order.UpdatedAt = DateTime.Now;
+                await _context.SaveChangesAsync();
+            }
+
+            TempData["Error"] = "Thanh toán PayOS đã bị hủy.";
+            return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
         }
 
         // GET: Order/OrderConfirmation
