@@ -14,9 +14,9 @@ namespace Assignment.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly IAuthorizationService _authorizationService;
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public VouchersController(ApplicationDbContext context, IAuthorizationService authorizationService, UserManager<IdentityUser> userManager)
+        public VouchersController(ApplicationDbContext context, IAuthorizationService authorizationService, UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _authorizationService = authorizationService;

@@ -1,5 +1,5 @@
-using Assignment.Data;
 using Assignment.Models;
+using Assignment.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Services

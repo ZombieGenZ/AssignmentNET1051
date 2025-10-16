@@ -3,8 +3,9 @@
 @using System.Collections.Generic
 @using System.Linq
 @using System.Text.Json
+@using Assignment.Models
 @model Assignment.Models.Combo
-@inject UserManager<IdentityUser> UserManager
+@inject UserManager<ApplicationUser> UserManager
 
 @functions {
     private sealed class ComboItemInput
