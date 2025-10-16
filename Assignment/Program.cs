@@ -58,13 +58,20 @@ builder.Services.AddHttpClient("AssignmentApi", client =>
     client.BaseAddress = new Uri("https://localhost:443/");
 });
 
-builder.Services.AddOptions<PayOsOptions>();
-builder.Services.AddSingleton<IConfigureOptions<PayOsOptions>, PayOsOptionsSetup>();
-builder.Services.AddSingleton<IPostConfigureOptions<PayOsOptions>, PayOsOptionsSetup>();
+builder.Services.Configure<PayOsOptions>(builder.Configuration.GetSection(PayOsOptions.SectionName));
+builder.Services.PostConfigure<PayOsOptions>(options =>
+{
+    options.ClientId = Normalize(options.ClientId);
+    options.ApiKey = Normalize(options.ApiKey);
+    options.ChecksumKey = Normalize(options.ChecksumKey);
+    options.BaseUrl = string.IsNullOrWhiteSpace(options.BaseUrl)
+        ? PayOsOptions.DefaultBaseUrl
+        : Normalize(options.BaseUrl);
+});
 builder.Services.AddHttpClient<IPayOsService, PayOsService>((sp, client) =>
 {
     var options = sp.GetRequiredService<IOptions<PayOsOptions>>().Value;
-    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? "https://api-merchant.payos.vn/" : options.BaseUrl;
+    var baseUrl = string.IsNullOrWhiteSpace(options.BaseUrl) ? PayOsOptions.DefaultBaseUrl : options.BaseUrl;
     client.BaseAddress = new Uri(baseUrl);
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
@@ -81,6 +88,9 @@ builder.Services.AddHttpClient<IPayOsService, PayOsService>((sp, client) =>
         client.DefaultRequestHeaders.Add("x-api-key", options.ApiKey);
     }
 });
+
+static string Normalize(string? value)
+    => string.IsNullOrWhiteSpace(value) ? string.Empty : value.Trim();
 
 builder.Services.AddAuthorization(options =>
 {
