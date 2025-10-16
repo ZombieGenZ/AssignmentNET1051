@@ -40,9 +40,9 @@ namespace Assignment.Services.PayOs
                 Description = $"Thanh toán đơn hàng #{order.Id}",
                 ReturnUrl = successUrl,
                 CancelUrl = cancelUrl,
-                BuyerName = order.Name,
-                BuyerEmail = order.Email,
-                BuyerPhone = order.Phone,
+                BuyerName = NormalizeOptional(order.Name),
+                BuyerEmail = NormalizeOptional(order.Email),
+                BuyerPhone = NormalizeOptional(order.Phone)
             };
 
             if (order.OrderItems != null)
@@ -193,6 +193,9 @@ namespace Assignment.Services.PayOs
             return string.Equals(signature, calculatedSignature, StringComparison.OrdinalIgnoreCase);
         }
 
+        private static string? NormalizeOptional(string? value)
+            => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
         private static string BuildSignature(PayOsCreatePaymentRequest request, string checksumKey)
         {
             // The PayOS signature must be generated from every field included in
@@ -260,18 +263,22 @@ namespace Assignment.Services.PayOs
             public string CancelUrl { get; set; } = string.Empty;
 
             [JsonPropertyName("buyerName")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
             public string? BuyerName { get; set; }
 
             [JsonPropertyName("buyerEmail")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
             public string? BuyerEmail { get; set; }
 
             [JsonPropertyName("buyerPhone")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
             public string? BuyerPhone { get; set; }
 
             [JsonPropertyName("signature")]
             public string? Signature { get; set; }
 
             [JsonPropertyName("items")]
+            [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
             public IReadOnlyList<PayOsCreatePaymentRequestItem>? Items { get; set; }
         }
 
