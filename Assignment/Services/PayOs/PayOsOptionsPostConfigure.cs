@@ -38,11 +38,13 @@ namespace Assignment.Services.PayOs
                     }
                 }
 
-                // If the placeholder cannot be resolved we fallback to an empty string to prevent
-                // propagating the literal placeholder value (e.g. "${PAYOS_CLIENT_ID}") into the
-                // options object. This allows callers to detect that configuration is missing and
-                // avoids sending placeholder secrets to downstream APIs.
-                return string.Empty;
+                // If the placeholder cannot be resolved we fallback to the original value. This
+                // makes it possible to provide concrete credentials directly in configuration
+                // files, even when they still use the "${VALUE}" syntax (for example when a
+                // developer edits the sample configuration in place). It also ensures that
+                // existing configuration behaviour remains unchanged when environment variables
+                // are not available.
+                return trimmed;
             }
 
             return trimmed;
