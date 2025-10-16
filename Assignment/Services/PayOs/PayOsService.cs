@@ -3,6 +3,7 @@ using System.Linq;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using Assignment.Models;
 using Microsoft.AspNetCore.Http;
@@ -54,12 +55,50 @@ namespace Assignment.Services.PayOs
                 using var response = await _httpClient.PostAsJsonAsync("v2/payment-requests", request, cancellationToken);
                 response.EnsureSuccessStatusCode();
 
-                var payload = await response.Content.ReadFromJsonAsync<PayOsCreatePaymentResponse>(cancellationToken: cancellationToken);
-                if (payload?.Data?.CheckoutUrl is string checkout && !string.IsNullOrWhiteSpace(checkout))
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                PayOsCreatePaymentResponse? payload = null;
+
+                try
                 {
-                    return checkout;
+                    payload = JsonSerializer.Deserialize<PayOsCreatePaymentResponse>(content, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                }
+                catch (JsonException jsonEx)
+                {
+                    _logger.LogError(jsonEx, "Unable to parse PayOS response for order {OrderId}. Payload: {Payload}", order.Id, content);
+                    throw new InvalidOperationException("Không thể phân tích phản hồi từ PayOS.", jsonEx);
                 }
 
+                if (payload is null)
+                {
+                    _logger.LogWarning("Empty PayOS response received for order {OrderId}.", order.Id);
+                    throw new InvalidOperationException("Phản hồi từ PayOS bị trống.");
+                }
+
+                if (payload.Code != 0)
+                {
+                    var message = string.IsNullOrWhiteSpace(payload.Description)
+                        ? $"PayOS trả về mã lỗi {payload.Code}."
+                        : $"PayOS trả về mã lỗi {payload.Code}: {payload.Description}";
+
+                    _logger.LogWarning("PayOS returned an error for order {OrderId}. Payload: {Payload}", order.Id, content);
+                    throw new InvalidOperationException(message);
+                }
+
+                var checkoutUrl = payload.Data?.CheckoutUrl;
+                if (string.IsNullOrWhiteSpace(checkoutUrl))
+                {
+                    checkoutUrl = payload.Data?.ShortLink;
+                }
+
+                if (!string.IsNullOrWhiteSpace(checkoutUrl))
+                {
+                    return checkoutUrl;
+                }
+
+                _logger.LogWarning("PayOS response did not contain a checkout URL for order {OrderId}. Payload: {Payload}", order.Id, content);
                 throw new InvalidOperationException("PayOS response did not contain a checkout URL.");
             }
             catch (Exception ex)
@@ -186,6 +225,9 @@ namespace Assignment.Services.PayOs
         {
             [JsonPropertyName("checkoutUrl")]
             public string? CheckoutUrl { get; set; }
+
+            [JsonPropertyName("shortLink")]
+            public string? ShortLink { get; set; }
         }
     }
 }
