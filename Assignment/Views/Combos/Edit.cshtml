@@ -4,15 +4,7 @@
 @using System.Text.Json
 @model Assignment.Models.Combo
 
-@functions {
-    private sealed class ComboItemInput
-    {
-        public long? ProductId { get; set; }
-        public long Quantity { get; set; }
-    }
-}
-
-@{
+@{ 
     ViewData["Title"] = "Chỉnh sửa Combo";
     Layout = "_AdminLayout";
 
@@ -21,39 +13,36 @@
     var hasError = selectedProductIds.Any();
 
     var products = (IEnumerable<SelectListItem>?)ViewBag.Products ?? Enumerable.Empty<SelectListItem>();
-    var comboItems = new List<ComboItemInput>();
+    var comboItems = new List<(long? ProductId, long Quantity)>();
 
     if (hasError)
     {
         for (var index = 0; index < selectedProductIds.Count; index++)
         {
             var quantity = index < selectedQuantities.Count ? selectedQuantities[index] : 1;
-            comboItems.Add(new ComboItemInput
-            {
-                ProductId = selectedProductIds[index],
-                Quantity = quantity
-            });
+            comboItems.Add((
+                ProductId: selectedProductIds[index],
+                Quantity: quantity
+            ));
         }
     }
     else if (Model.ComboItems != null && Model.ComboItems.Any())
     {
         foreach (var item in Model.ComboItems)
         {
-            comboItems.Add(new ComboItemInput
-            {
-                ProductId = item.ProductId,
-                Quantity = item.Quantity
-            });
+            comboItems.Add((
+                ProductId: item.ProductId,
+                Quantity: item.Quantity
+            ));
         }
     }
 
     if (!comboItems.Any())
     {
-        comboItems.Add(new ComboItemInput
-        {
-            ProductId = null,
-            Quantity = 1
-        });
+        comboItems.Add((
+            ProductId: null,
+            Quantity: 1
+        ));
     }
 
     var productOptionsJson = JsonSerializer.Serialize(products.Select(p => new { value = p.Value, text = p.Text }));
