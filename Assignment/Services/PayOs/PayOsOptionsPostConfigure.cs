@@ -31,15 +31,53 @@ namespace Assignment.Services.PayOs
                 var key = trimmed.Substring(2, trimmed.Length - 3);
                 if (!string.IsNullOrWhiteSpace(key))
                 {
-                    var environmentValue = Environment.GetEnvironmentVariable(key);
+                    var environmentValue = GetEnvironmentVariableAcrossTargets(key);
                     if (!string.IsNullOrEmpty(environmentValue))
                     {
                         return environmentValue;
                     }
                 }
+
+                // If the placeholder cannot be resolved we fallback to an empty string to prevent
+                // propagating the literal placeholder value (e.g. "${PAYOS_CLIENT_ID}") into the
+                // options object. This allows callers to detect that configuration is missing and
+                // avoids sending placeholder secrets to downstream APIs.
+                return string.Empty;
             }
 
-            return value;
+            return trimmed;
+        }
+
+        private static string? GetEnvironmentVariableAcrossTargets(string key)
+        {
+            // The default Environment.GetEnvironmentVariable call reads the process variables.
+            var value = Environment.GetEnvironmentVariable(key);
+            if (!string.IsNullOrEmpty(value))
+            {
+                return value;
+            }
+
+            // On Windows the environment variables can be stored at the Machine/User level.
+            // These targets are not supported on all platforms, so we guard against
+            // PlatformNotSupportedException.
+            foreach (EnvironmentVariableTarget target in Enum.GetValues(typeof(EnvironmentVariableTarget)))
+            {
+                try
+                {
+                    value = Environment.GetEnvironmentVariable(key, target);
+                }
+                catch (PlatformNotSupportedException)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrEmpty(value))
+                {
+                    return value;
+                }
+            }
+
+            return null;
         }
     }
 }
