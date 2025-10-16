@@ -150,31 +150,31 @@ namespace Assignment.Services.PayOs
 
         private static string BuildSignature(PayOsCreatePaymentRequest request, string checksumKey)
         {
-            var fields = new List<string>
+            var data = new SortedDictionary<string, string>(StringComparer.Ordinal)
             {
-                $"orderCode={request.OrderCode}",
-                $"amount={request.Amount}",
-                $"description={request.Description}",
-                $"returnUrl={request.ReturnUrl}",
-                $"cancelUrl={request.CancelUrl}"
+                ["amount"] = request.Amount.ToString(),
+                ["cancelUrl"] = request.CancelUrl,
+                ["description"] = request.Description,
+                ["orderCode"] = request.OrderCode.ToString(),
+                ["returnUrl"] = request.ReturnUrl,
             };
 
             if (!string.IsNullOrWhiteSpace(request.BuyerName))
             {
-                fields.Add($"buyerName={request.BuyerName}");
+                data["buyerName"] = request.BuyerName;
             }
 
             if (!string.IsNullOrWhiteSpace(request.BuyerEmail))
             {
-                fields.Add($"buyerEmail={request.BuyerEmail}");
+                data["buyerEmail"] = request.BuyerEmail;
             }
 
             if (!string.IsNullOrWhiteSpace(request.BuyerPhone))
             {
-                fields.Add($"buyerPhone={request.BuyerPhone}");
+                data["buyerPhone"] = request.BuyerPhone;
             }
 
-            var payload = string.Join("|", fields);
+            var payload = string.Join("|", data.Select(kv => $"{kv.Key}={kv.Value}"));
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(checksumKey));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
             return Convert.ToHexString(hash).ToLowerInvariant();
