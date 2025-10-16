@@ -142,7 +142,8 @@
                                             @foreach (var product in products)
                                             {
                                                 var isSelected = product.Value == item.ProductId?.ToString();
-                                                <option value="@product.Value" @(isSelected ? "selected" : string.Empty)>@product.Text</option>
+                                                var selectedAttribute = isSelected ? "selected=\"selected\"" : string.Empty;
+                                                <option value="@product.Value" @Html.Raw(selectedAttribute)>@product.Text</option>
                                             }
                                         </select>
                                     </div>
