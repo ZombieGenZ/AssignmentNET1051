@@ -32,8 +32,11 @@
                                 <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Description)</dt>
                                 <dd class="col-sm-8">@Html.DisplayFor(model => model.Description)</dd>
 
-                                <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Price)</dt>
+                                <dt class="col-sm-4">Giá gốc</dt>
                                 <dd class="col-sm-8">@Model.Price.ToString("C0")</dd>
+
+                                <dt class="col-sm-4">Giá sau giảm</dt>
+                                <dd class="col-sm-8">@PriceCalculator.GetComboFinalPrice(Model).ToString("C0")</dd>
 
                                 <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Stock)</dt>
                                 <dd class="col-sm-8">@Model.Stock.ToString("N0")</dd>
@@ -56,15 +59,10 @@
                                     }
                                 </dd>
 
-                                @if (Model.DiscountType != Assignment.Enums.DiscountType.None)
+                                @if (Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue)
                                 {
-                                    <dt class="col-sm-4">Giá trị giảm</dt>
-                                    <dd class="col-sm-8">
-                                        @if (Model.DiscountType == Assignment.Enums.DiscountType.Percent)
-                                        {
-                                            <span>@Model.Discount%</span>
-                                        }
-                                    </dd>
+                                    <dt class="col-sm-4">Giảm (%)</dt>
+                                    <dd class="col-sm-8">@Model.Discount%</dd>
                                 }
 
                                 <dt class="col-sm-4">@Html.DisplayNameFor(model => model.IsPublish)</dt>

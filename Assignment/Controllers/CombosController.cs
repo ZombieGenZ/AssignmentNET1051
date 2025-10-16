@@ -145,14 +145,13 @@ namespace Assignment.Controllers
                 }
                 else
                 {
-                    double totalPrice = 0;
-                    foreach (var item in comboItemsInput)
-                    {
-                        var product = products.First(p => p.Id == item.productId);
-                        totalPrice += PriceCalculator.GetProductFinalPrice(product) * item.quantity;
-                    }
+                    var productLookup = products.ToDictionary(p => p.Id);
+                    var priceItems = comboItemsInput
+                        .Select(item => productLookup.TryGetValue(item.productId, out var product)
+                            ? (product, item.quantity)
+                            : ((Product?)null, item.quantity));
 
-                    combo.Price = Math.Round(totalPrice, 2);
+                    combo.Price = PriceCalculator.GetComboBasePrice(priceItems);
                     combo.CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                     combo.CreatedAt = DateTime.Now;
                     combo.UpdatedAt = null;
@@ -299,14 +298,13 @@ namespace Assignment.Controllers
                     }
                     else
                     {
-                        double totalPrice = 0;
-                        foreach (var item in comboItemsInput)
-                        {
-                            var product = products.First(p => p.Id == item.productId);
-                            totalPrice += PriceCalculator.GetProductFinalPrice(product) * item.quantity;
-                        }
+                        var productLookup = products.ToDictionary(p => p.Id);
+                        var priceItems = comboItemsInput
+                            .Select(item => productLookup.TryGetValue(item.productId, out var product)
+                                ? (product, item.quantity)
+                                : ((Product?)null, item.quantity));
 
-                        combo.Price = Math.Round(totalPrice, 2);
+                        combo.Price = PriceCalculator.GetComboBasePrice(priceItems);
                         combo.CreateBy = existingCombo.CreateBy;
                         combo.CreatedAt = existingCombo.CreatedAt;
                         combo.IsDeleted = existingCombo.IsDeleted;

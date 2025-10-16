@@ -95,9 +95,10 @@ namespace Assignment.Controllers
                 var orderItems = new List<OrderItem>();
                 foreach (var cartItem in cart.CartItems)
                 {
+                    var unitPrice = GetCartItemUnitPrice(cartItem);
                     orderItems.Add(new OrderItem
                     {
-                        Price = cartItem.Product?.Price ?? cartItem.Combo?.Price ?? 0,
+                        Price = unitPrice,
                         Quantity = cartItem.Quantity,
                         ProductId = cartItem.ProductId,
                         ComboId = cartItem.ComboId
@@ -185,7 +186,7 @@ namespace Assignment.Controllers
             if (voucher.Quantity <= voucher.Used) return Json(new { success = false, error = "Voucher đã hết lượt sử dụng." });
             if (voucher.Type == VoucherType.Private && voucher.UserId != userId) return Json(new { success = false, error = "Bạn không thể sử dụng voucher này." });
 
-            var subtotal = cart.CartItems.Sum(item => (item.Product?.Price ?? item.Combo?.Price ?? 0) * item.Quantity);
+            var subtotal = cart.CartItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             if (subtotal < voucher.MinimumRequirements) return Json(new { success = false, error = $"Đơn hàng tối thiểu phải là {voucher.MinimumRequirements:N0}đ." });
 
             // --- Calculate Discount ---
@@ -254,6 +255,21 @@ namespace Assignment.Controllers
             }
 
             return View(order);
+        }
+
+        private static double GetCartItemUnitPrice(CartItem cartItem)
+        {
+            if (cartItem.Product != null)
+            {
+                return PriceCalculator.GetProductFinalPrice(cartItem.Product);
+            }
+
+            if (cartItem.Combo != null)
+            {
+                return PriceCalculator.GetComboFinalPrice(cartItem.Combo);
+            }
+
+            return 0;
         }
     }
 }

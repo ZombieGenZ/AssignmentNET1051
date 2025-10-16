@@ -342,17 +342,13 @@ namespace Assignment.Controllers
 
             foreach (var combo in combos)
             {
-                double totalPrice = 0;
+                var priceItems = combo.ComboItems
+                    .Where(ci => !ci.IsDeleted)
+                    .Select(ci => productLookup.TryGetValue(ci.ProductId, out var product)
+                        ? (product, ci.Quantity)
+                        : ((Product?)null, ci.Quantity));
 
-                foreach (var item in combo.ComboItems.Where(ci => !ci.IsDeleted))
-                {
-                    if (productLookup.TryGetValue(item.ProductId, out var product))
-                    {
-                        totalPrice += PriceCalculator.GetProductFinalPrice(product) * item.Quantity;
-                    }
-                }
-
-                combo.Price = Math.Round(totalPrice, 2);
+                combo.Price = PriceCalculator.GetComboBasePrice(priceItems);
                 combo.UpdatedAt = DateTime.Now;
             }
 
