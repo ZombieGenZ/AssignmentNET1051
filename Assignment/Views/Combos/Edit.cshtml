@@ -1,16 +1,9 @@
+@using Assignment.ViewModels
 @using Microsoft.AspNetCore.Mvc.Rendering
 @using System.Collections.Generic
 @using System.Linq
 @using System.Text.Json
 @model Assignment.Models.Combo
-
-@functions {
-    private sealed class ComboItemInput
-    {
-        public long? ProductId { get; set; }
-        public long Quantity { get; set; }
-    }
-}
 
 @{
     ViewData["Title"] = "Chỉnh sửa Combo";
