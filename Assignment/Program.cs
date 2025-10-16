@@ -59,6 +59,7 @@ builder.Services.AddHttpClient("AssignmentApi", client =>
 });
 
 builder.Services.Configure<PayOsOptions>(builder.Configuration.GetSection("PayOs"));
+builder.Services.AddSingleton<IPostConfigureOptions<PayOsOptions>, PayOsOptionsPostConfigure>();
 builder.Services.AddHttpClient<IPayOsService, PayOsService>((sp, client) =>
 {
     var options = sp.GetRequiredService<IOptions<PayOsOptions>>().Value;
