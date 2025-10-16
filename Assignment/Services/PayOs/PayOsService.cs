@@ -62,7 +62,8 @@ namespace Assignment.Services.PayOs
                 {
                     payload = JsonSerializer.Deserialize<PayOsCreatePaymentResponse>(content, new JsonSerializerOptions
                     {
-                        PropertyNameCaseInsensitive = true
+                        PropertyNameCaseInsensitive = true,
+                        NumberHandling = JsonNumberHandling.AllowReadingFromString
                     });
                 }
                 catch (JsonException jsonEx)
