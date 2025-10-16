@@ -58,8 +58,9 @@ builder.Services.AddHttpClient("AssignmentApi", client =>
     client.BaseAddress = new Uri("https://localhost:443/");
 });
 
-builder.Services.Configure<PayOsOptions>(builder.Configuration.GetSection("PayOs"));
-builder.Services.AddSingleton<IPostConfigureOptions<PayOsOptions>, PayOsOptionsPostConfigure>();
+builder.Services.AddOptions<PayOsOptions>();
+builder.Services.AddSingleton<IConfigureOptions<PayOsOptions>, PayOsOptionsSetup>();
+builder.Services.AddSingleton<IPostConfigureOptions<PayOsOptions>, PayOsOptionsSetup>();
 builder.Services.AddHttpClient<IPayOsService, PayOsService>((sp, client) =>
 {
     var options = sp.GetRequiredService<IOptions<PayOsOptions>>().Value;
