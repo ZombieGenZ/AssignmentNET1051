@@ -45,6 +45,51 @@ namespace Assignment.Services.PayOs
                 BuyerPhone = order.Phone,
             };
 
+            if (order.OrderItems != null)
+            {
+                var items = new List<PayOsCreatePaymentRequestItem>();
+                var index = 1;
+                foreach (var orderItem in order.OrderItems)
+                {
+                    if (orderItem == null)
+                    {
+                        continue;
+                    }
+
+                    var price = Convert.ToInt64(Math.Round(orderItem.Price, MidpointRounding.AwayFromZero));
+                    if (price <= 0)
+                    {
+                        continue;
+                    }
+
+                    var quantity = orderItem.Quantity <= 0 ? 1 : orderItem.Quantity;
+                    var name = orderItem.Product?.Name ?? orderItem.Combo?.Name;
+
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        name = orderItem.ProductId.HasValue
+                            ? $"Sản phẩm #{orderItem.ProductId.Value}"
+                            : orderItem.ComboId.HasValue
+                                ? $"Combo #{orderItem.ComboId.Value}"
+                                : $"Mặt hàng #{index}";
+                    }
+
+                    items.Add(new PayOsCreatePaymentRequestItem
+                    {
+                        Name = name!,
+                        Price = price,
+                        Quantity = quantity
+                    });
+
+                    index++;
+                }
+
+                if (items.Count > 0)
+                {
+                    request.Items = items;
+                }
+            }
+
             if (!string.IsNullOrWhiteSpace(_options.ChecksumKey))
             {
                 request.Signature = BuildSignature(request, _options.ChecksumKey);
@@ -180,6 +225,17 @@ namespace Assignment.Services.PayOs
                 parts["buyerPhone"] = request.BuyerPhone;
             }
 
+            if (request.Items != null)
+            {
+                for (var i = 0; i < request.Items.Count; i++)
+                {
+                    var item = request.Items[i];
+                    parts[$"items[{i}].name"] = item.Name;
+                    parts[$"items[{i}].price"] = item.Price.ToString();
+                    parts[$"items[{i}].quantity"] = item.Quantity.ToString();
+                }
+            }
+
             var payload = string.Join("|", parts.Select(kv => $"{kv.Key}={kv.Value}"));
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(checksumKey));
             var hash = hmac.ComputeHash(Encoding.UTF8.GetBytes(payload));
@@ -214,6 +270,21 @@ namespace Assignment.Services.PayOs
 
             [JsonPropertyName("signature")]
             public string? Signature { get; set; }
+
+            [JsonPropertyName("items")]
+            public IReadOnlyList<PayOsCreatePaymentRequestItem>? Items { get; set; }
+        }
+
+        private sealed class PayOsCreatePaymentRequestItem
+        {
+            [JsonPropertyName("name")]
+            public string Name { get; set; } = string.Empty;
+
+            [JsonPropertyName("quantity")]
+            public long Quantity { get; set; }
+
+            [JsonPropertyName("price")]
+            public long Price { get; set; }
         }
 
         private sealed class PayOsCreatePaymentResponse
