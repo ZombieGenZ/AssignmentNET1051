@@ -4,6 +4,14 @@
 @using System.Text.Json
 @model Assignment.Models.Combo
 
+@functions {
+    private sealed class ComboItemInput
+    {
+        public long? ProductId { get; set; }
+        public long Quantity { get; set; }
+    }
+}
+
 @{
     ViewData["Title"] = "Chỉnh sửa Combo";
     Layout = "_AdminLayout";
@@ -13,27 +21,39 @@
     var hasError = selectedProductIds.Any();
 
     var products = (IEnumerable<SelectListItem>?)ViewBag.Products ?? Enumerable.Empty<SelectListItem>();
-    var comboItems = new List<(long? ProductId, long Quantity)>();
+    var comboItems = new List<ComboItemInput>();
 
     if (hasError)
     {
         for (var index = 0; index < selectedProductIds.Count; index++)
         {
             var quantity = index < selectedQuantities.Count ? selectedQuantities[index] : 1;
-            comboItems.Add((selectedProductIds[index], quantity));
+            comboItems.Add(new ComboItemInput
+            {
+                ProductId = selectedProductIds[index],
+                Quantity = quantity
+            });
         }
     }
     else if (Model.ComboItems != null && Model.ComboItems.Any())
     {
         foreach (var item in Model.ComboItems)
         {
-            comboItems.Add((item.ProductId, item.Quantity));
+            comboItems.Add(new ComboItemInput
+            {
+                ProductId = item.ProductId,
+                Quantity = item.Quantity
+            });
         }
     }
 
     if (!comboItems.Any())
     {
-        comboItems.Add((null, 1));
+        comboItems.Add(new ComboItemInput
+        {
+            ProductId = null,
+            Quantity = 1
+        });
     }
 
     var productOptionsJson = JsonSerializer.Serialize(products.Select(p => new { value = p.Value, text = p.Text }));
@@ -164,7 +184,7 @@
 </div>
 
 @section Scripts {
-    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
+    <partial name="_ValidationScriptsPartial" />
     <script>
         const allProducts = @Html.Raw(productOptionsJson);
 
