@@ -1,19 +1,43 @@
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using System.Collections.Generic
+@using System.Linq
+@using System.Text.Json
 @model Assignment.Models.Combo
-@inject UserManager<IdentityUser> UserManager
 
 @{
     ViewData["Title"] = "Chỉnh sửa Combo";
     Layout = "_AdminLayout";
-    var selectedProductIds = ViewData["SelectedProductIds"] as List<long>;
-    var selectedQuantities = ViewData["SelectedQuantities"] as List<long>;
-    var hasError = selectedProductIds != null && selectedProductIds.Any();
-}
 
-<!-- Thêm link Font Awesome để sử dụng icons -->
-<head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-</head>
+    var selectedProductIds = ViewData["SelectedProductIds"] as List<long> ?? new List<long>();
+    var selectedQuantities = ViewData["SelectedQuantities"] as List<long> ?? new List<long>();
+    var hasError = selectedProductIds.Any();
+
+    var products = (IEnumerable<SelectListItem>?)ViewBag.Products ?? Enumerable.Empty<SelectListItem>();
+    var comboItems = new List<(long? ProductId, long Quantity)>();
+
+    if (hasError)
+    {
+        for (var index = 0; index < selectedProductIds.Count; index++)
+        {
+            var quantity = index < selectedQuantities.Count ? selectedQuantities[index] : 1;
+            comboItems.Add((selectedProductIds[index], quantity));
+        }
+    }
+    else if (Model.ComboItems != null && Model.ComboItems.Any())
+    {
+        foreach (var item in Model.ComboItems)
+        {
+            comboItems.Add((item.ProductId, item.Quantity));
+        }
+    }
+
+    if (!comboItems.Any())
+    {
+        comboItems.Add((null, 1));
+    }
+
+    var productOptionsJson = JsonSerializer.Serialize(products.Select(p => new { value = p.Value, text = p.Text }));
+}
 
 <div class="container-fluid pt-4 px-4">
     <div class="row g-4 justify-content-center">
@@ -32,12 +56,12 @@
                         <div class="row g-3 mb-3">
                             <div class="col-md-6">
                                 <label asp-for="Name" class="form-label"></label>
-                                <input asp-for="Name" class="form-control">
+                                <input asp-for="Name" class="form-control" />
                                 <span asp-validation-for="Name" class="text-danger"></span>
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label">Giá combo hiện tại</label>
-                                <input class="form-control" value="@Model.Price.ToString(\"C0\")" readonly>
+                                <input class="form-control" value="@Model.Price.ToString(\"C0\")" readonly />
                             </div>
                         </div>
 
@@ -49,19 +73,19 @@
 
                         <div class="mb-3">
                             <label asp-for="ImageUrl" class="form-label"></label>
-                            <input asp-for="ImageUrl" class="form-control" type="text">
+                            <input asp-for="ImageUrl" class="form-control" type="text" />
                             <span asp-validation-for="ImageUrl" class="text-danger"></span>
                         </div>
 
                         <div class="row g-3 mb-3">
                             <div class="col-md-4">
                                 <label asp-for="Stock" class="form-label"></label>
-                                <input asp-for="Stock" class="form-control" type="number">
+                                <input asp-for="Stock" class="form-control" type="number" />
                                 <span asp-validation-for="Stock" class="text-danger"></span>
                             </div>
                             <div class="col-md-4">
                                 <label asp-for="Index" class="form-label"></label>
-                                <input asp-for="Index" class="form-control" type="number">
+                                <input asp-for="Index" class="form-control" type="number" />
                                 <span asp-validation-for="Index" class="text-danger"></span>
                             </div>
                             <div class="col-md-4">
@@ -94,55 +118,29 @@
                         <hr />
                         <h5 class="mb-3">Sản phẩm trong Combo</h5>
                         <div id="comboItemsContainer">
-                            @if (hasError)
+                            @for (var index = 0; index < comboItems.Count; index++)
                             {
-                                @for (int i = 0; i < selectedProductIds.Count; i++)
-                                {
-                                    <div class="combo-item-row row g-2 mb-2 align-items-end">
-                                        <div class="col-md-7">
-                                            <label class="form-label">Sản phẩm</label>
-                                            <select name="ProductIds" class="form-select product-select" required>
-                                                <option value="">-- Chọn sản phẩm --</option>
-                                                @foreach (var product in ViewBag.Products as SelectList)
-                                                {
-                                                    <option value="@product.Value" selected="@(product.Value == selectedProductIds[i].ToString())">@product.Text</option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Số lượng</label>
-                                            <input type="number" name="Quantities" class="form-control" min="1" value="@selectedQuantities[i]" required />
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-danger w-100" onclick="removeComboItem(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
-                                        </div>
+                                var item = comboItems[index];
+                                <div class="combo-item-row row g-2 mb-2 align-items-end">
+                                    <div class="col-md-7">
+                                        <label class="form-label">Sản phẩm</label>
+                                        <select name="ProductIds" class="form-select product-select" required>
+                                            <option value="">-- Chọn sản phẩm --</option>
+                                            @foreach (var product in products)
+                                            {
+                                                var isSelected = product.Value == item.ProductId?.ToString();
+                                                <option value="@product.Value" @(isSelected ? "selected" : string.Empty)>@product.Text</option>
+                                            }
+                                        </select>
                                     </div>
-                                }
-                            }
-                            else if (Model.ComboItems != null && Model.ComboItems.Any())
-                            {
-                                @foreach (var item in Model.ComboItems)
-                                {
-                                    <div class="combo-item-row row g-2 mb-2 align-items-end">
-                                        <div class="col-md-7">
-                                            <label class="form-label">Sản phẩm</label>
-                                            <select name="ProductIds" class="form-select product-select" required>
-                                                <option value="">-- Chọn sản phẩm --</option>
-                                                @foreach (var product in ViewBag.Products as SelectList)
-                                                {
-                                                    <option value="@product.Value" selected="@(product.Value == item.ProductId.ToString())">@product.Text</option>
-                                                }
-                                            </select>
-                                        </div>
-                                        <div class="col-md-3">
-                                            <label class="form-label">Số lượng</label>
-                                            <input type="number" name="Quantities" class="form-control" min="1" value="@item.Quantity" required />
-                                        </div>
-                                        <div class="col-md-2">
-                                            <button type="button" class="btn btn-danger w-100" onclick="removeComboItem(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
-                                        </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label">Số lượng</label>
+                                        <input type="number" name="Quantities" class="form-control" min="1" value="@item.Quantity" required />
                                     </div>
-                                }
+                                    <div class="col-md-2">
+                                        <button type="button" class="btn btn-danger w-100" onclick="removeComboItem(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
+                                    </div>
+                                </div>
                             }
                         </div>
                         <button type="button" class="btn btn-success btn-sm mt-2" onclick="addComboItem()"><i class="fas fa-plus"></i> Thêm sản phẩm</button>
@@ -166,36 +164,32 @@
 </div>
 
 @section Scripts {
-    @{
-        await Html.RenderPartialAsync("_ValidationScriptsPartial");
-    }
+    @{ await Html.RenderPartialAsync("_ValidationScriptsPartial"); }
     <script>
-        // Kịch bản JS giữ nguyên như file của bạn
-        var allProducts = @Html.Raw(Json.Serialize(ViewBag.Products as SelectList));
+        const allProducts = @Html.Raw(productOptionsJson);
 
         function toggleDiscountField() {
-            var discountType = document.getElementById('DiscountType').value;
-            var discountField = document.getElementById('DiscountField');
-            var discountInput = document.getElementById('DiscountInput');
+            const discountType = document.getElementById('DiscountType').value;
+            const discountField = document.getElementById('DiscountField');
+            const discountInput = document.getElementById('DiscountInput');
+
             if (discountType === '0') {
                 discountField.style.display = 'none';
                 discountInput.value = '';
                 discountInput.removeAttribute('required');
                 discountInput.removeAttribute('max');
                 discountInput.setAttribute('min', '0');
-            } else if (discountType === '1') {
+            } else {
                 discountField.style.display = 'block';
                 discountInput.setAttribute('required', 'required');
                 discountInput.setAttribute('max', '100');
                 discountInput.setAttribute('min', '0');
             }
         }
-        document.getElementById('DiscountType').addEventListener('change', toggleDiscountField);
-        document.addEventListener('DOMContentLoaded', toggleDiscountField);
 
         function getSelectedProductIds() {
-            var selectedIds = [];
-            document.querySelectorAll('.product-select').forEach(function(select) {
+            const selectedIds = [];
+            document.querySelectorAll('.product-select').forEach(select => {
                 if (select.value) {
                     selectedIds.push(select.value);
                 }
@@ -204,40 +198,38 @@
         }
 
         function updateAllDropdowns() {
-            var selectedIds = getSelectedProductIds();
-            document.querySelectorAll('.product-select').forEach(function(select) {
-                var currentValue = select.value;
+            const selectedIds = getSelectedProductIds();
+            document.querySelectorAll('.product-select').forEach(select => {
+                const currentValue = select.value;
                 select.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
-                allProducts.forEach(function(product) {
+                allProducts.forEach(product => {
                     if (product.value === currentValue || !selectedIds.includes(product.value)) {
-                        var option = document.createElement('option');
-                        option.value = product.value;
-                        option.text = product.text;
-                        option.selected = (product.value === currentValue);
+                        const option = document.createElement('option');
+                        option.value = product.value ?? '';
+                        option.text = product.text ?? '';
+                        if (product.value === currentValue) {
+                            option.selected = true;
+                        }
                         select.appendChild(option);
                     }
                 });
             });
         }
-        document.addEventListener('change', function(e) {
-            if (e.target.classList.contains('product-select')) {
-                updateAllDropdowns();
-            }
-        });
-        document.addEventListener('DOMContentLoaded', updateAllDropdowns);
 
         function addComboItem() {
-            var container = document.getElementById('comboItemsContainer');
-            var newRow = document.createElement('div');
-            newRow.className = 'combo-item-row row g-2 mb-2 align-items-end';
-            var selectedIds = getSelectedProductIds();
-            var optionsHtml = '<option value="">-- Chọn sản phẩm --</option>';
-            allProducts.forEach(function(product) {
+            const container = document.getElementById('comboItemsContainer');
+            const row = document.createElement('div');
+            row.className = 'combo-item-row row g-2 mb-2 align-items-end';
+
+            const selectedIds = getSelectedProductIds();
+            let optionsHtml = '<option value="">-- Chọn sản phẩm --</option>';
+            allProducts.forEach(product => {
                 if (!selectedIds.includes(product.value)) {
-                    optionsHtml += '<option value="' + product.value + '">' + product.text + '</option>';
+                    optionsHtml += `<option value="${product.value}">${product.text}</option>`;
                 }
             });
-            newRow.innerHTML = `
+
+            row.innerHTML = `
                 <div class="col-md-7">
                     <label class="form-label">Sản phẩm</label>
                     <select name="ProductIds" class="form-select product-select" required>
@@ -250,20 +242,35 @@
                 </div>
                 <div class="col-md-2">
                     <button type="button" class="btn btn-danger w-100" onclick="removeComboItem(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
-                </div>
-            `;
-            container.appendChild(newRow);
+                </div>`;
+
+            container.appendChild(row);
+            updateAllDropdowns();
         }
 
         function removeComboItem(button) {
-            var container = document.getElementById('comboItemsContainer');
-            var items = container.getElementsByClassName('combo-item-row');
+            const container = document.getElementById('comboItemsContainer');
+            const items = container.getElementsByClassName('combo-item-row');
             if (items.length > 1) {
                 button.closest('.combo-item-row').remove();
                 updateAllDropdowns();
-            } else {
-                console.warn('Cần ít nhất một sản phẩm trong combo.');
             }
         }
+
+        document.addEventListener('change', event => {
+            if (event.target.classList.contains('product-select')) {
+                updateAllDropdowns();
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const discountSelect = document.getElementById('DiscountType');
+            if (discountSelect) {
+                discountSelect.addEventListener('change', toggleDiscountField);
+            }
+
+            toggleDiscountField();
+            updateAllDropdowns();
+        });
     </script>
 }
