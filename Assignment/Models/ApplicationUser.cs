@@ -5,6 +5,11 @@ namespace Assignment.Models
 {
     public class ApplicationUser : IdentityUser
     {
+        public ApplicationUser()
+        {
+            SecurityStamp ??= Guid.NewGuid().ToString();
+        }
+
         public string FullName { get; set; }
         public DateTime? DateOfBirth { get; set; }
     }
