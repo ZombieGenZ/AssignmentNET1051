@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Microsoft.AspNetCore.Identity;
 
 namespace Assignment.Controllers
 {
@@ -13,10 +14,12 @@ namespace Assignment.Controllers
     public class OrderController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly UserManager<ApplicationUser> _userManager;
 
-        public OrderController(ApplicationDbContext context)
+        public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
+            _userManager = userManager;
         }
 
         // GET: Order/Checkout
@@ -31,9 +34,14 @@ namespace Assignment.Controllers
                 return RedirectToAction("Index", "Cart");
             }
 
+            var user = await _userManager.GetUserAsync(User);
             var order = new Order
             {
-                Name = User.Identity.Name, // Pre-fill user info if available
+                Name = !string.IsNullOrWhiteSpace(user?.FullName)
+                    ? user.FullName
+                    : User.Identity?.Name ?? string.Empty,
+                Email = user?.Email,
+                Phone = user?.PhoneNumber ?? string.Empty,
                 UserId = userId,
                 // You can pre-fill other fields like email/phone if they are in user claims
             };
@@ -59,6 +67,22 @@ namespace Assignment.Controllers
 
             ModelState.Remove("Voucher");
             ModelState.Remove("OrderItems");
+
+            if (order.PaymentType == PaymentType.PayNow)
+            {
+                if (!order.PaymentMethod.HasValue)
+                {
+                    ModelState.AddModelError("PaymentMethod", "Vui lòng chọn cổng thanh toán hợp lệ.");
+                }
+                else if (order.PaymentMethod != PaymentMethodType.Bank)
+                {
+                    ModelState.AddModelError("PaymentMethod", "Hiện tại chỉ hỗ trợ thanh toán PayNow thông qua ngân hàng.");
+                }
+            }
+            else
+            {
+                order.PaymentMethod = null;
+            }
 
             long? voucherId = null;
             if (!string.IsNullOrEmpty(order.VoucherId) && long.TryParse(order.VoucherId, out var parsedId))
@@ -137,6 +161,11 @@ namespace Assignment.Controllers
                 _context.Orders.Add(order);
                 _context.CartItems.RemoveRange(cart.CartItems);
                 await _context.SaveChangesAsync();
+
+                if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)
+                {
+                    return RedirectToAction(nameof(PayOsPayment), new { id = order.Id });
+                }
 
                 return RedirectToAction("OrderConfirmation", new { id = order.Id });
             }
@@ -217,6 +246,62 @@ namespace Assignment.Controllers
                 .ToListAsync();
 
             return View(orders);
+        }
+
+        public async Task<IActionResult> PayOsPayment(long id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var order = await _context.Orders
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Product)
+                .Include(o => o.OrderItems)
+                    .ThenInclude(oi => oi.Combo)
+                .FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
+
+            if (order == null || order.PaymentType != PaymentType.PayNow || order.PaymentMethod != PaymentMethodType.Bank)
+            {
+                return RedirectToAction(nameof(History));
+            }
+
+            return View(order);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> CompletePayOsPayment(long id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var order = await _context.Orders
+                .FirstOrDefaultAsync(o => o.Id == id
+                    && o.UserId == userId
+                    && o.PaymentType == PaymentType.PayNow
+                    && o.PaymentMethod == PaymentMethodType.Bank);
+
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            order.Status = OrderStatus.Paid;
+            order.UpdatedAt = DateTime.Now;
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(PaymentSuccess), new { id = order.Id });
+        }
+
+        public async Task<IActionResult> PaymentSuccess(long id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var order = await _context.Orders
+                .AsNoTracking()
+                .FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
+
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            return View(order);
         }
 
         // GET: Order/OrderConfirmation

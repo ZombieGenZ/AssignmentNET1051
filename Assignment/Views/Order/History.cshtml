@@ -55,11 +55,18 @@
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";
                                     string itemImage = "/images/no-image.jpg"; // Default image
+                                    bool isAvailable = true;
+                                    string? detailUrl = null;
 
                                     if (item.Product != null)
                                     {
                                         itemName = item.Product.Name;
                                         itemType = "Sản phẩm";
+                                        isAvailable = item.Product.IsPublish && !item.Product.IsDeleted;
+                                        if (isAvailable)
+                                        {
+                                            detailUrl = Url.Action("ProductDetail", "Home", new { id = item.ProductId });
+                                        }
                                         if (!string.IsNullOrEmpty(item.Product.ProductImageUrl))
                                         {
                                             itemImage = item.Product.ProductImageUrl;
@@ -69,17 +76,33 @@
                                     {
                                         itemName = item.Combo.Name;
                                         itemType = "Combo";
+                                        isAvailable = item.Combo.IsPublish && !item.Combo.IsDeleted;
+                                        if (isAvailable)
+                                        {
+                                            detailUrl = Url.Action("ComboDetail", "Home", new { id = item.ComboId });
+                                        }
                                         if (!string.IsNullOrEmpty(item.Combo.ImageUrl))
                                         {
                                             itemImage = item.Combo.ImageUrl;
                                         }
                                     }
 
+                                    var displayName = isAvailable ? itemName : $"{itemName} (Không khả dụng)";
+
                                     <li class="list-group-item d-flex justify-content-between align-items-center">
                                         <div class="d-flex align-items-center">
                                             <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
                                             <div>
-                                                <h6 class="mb-0">@itemName</h6>
+                                                <h6 class="mb-0">
+                                                    @if (!string.IsNullOrEmpty(detailUrl) && isAvailable)
+                                                    {
+                                                        <a class="text-decoration-none" href="@detailUrl">@displayName</a>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="text-muted">@displayName</span>
+                                                    }
+                                                </h6>
                                                 <small class="text-muted">@itemType</small>
                                             </div>
                                         </div>
