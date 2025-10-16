@@ -19,18 +19,9 @@
                     <div class="product-card">
                         <div class="position-relative">
                             <img src="@combo.ImageUrl" class="product-image" alt="@combo.Name" />
-                            @if (combo.DiscountType != Assignment.Enums.DiscountType.None)
+                            @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue)
                             {
-                                <span class="badge-discount">
-                                    @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent)
-                                    {
-                                        @:-@combo.Discount%
-                                    }
-                                    else
-                                    {
-                                        @:Giá sốc
-                                    }
-                                </span>
+                                <span class="badge-discount">-@combo.Discount%</span>
                             }
                         </div>
                         <div class="product-info">
@@ -67,23 +58,17 @@
                             </div>
 
                             <div class="mb-3">
-                                @if (combo.DiscountType == Assignment.Enums.DiscountType.None)
-                                {
-                                    <span class="final-price">@combo.Price.ToString("N0") ₫</span>
-                                }
-                                else if (combo.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                @{ var finalPrice = PriceCalculator.GetComboFinalPrice(combo); }
+                                @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue)
                                 {
                                     <div>
                                         <span class="original-price">@combo.Price.ToString("N0") ₫</span>
                                     </div>
-                                    <span class="final-price">@((combo.Price - (combo.Price * combo.Discount.Value / 100)).ToString("N0")) ₫</span>
+                                    <span class="final-price">@finalPrice.ToString("N0") ₫</span>
                                 }
                                 else
                                 {
-                                    <div>
-                                        <span class="original-price">@combo.Price.ToString("N0") ₫</span>
-                                    </div>
-                                    <span class="final-price">@combo.Discount.Value.ToString("N0") ₫</span>
+                                    <span class="final-price">@finalPrice.ToString("N0") ₫</span>
                                 }
                             </div>
 

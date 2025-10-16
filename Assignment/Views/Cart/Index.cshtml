@@ -62,13 +62,13 @@
 
                                             if (item.Product != null)
                                             {
-                                                itemPrice = item.Product.Price;
+                                                itemPrice = PriceCalculator.GetProductFinalPrice(item.Product);
                                                 itemName = item.Product.Name;
                                                 itemImage = item.Product.ProductImageUrl ?? "/images/no-image.jpg";
                                             }
                                             else if (item.Combo != null)
                                             {
-                                                itemPrice = item.Combo.Price;
+                                                itemPrice = PriceCalculator.GetComboFinalPrice(item.Combo);
                                                 itemName = item.Combo.Name;
                                                 itemImage = item.Combo.ImageUrl ?? "/images/no-image.jpg";
                                             }

@@ -6,7 +6,13 @@
     double totalPrice = 0;
     if (cart != null)
     {
-        totalPrice = cart.CartItems.Sum(item => (item.Product?.Price ?? item.Combo?.Price ?? 0) * item.Quantity);
+        totalPrice = cart.CartItems.Sum(item =>
+        {
+            var unitPrice = item.Product != null
+                ? PriceCalculator.GetProductFinalPrice(item.Product)
+                : PriceCalculator.GetComboFinalPrice(item.Combo);
+            return unitPrice * item.Quantity;
+        });
     }
     // Get the integer value for PayNow (which is 0 by default) for use in JavaScript
     int payNowValue = (int)PaymentType.PayNow;
@@ -87,7 +93,9 @@
                             <ul class="list-group list-group-flush mb-3">
                                 @foreach (var item in cart.CartItems)
                                 {
-                                    var itemPrice = item.Product?.Price ?? item.Combo?.Price ?? 0;
+                                    var itemPrice = item.Product != null
+                                        ? PriceCalculator.GetProductFinalPrice(item.Product)
+                                        : PriceCalculator.GetComboFinalPrice(item.Combo);
                                     var itemTotal = itemPrice * item.Quantity;
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";

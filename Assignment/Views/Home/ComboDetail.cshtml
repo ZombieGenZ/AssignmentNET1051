@@ -172,32 +172,26 @@
                     <span class="ms-2">@Model.AverageEvaluate.ToString("0.0") (@Model.TotalEvaluate đánh giá)</span>
                 </div>
 
+                @{ 
+                    var hasDiscount = Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue;
+                    var finalPrice = PriceCalculator.GetComboFinalPrice(Model);
+                    var savings = Math.Max(Model.Price - finalPrice, 0);
+                }
                 <div class="price-section">
-                    @if (Model.DiscountType == Assignment.Enums.DiscountType.None)
-                    {
-                        <div class="final-price">@Model.Price.ToString("N0") ₫</div>
-                    }
-                    else if (Model.DiscountType == Assignment.Enums.DiscountType.Percent)
+                    @if (hasDiscount)
                     {
                         <div class="mb-2">
                             <span class="badge-large">-@Model.Discount%</span>
                         </div>
                         <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
-                        <div class="final-price">@((Model.Price - (Model.Price * Model.Discount.Value / 100)).ToString("N0")) ₫</div>
+                        <div class="final-price">@finalPrice.ToString("N0") ₫</div>
                         <div class="mt-2 text-success">
-                            <i class="fas fa-tag"></i> Tiết kiệm @((Model.Price * Model.Discount.Value / 100).ToString("N0")) ₫
+                            <i class="fas fa-tag"></i> Tiết kiệm @savings.ToString("N0") ₫
                         </div>
                     }
                     else
                     {
-                        <div class="mb-2">
-                            <span class="badge-large">Giá đặc biệt</span>
-                        </div>
-                        <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
-                        <div class="final-price">@Model.Discount.Value.ToString("N0") ₫</div>
-                        <div class="mt-2 text-success">
-                            <i class="fas fa-tag"></i> Tiết kiệm @((Model.Price - Model.Discount.Value).ToString("N0")) ₫
-                        </div>
+                        <div class="final-price">@finalPrice.ToString("N0") ₫</div>
                     }
                 </div>
 
