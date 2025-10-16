@@ -16,8 +16,6 @@
     }
     // Get the integer value for PayNow (which is 0 by default) for use in JavaScript
     int payNowValue = (int)PaymentType.PayNow;
-    int cashPaymentMethodValue = (int)PaymentMethodType.Cash;
-    int bankPaymentMethodValue = (int)PaymentMethodType.Bank;
 }
 
 <div class="container my-5">
@@ -179,70 +177,19 @@
 
             // 1. Pass PayNow enum value to JavaScript (default integer is 0)
             const PAYNOW_VALUE = '@payNowValue'.toString();
-            const CASH_VALUE = '@cashPaymentMethodValue'.toString();
-            const BANK_VALUE = '@bankPaymentMethodValue'.toString();
             const paymentTypeSelect = $('#PaymentType');
             const paymentMethodContainer = $('#paymentMethodContainer');
-            const paymentMethodSelect = $('#PaymentMethod');
             const initialSubtotal = @totalPrice;
-
-            const initialPaymentMethodOptions = paymentMethodSelect.find('option').map(function () {
-                return {
-                    value: $(this).val(),
-                    text: $(this).text()
-                };
-            }).get();
-
-            let cachedNonPayNowMethod = paymentMethodSelect.val();
-
-            function rebuildPaymentMethodOptions(isPayNow) {
-                paymentMethodSelect.empty();
-
-                if (isPayNow) {
-                    const payNowOptions = initialPaymentMethodOptions
-                        .filter(opt => opt.value !== CASH_VALUE)
-                        .map(opt => {
-                            if (opt.value === BANK_VALUE) {
-                                return { ...opt, disabled: false };
-                            }
-
-                            return { ...opt, disabled: true, text: `${opt.text} (Không khả dụng)` };
-                        });
-
-                    payNowOptions.forEach(opt => {
-                        const option = $('<option></option>').val(opt.value).text(opt.text);
-                        if (opt.disabled) {
-                            option.prop('disabled', true);
-                        }
-
-                        paymentMethodSelect.append(option);
-                    });
-
-                    paymentMethodSelect.val(BANK_VALUE);
-                    cachedNonPayNowMethod = cachedNonPayNowMethod || BANK_VALUE;
-                } else {
-                    initialPaymentMethodOptions.forEach(opt => {
-                        const option = $('<option></option>').val(opt.value).text(opt.text);
-                        paymentMethodSelect.append(option);
-                    });
-
-                    if (cachedNonPayNowMethod) {
-                        paymentMethodSelect.val(cachedNonPayNowMethod);
-                    }
-                }
-            }
 
             // Function to toggle visibility of Payment Method fields
             function togglePaymentMethodFields() {
-                const isPayNow = paymentTypeSelect.val() === PAYNOW_VALUE;
-
-                if (isPayNow) {
+                // Check if the selected value matches the PayNow value (0)
+                // Note: The value from the select element is always a string.
+                if (paymentTypeSelect.val() === PAYNOW_VALUE) {
                     paymentMethodContainer.slideDown();
                 } else {
                     paymentMethodContainer.slideUp();
                 }
-
-                rebuildPaymentMethodOptions(isPayNow);
             }
 
             // Initial state setup: Run once on load to set the correct visibility
@@ -250,12 +197,6 @@
 
             // Event listener: Toggle visibility whenever PaymentType selection changes
             paymentTypeSelect.on('change', togglePaymentMethodFields);
-
-            paymentMethodSelect.on('change', function () {
-                if (paymentTypeSelect.val() !== PAYNOW_VALUE) {
-                    cachedNonPayNowMethod = $(this).val();
-                }
-            });
 
 
             // --- Existing Voucher Logic ---

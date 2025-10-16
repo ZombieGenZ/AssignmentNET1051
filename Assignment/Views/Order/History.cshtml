@@ -55,8 +55,6 @@
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";
                                     string itemImage = "/images/no-image.jpg"; // Default image
-                                    bool isAvailable = false;
-                                    string? detailUrl = null;
 
                                     if (item.Product != null)
                                     {
@@ -65,12 +63,6 @@
                                         if (!string.IsNullOrEmpty(item.Product.ProductImageUrl))
                                         {
                                             itemImage = item.Product.ProductImageUrl;
-                                        }
-
-                                        isAvailable = item.Product.IsPublish && !item.Product.IsDeleted;
-                                        if (isAvailable)
-                                        {
-                                            detailUrl = Url.Action("ProductDetail", "Home", new { id = item.Product.Id });
                                         }
                                     }
                                     else if (item.Combo != null)
@@ -81,41 +73,17 @@
                                         {
                                             itemImage = item.Combo.ImageUrl;
                                         }
-
-                                        isAvailable = item.Combo.IsPublish && !item.Combo.IsDeleted;
-                                        if (isAvailable)
-                                        {
-                                            detailUrl = Url.Action("ComboDetail", "Home", new { id = item.Combo.Id });
-                                        }
                                     }
 
-                                    <li class="list-group-item px-0">
-                                        @if (isAvailable && !string.IsNullOrEmpty(detailUrl))
-                                        {
-                                            <a href="@detailUrl" class="d-flex justify-content-between align-items-center text-decoration-none text-body px-3">
-                                                <div class="d-flex align-items-center">
-                                                    <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
-                                                    <div>
-                                                        <h6 class="mb-0">@itemName</h6>
-                                                        <small class="text-muted">@itemType</small>
-                                                    </div>
-                                                </div>
-                                                <span>@item.Quantity x @item.Price.ToString("N0") đ</span>
-                                            </a>
-                                        }
-                                        else
-                                        {
-                                            <div class="d-flex justify-content-between align-items-center px-3">
-                                                <div class="d-flex align-items-center text-muted">
-                                                    <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3 opacity-75" style="width: 60px; height: 60px; object-fit: cover;">
-                                                    <div>
-                                                        <h6 class="mb-0">@itemName <span class="text-muted">(Không khả dụng)</span></h6>
-                                                        <small class="text-muted">@itemType</small>
-                                                    </div>
-                                                </div>
-                                                <span class="text-muted">@item.Quantity x @item.Price.ToString("N0") đ</span>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <div class="d-flex align-items-center">
+                                            <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                            <div>
+                                                <h6 class="mb-0">@itemName</h6>
+                                                <small class="text-muted">@itemType</small>
                                             </div>
-                                        }
+                                        </div>
+                                        <span>@item.Quantity x @item.Price.ToString("N0") đ</span>
                                     </li>
                                 }
                             </ul>

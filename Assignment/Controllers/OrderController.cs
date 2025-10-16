@@ -3,7 +3,6 @@ using Assignment.Enums;
 using Assignment.Models;
 using Assignment.Services;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
@@ -14,12 +13,10 @@ namespace Assignment.Controllers
     public class OrderController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly UserManager<IdentityUser> _userManager;
 
-        public OrderController(ApplicationDbContext context, UserManager<IdentityUser> userManager)
+        public OrderController(ApplicationDbContext context)
         {
             _context = context;
-            _userManager = userManager;
         }
 
         // GET: Order/Checkout
@@ -34,15 +31,11 @@ namespace Assignment.Controllers
                 return RedirectToAction("Index", "Cart");
             }
 
-            var user = await _userManager.GetUserAsync(User);
-            var applicationUser = user as ApplicationUser;
-
             var order = new Order
             {
-                Name = applicationUser?.FullName ?? user?.UserName ?? User.Identity?.Name ?? string.Empty,
-                Email = user?.Email,
-                Phone = user?.PhoneNumber ?? string.Empty,
+                Name = User.Identity.Name, // Pre-fill user info if available
                 UserId = userId,
+                // You can pre-fill other fields like email/phone if they are in user claims
             };
 
             ViewBag.Cart = cart; // Pass cart data to the view for summary
@@ -71,18 +64,6 @@ namespace Assignment.Controllers
             if (!string.IsNullOrEmpty(order.VoucherId) && long.TryParse(order.VoucherId, out var parsedId))
             {
                 voucherId = parsedId;
-            }
-
-            if (order.PaymentType == PaymentType.PayNow)
-            {
-                if (order.PaymentMethod != PaymentMethodType.Bank)
-                {
-                    order.PaymentMethod = PaymentMethodType.Bank;
-                }
-            }
-            else
-            {
-                order.PaymentMethod = null;
             }
 
             if (ModelState.IsValid)
