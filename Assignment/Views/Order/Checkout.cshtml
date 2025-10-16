@@ -16,6 +16,8 @@
     }
     // Get the integer value for PayNow (which is 0 by default) for use in JavaScript
     int payNowValue = (int)PaymentType.PayNow;
+    int paymentMethodCashValue = (int)PaymentMethodType.Cash;
+    int paymentMethodBankValue = (int)PaymentMethodType.Bank;
 }
 
 <div class="container my-5">
@@ -179,13 +181,52 @@
             const PAYNOW_VALUE = '@payNowValue'.toString();
             const paymentTypeSelect = $('#PaymentType');
             const paymentMethodContainer = $('#paymentMethodContainer');
+            const paymentMethodSelect = $('#PaymentMethod');
             const initialSubtotal = @totalPrice;
+
+            paymentMethodSelect.find('option').each(function () {
+                const option = $(this);
+                option.attr('data-original-text', option.text());
+            });
+
+            function updatePaymentMethods(isPayNow) {
+                paymentMethodSelect.find('option').each(function () {
+                    const option = $(this);
+                    const originalText = option.attr('data-original-text');
+                    if (originalText) {
+                        option.text(originalText);
+                    }
+                    option.prop('disabled', false).prop('hidden', false);
+                });
+
+                if (isPayNow) {
+                    paymentMethodSelect.find(`option[value='@paymentMethodCashValue']`).prop('disabled', true).prop('hidden', true);
+
+                    paymentMethodSelect.find(`option`).each(function () {
+                        const option = $(this);
+                        const value = option.val();
+                        if (value && value !== '@paymentMethodBankValue') {
+                            option.prop('disabled', true);
+                            const originalText = option.attr('data-original-text');
+                            option.text(`${originalText} (Không khả dụng)`);
+                        }
+                    });
+
+                    paymentMethodSelect.val('@paymentMethodBankValue');
+                }
+                else {
+                    paymentMethodSelect.val('');
+                }
+            }
 
             // Function to toggle visibility of Payment Method fields
             function togglePaymentMethodFields() {
                 // Check if the selected value matches the PayNow value (0)
                 // Note: The value from the select element is always a string.
-                if (paymentTypeSelect.val() === PAYNOW_VALUE) {
+                const isPayNow = paymentTypeSelect.val() === PAYNOW_VALUE;
+                updatePaymentMethods(isPayNow);
+
+                if (isPayNow) {
                     paymentMethodContainer.slideDown();
                 } else {
                     paymentMethodContainer.slideUp();
