@@ -1,7 +1,7 @@
+using Assignment.Models;
 using System;
 using System.Collections.Generic;
 using Assignment.Enums;
-using Assignment.Models;
 
 namespace Assignment.Services
 {
