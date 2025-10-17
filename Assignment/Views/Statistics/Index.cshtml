@@ -1,0 +1,219 @@
+@using Assignment.Enums
+@using Assignment.ViewModels.Statistics
+@using System.Linq
+@using System.Text.Json
+@model StatisticsViewModel
+
+@{
+    ViewData["Title"] = "Thống kê";
+    var labelsJson = JsonSerializer.Serialize(Model.PrimarySeries.DataPoints.Select(p => p.Label));
+    var primaryRevenueJson = JsonSerializer.Serialize(Model.PrimarySeries.DataPoints.Select(p => Math.Round(p.TotalBill, 2)));
+    var compareRevenueJson = Model.CompareSeries != null
+        ? JsonSerializer.Serialize(Model.CompareSeries.DataPoints.Select(p => Math.Round(p.TotalBill, 2)))
+        : "null";
+
+    string GetPeriodTypeLabel(StatisticsPeriodType type) => type switch
+    {
+        StatisticsPeriodType.Hour => "Theo giờ",
+        StatisticsPeriodType.Day => "Theo ngày",
+        StatisticsPeriodType.Month => "Theo tháng",
+        StatisticsPeriodType.Quarter => "Theo quý",
+        StatisticsPeriodType.Year => "Theo năm",
+        _ => type.ToString()
+    };
+
+    var exportUrl = Url.Action("Export", new
+    {
+        Model.Filter.PeriodType,
+        PrimaryStart = Model.Filter.PrimaryStart?.ToString("yyyy-MM-dd"),
+        PrimaryEnd = Model.Filter.PrimaryEnd?.ToString("yyyy-MM-dd"),
+        CompareStart = Model.CompareSeries != null ? Model.Filter.CompareStart?.ToString("yyyy-MM-dd") : null,
+        CompareEnd = Model.CompareSeries != null ? Model.Filter.CompareEnd?.ToString("yyyy-MM-dd") : null
+    });
+}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 mb-1">Thống kê doanh thu</h1>
+        <p class="text-muted mb-0">Bộ lọc @GetPeriodTypeLabel(Model.Filter.PeriodType).</p>
+    </div>
+    <a class="btn btn-outline-secondary" href="@exportUrl"><i class="fas fa-file-export me-2"></i>Xuất báo cáo</a>
+</div>
+
+<form class="row g-3 mb-4" method="get">
+    <div class="col-md-3">
+        <label asp-for="Filter.PeriodType" class="form-label">Kiểu thống kê</label>
+        <select asp-for="Filter.PeriodType" class="form-select" asp-items="Html.GetEnumSelectList<StatisticsPeriodType>()"></select>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Filter.PrimaryStart" class="form-label">Bắt đầu</label>
+        <input asp-for="Filter.PrimaryStart" class="form-control" type="date" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Filter.PrimaryEnd" class="form-label">Kết thúc</label>
+        <input asp-for="Filter.PrimaryEnd" class="form-control" type="date" />
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <button class="btn btn-primary w-100" type="submit"><i class="fas fa-filter me-2"></i>Áp dụng bộ lọc</button>
+    </div>
+    <div class="col-12">
+        <div class="border-top pt-3 mt-2">
+            <h2 class="h6 text-uppercase text-muted">So sánh</h2>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Filter.CompareStart" class="form-label">Bắt đầu (so sánh)</label>
+        <input asp-for="Filter.CompareStart" class="form-control" type="date" />
+    </div>
+    <div class="col-md-3">
+        <label asp-for="Filter.CompareEnd" class="form-label">Kết thúc (so sánh)</label>
+        <input asp-for="Filter.CompareEnd" class="form-control" type="date" />
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <div class="form-text">Để trống nếu không cần so sánh.</div>
+    </div>
+</form>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="card-title h6 text-muted text-uppercase">Tổng doanh thu</h2>
+                <p class="display-6 fw-semibold text-primary">@Model.PrimarySeries.TotalBill.ToString("N0") đ</p>
+                @if (Model.CompareSeries != null)
+                {
+                    <p class="mb-0 text-muted">So sánh: @Model.CompareSeries.TotalBill.ToString("N0") đ</p>
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-body">
+                <h2 class="card-title h6 text-muted text-uppercase">Tổng số lượng</h2>
+                <p class="display-6 fw-semibold">@Model.PrimarySeries.TotalQuantity</p>
+                @if (Model.CompareSeries != null)
+                {
+                    <p class="mb-0 text-muted">So sánh: @Model.CompareSeries.TotalQuantity</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+    <div class="card-body">
+        <h2 class="card-title h5">Biểu đồ doanh thu</h2>
+        <canvas id="revenueChart"></canvas>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-body">
+        <h2 class="card-title h5">Chi tiết thống kê</h2>
+        <div class="table-responsive">
+            <table class="table table-striped align-middle">
+                <thead>
+                    <tr>
+                        <th>Nhãn</th>
+                        <th class="text-end">Số lượng</th>
+                        <th class="text-end">Doanh thu</th>
+                        @if (Model.CompareSeries != null)
+                        {
+                            <th class="text-end">Số lượng (so sánh)</th>
+                            <th class="text-end">Doanh thu (so sánh)</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @for (var i = 0; i < Model.PrimarySeries.DataPoints.Count; i++)
+                    {
+                        var primary = Model.PrimarySeries.DataPoints[i];
+                        <tr>
+                            <td>@primary.Label</td>
+                            <td class="text-end">@primary.TotalQuantity</td>
+                            <td class="text-end">@primary.TotalBill.ToString("N0") đ</td>
+                            @if (Model.CompareSeries != null)
+                            {
+                                var comparePoint = Model.CompareSeries.DataPoints.ElementAtOrDefault(i);
+                                if (comparePoint != null)
+                                {
+                                    <td class="text-end">@comparePoint.TotalQuantity</td>
+                                    <td class="text-end">@comparePoint.TotalBill.ToString("N0") đ</td>
+                                }
+                                else
+                                {
+                                    <td class="text-end">0</td>
+                                    <td class="text-end">0 đ</td>
+                                }
+                            }
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const revenueLabels = @Html.Raw(labelsJson);
+        const primaryRevenue = @Html.Raw(primaryRevenueJson);
+        const compareRevenue = @Html.Raw(compareRevenueJson);
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+
+        const datasets = [
+            {
+                label: 'Doanh thu',
+                data: primaryRevenue,
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            }
+        ];
+
+        if (Array.isArray(compareRevenue)) {
+            datasets.push({
+                label: 'Doanh thu (so sánh)',
+                data: compareRevenue,
+                backgroundColor: 'rgba(54, 162, 235, 0.2)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 2,
+                tension: 0.3,
+                fill: true
+            });
+        }
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: revenueLabels,
+                datasets
+            },
+            options: {
+                responsive: true,
+                interaction: {
+                    mode: 'index',
+                    intersect: false
+                },
+                scales: {
+                    y: {
+                        ticks: {
+                            callback: value => value.toLocaleString('vi-VN') + ' đ'
+                        }
+                    }
+                },
+                plugins: {
+                    tooltip: {
+                        callbacks: {
+                            label: context => `${context.dataset.label}: ${context.parsed.y.toLocaleString('vi-VN')} đ`
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+}
