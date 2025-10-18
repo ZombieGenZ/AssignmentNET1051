@@ -43,10 +43,25 @@
                             }
                         </dd>
 
-                        @if (Model.Type == VoucherType.Private && !string.IsNullOrEmpty(Model.UserId))
+                        @if (Model.Type == VoucherType.Private)
                         {
+                            var voucherUsers = ViewData["VoucherUserEmails"] as System.Collections.Generic.List<string> ?? new System.Collections.Generic.List<string>();
                             <dt class="col-sm-4">Người dùng</dt>
-                            <dd class="col-sm-8">@ViewData["UserEmail"]</dd>
+                            <dd class="col-sm-8">
+                                @if (voucherUsers.Any())
+                                {
+                                    <ul class="list-unstyled mb-0">
+                                        @foreach (var email in voucherUsers)
+                                        {
+                                            <li><i class="fas fa-user me-2 text-primary"></i>@email</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Chưa có người dùng nào được gán.</span>
+                                }
+                            </dd>
                         }
 
                         <dt class="col-sm-4">@Html.DisplayNameFor(model => model.DiscountType)</dt>

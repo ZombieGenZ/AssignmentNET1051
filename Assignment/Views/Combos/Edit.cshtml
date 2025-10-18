@@ -129,7 +129,21 @@
                         </div>
 
                         <hr />
-                        <h5 class="mb-3">Sản phẩm trong Combo</h5>
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+                            <h5 class="mb-0">Sản phẩm trong Combo</h5>
+                            <div class="btn-group" role="group" aria-label="Combo item helpers">
+                                <a class="btn btn-outline-primary btn-sm" asp-action="DownloadComboTemplate">
+                                    <i class="fas fa-file-download me-1"></i>Tải file mẫu
+                                </a>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="triggerComboImport()">
+                                    <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllComboItems()">
+                                    <i class="fas fa-trash me-1"></i>Xóa toàn bộ
+                                </button>
+                            </div>
+                        </div>
+                        <input type="file" id="comboImportInput" class="d-none" accept=".csv" />
                         <div id="comboItemsContainer">
                             @for (var index = 0; index < comboItems.Count; index++)
                             {
@@ -200,64 +214,65 @@
             }
         }
 
-        function getSelectedProductIds() {
+        function getSelectedProductIds(excludeElement) {
             const selectedIds = [];
             document.querySelectorAll('.product-select').forEach(select => {
-                if (select.value) {
+                if (select !== excludeElement && select.value) {
                     selectedIds.push(select.value);
                 }
             });
             return selectedIds;
         }
 
+        function buildProductOptions(selectedValue, excludeElement) {
+            const selectedIds = getSelectedProductIds(excludeElement);
+            let optionsHtml = '<option value="">-- Chọn sản phẩm --</option>';
+
+            allProducts.forEach(product => {
+                if (product.value === selectedValue || !selectedIds.includes(product.value)) {
+                    const selectedAttr = product.value === selectedValue ? ' selected' : '';
+                    optionsHtml += `<option value="${product.value ?? ''}"${selectedAttr}>${product.text ?? ''}</option>`;
+                }
+            });
+
+            return optionsHtml;
+        }
+
         function updateAllDropdowns() {
-            const selectedIds = getSelectedProductIds();
             document.querySelectorAll('.product-select').forEach(select => {
                 const currentValue = select.value;
-                select.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
-                allProducts.forEach(product => {
-                    if (product.value === currentValue || !selectedIds.includes(product.value)) {
-                        const option = document.createElement('option');
-                        option.value = product.value ?? '';
-                        option.text = product.text ?? '';
-                        if (product.value === currentValue) {
-                            option.selected = true;
-                        }
-                        select.appendChild(option);
-                    }
-                });
+                select.innerHTML = buildProductOptions(currentValue, select);
+                select.value = currentValue;
             });
         }
 
-        function addComboItem() {
+        function addComboItem(productId = '', quantity = 1) {
             const container = document.getElementById('comboItemsContainer');
             const row = document.createElement('div');
             row.className = 'combo-item-row row g-2 mb-2 align-items-end';
-
-            const selectedIds = getSelectedProductIds();
-            let optionsHtml = '<option value="">-- Chọn sản phẩm --</option>';
-            allProducts.forEach(product => {
-                if (!selectedIds.includes(product.value)) {
-                    optionsHtml += `<option value="${product.value}">${product.text}</option>`;
-                }
-            });
 
             row.innerHTML = `
                 <div class="col-md-7">
                     <label class="form-label">Sản phẩm</label>
                     <select name="ProductIds" class="form-select product-select" required>
-                        ${optionsHtml}
+                        ${buildProductOptions(productId)}
                     </select>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Số lượng</label>
-                    <input type="number" name="Quantities" class="form-control" min="1" value="1" required />
+                    <input type="number" name="Quantities" class="form-control" min="1" value="${quantity ?? 1}" required />
                 </div>
                 <div class="col-md-2">
                     <button type="button" class="btn btn-danger w-100" onclick="removeComboItem(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
                 </div>`;
 
             container.appendChild(row);
+
+            const select = row.querySelector('select[name="ProductIds"]');
+            select.value = productId ?? '';
+            const quantityInput = row.querySelector('input[name="Quantities"]');
+            quantityInput.value = quantity ?? 1;
+
             updateAllDropdowns();
         }
 
@@ -270,6 +285,95 @@
             }
         }
 
+        function clearAllComboItems(addDefault = true) {
+            const container = document.getElementById('comboItemsContainer');
+            container.innerHTML = '';
+            if (addDefault) {
+                addComboItem();
+            } else {
+                updateAllDropdowns();
+            }
+        }
+
+        function triggerComboImport() {
+            const input = document.getElementById('comboImportInput');
+            if (input) {
+                input.value = '';
+                input.click();
+            }
+        }
+
+        function handleComboImport(event) {
+            const file = event.target?.files?.[0];
+            if (!file) {
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target?.result;
+                if (typeof content !== 'string') {
+                    return;
+                }
+
+                const lines = content
+                    .split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+
+                if (!lines.length) {
+                    alert('Không tìm thấy dữ liệu hợp lệ trong file.');
+                    return;
+                }
+
+                const items = [];
+                const seenProductIds = new Set();
+                let skippedHeader = false;
+
+                lines.forEach(line => {
+                    const parts = line.split(/[;,\t]/).map(part => part.trim());
+                    if (!skippedHeader && parts[0] && parts[0].toLowerCase().includes('product')) {
+                        skippedHeader = true;
+                        return;
+                    }
+
+                    if (parts.length < 2) {
+                        return;
+                    }
+
+                    const productId = parts[0];
+                    const quantityValue = parts[1];
+
+                    if (!productId || seenProductIds.has(productId)) {
+                        return;
+                    }
+
+                    if (!allProducts.some(product => product.value === productId)) {
+                        return;
+                    }
+
+                    const quantity = parseInt(quantityValue, 10);
+                    if (!Number.isFinite(quantity) || quantity <= 0) {
+                        return;
+                    }
+
+                    items.push({ productId, quantity });
+                    seenProductIds.add(productId);
+                });
+
+                if (!items.length) {
+                    alert('Không tìm thấy sản phẩm hợp lệ trong file.');
+                    return;
+                }
+
+                clearAllComboItems(false);
+                items.forEach(item => addComboItem(item.productId, item.quantity));
+                updateAllDropdowns();
+            };
+
+            reader.readAsText(file);
+        }
+
         document.addEventListener('change', event => {
             if (event.target.classList.contains('product-select')) {
                 updateAllDropdowns();
@@ -277,11 +381,8 @@
         });
 
         document.addEventListener('DOMContentLoaded', () => {
-            const discountSelect = document.getElementById('DiscountType');
-            if (discountSelect) {
-                discountSelect.addEventListener('change', toggleDiscountField);
-            }
-
+            document.getElementById('DiscountType')?.addEventListener('change', toggleDiscountField);
+            document.getElementById('comboImportInput')?.addEventListener('change', handleComboImport);
             toggleDiscountField();
             updateAllDropdowns();
         });

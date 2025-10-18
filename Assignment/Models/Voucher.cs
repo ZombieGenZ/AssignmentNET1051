@@ -1,4 +1,5 @@
-﻿using Assignment.Enums;
+using Assignment.Enums;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -46,5 +47,6 @@ namespace Assignment.Models
         public bool UnlimitedPercentageDiscount { get; set; } = false;
         [Range(0, double.MaxValue)]
         public double? MaximumPercentageReduction { get; set; }
+        public virtual ICollection<VoucherUser>? VoucherUsers { get; set; }
     }
 }

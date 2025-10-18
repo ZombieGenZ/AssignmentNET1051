@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Security.Claims;
+using System.Text;
 using Assignment.Extensions;
 
 namespace Assignment.Controllers
@@ -408,6 +409,23 @@ namespace Assignment.Controllers
         private bool ComboExists(long id)
         {
             return _context.Combos.Any(e => e.Id == id && !e.IsDeleted);
+        }
+
+        [HttpGet]
+        public IActionResult DownloadComboTemplate()
+        {
+            if (!User.HasAnyPermission("CreateCombo", "CreateComboAll", "UpdateCombo", "UpdateComboAll"))
+            {
+                return Forbid();
+            }
+
+            const string fileName = "combo_items_template.csv";
+            var csvBuilder = new StringBuilder();
+            csvBuilder.AppendLine("ProductId,Quantity");
+            csvBuilder.AppendLine("1,1");
+
+            var bytes = Encoding.UTF8.GetBytes(csvBuilder.ToString());
+            return File(bytes, "text/csv", fileName);
         }
 
         [NonAction]
