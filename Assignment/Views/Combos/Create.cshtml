@@ -145,7 +145,7 @@
                                 </button>
                             </div>
                         </div>
-                        <input type="file" id="comboImportInput" class="d-none" accept=".xlsx,.xls" />
+                        <input type="file" id="comboImportInput" class="d-none" accept=".xlsx,.xls,.csv" />
                         <div id="comboItemsContainer">
                             @for (var index = 0; index < comboItems.Count; index++)
                             {
@@ -194,7 +194,7 @@
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha512-tHjvVwo76mxjSPdZRhqUTrWyd4InENcy+XUG6uHgnIY7M1bRnbV0wOYAV/QXpVZl8vLwawxDFUY8ailqXF/w3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <partial name="_XlsxScriptPartial" />
     <script>
         const allProducts = @Html.Raw(productOptionsJson);
 
