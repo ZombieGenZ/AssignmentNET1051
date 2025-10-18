@@ -1,11 +1,26 @@
+@using Assignment.Enums
 @using Assignment.Models
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using System.Collections.Generic
+@using System.Linq
+@using System.Text.Json
 @model Assignment.Models.Voucher
 @inject UserManager<ApplicationUser> UserManager
 
 @{
     ViewData["Title"] = "Tạo Voucher";
     Layout = "_AdminLayout";
+
+    var selectedUserIds = ViewData["SelectedUserIds"] as List<string> ?? new List<string>();
+    var users = (IEnumerable<SelectListItem>?)ViewBag.Users ?? Enumerable.Empty<SelectListItem>();
+
+    if (!selectedUserIds.Any())
+    {
+        selectedUserIds.Add(string.Empty);
+    }
+
+    var userOptionsJson = JsonSerializer.Serialize(users.Select(u => new { value = u.Value, text = u.Text }));
 }
 
 <!-- Thêm link Font Awesome để sử dụng icons -->
@@ -48,22 +63,56 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label asp-for="Type" class="form-label"></label>
-                                <select asp-for="Type" class="form-select" id="VoucherType" asp-items="Html.GetEnumSelectList<Assignment.Enums.VoucherType>()"></select>
+                                <select asp-for="Type" class="form-select" id="VoucherType" asp-items="Html.GetEnumSelectList<VoucherType>()"></select>
                                 <span asp-validation-for="Type" class="text-danger"></span>
                             </div>
-                            <div class="col-md-6 mb-3" id="UserIdField" style="display: none;">
-                                <label asp-for="UserId" class="form-label">Người dùng</label>
-                                <select asp-for="UserId" class="form-select" id="UserIdInput" asp-items="ViewBag.UserId">
-                                    <option value="">-- Chọn người dùng --</option>
-                                </select>
-                                <span asp-validation-for="UserId" class="text-danger"></span>
+                        </div>
+
+                        <div class="mb-3" id="PrivateUserSection" style="display: none;">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <h5 class="mb-0">Người dùng áp dụng</h5>
+                                <div class="btn-group" role="group" aria-label="Voucher user helpers">
+                                    <a class="btn btn-outline-primary btn-sm" asp-action="DownloadVoucherTemplate">
+                                        <i class="fas fa-file-download me-1"></i>Tải file mẫu
+                                    </a>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="triggerVoucherImport()">
+                                        <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllVoucherUsers()">
+                                        <i class="fas fa-trash me-1"></i>Xóa toàn bộ
+                                    </button>
+                                </div>
                             </div>
+                            <input type="file" id="voucherImportInput" class="d-none" accept=".csv" />
+                            <div id="voucherUsersContainer" class="mt-2">
+                                @for (var index = 0; index < selectedUserIds.Count; index++)
+                                {
+                                    var userId = selectedUserIds[index];
+                                    <div class="voucher-user-row row g-2 mb-2 align-items-end">
+                                        <div class="col-md-10">
+                                            <label class="form-label">Người dùng</label>
+                                            <select name="UserIds" class="form-select voucher-user-select" required>
+                                                <option value="">-- Chọn người dùng --</option>
+                                                @foreach (var user in users)
+                                                {
+                                                    var isSelected = string.Equals(user.Value, userId, StringComparison.Ordinal);
+                                                    <option value="@user.Value" selected="@(isSelected ? "selected" : null)">@user.Text</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-danger w-100" onclick="removeVoucherUser(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm mt-2" onclick="addVoucherUser()"><i class="fas fa-plus"></i> Thêm người dùng</button>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label asp-for="DiscountType" class="form-label"></label>
-                                <select asp-for="DiscountType" class="form-select" id="DiscountType" asp-items="Html.GetEnumSelectList<Assignment.Enums.VoucherDiscountType>()"></select>
+                                <select asp-for="DiscountType" class="form-select" id="DiscountType" asp-items="Html.GetEnumSelectList<VoucherDiscountType>()"></select>
                                 <span asp-validation-for="DiscountType" class="text-danger"></span>
                             </div>
                             <div class="col-md-6 mb-3">
@@ -141,70 +190,222 @@
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            function toggleVoucherTypeField() {
-                var voucherType = document.getElementById('VoucherType').value;
-                var userIdField = document.getElementById('UserIdField');
-                var userIdInput = document.getElementById('UserIdInput');
-                if (voucherType === '1') {
-                    userIdField.style.display = 'block';
-                    userIdInput.setAttribute('required', 'required');
-                } else {
-                    userIdField.style.display = 'none';
-                    userIdInput.removeAttribute('required');
-                    userIdInput.value = '';
-                }
+        const allUsers = @Html.Raw(userOptionsJson);
+
+        function toggleVoucherTypeField() {
+            const voucherType = document.getElementById('VoucherType').value;
+            const userSection = document.getElementById('PrivateUserSection');
+            const selects = document.querySelectorAll('.voucher-user-select');
+
+            if (voucherType === '1') {
+                userSection.style.display = 'block';
+                selects.forEach(select => select.setAttribute('required', 'required'));
+            } else {
+                userSection.style.display = 'none';
+                selects.forEach(select => select.removeAttribute('required'));
             }
+        }
 
-            function toggleEndTimeField() {
-                var isLifeTime = document.getElementById('IsLifeTime').checked;
-                var endTimeField = document.getElementById('EndTimeField');
-                var endTimeInput = document.getElementById('EndTimeInput');
+        function toggleEndTimeField() {
+            const isLifeTime = document.getElementById('IsLifeTime').checked;
+            const endTimeField = document.getElementById('EndTimeField');
+            const endTimeInput = document.getElementById('EndTimeInput');
 
-                if (isLifeTime) {
-                    endTimeField.style.display = 'none';
-                    endTimeInput.removeAttribute('required');
-                    endTimeInput.value = '';
-                } else {
-                    endTimeField.style.display = 'block';
-                    endTimeInput.setAttribute('required', 'required');
-                }
+            if (isLifeTime) {
+                endTimeField.style.display = 'none';
+                endTimeInput.removeAttribute('required');
+                endTimeInput.value = '';
+            } else {
+                endTimeField.style.display = 'block';
+                endTimeInput.setAttribute('required', 'required');
             }
+        }
 
-            function updatePercentDiscountVisibility() {
-                var discountType = document.getElementById('DiscountType').value;
-                var percentOptions = document.getElementById('percent-options');
-                var unlimitedPercentCheckbox = document.getElementById('UnlimitedPercentageDiscount');
-                var maxPercentField = document.getElementById('MaxPercentReductionField');
-                var maxPercentInput = document.getElementById('MaxPercentReductionInput');
+        function updatePercentDiscountVisibility() {
+            const discountType = document.getElementById('DiscountType').value;
+            const percentOptions = document.getElementById('percent-options');
+            const unlimitedPercentCheckbox = document.getElementById('UnlimitedPercentageDiscount');
+            const maxPercentField = document.getElementById('MaxPercentReductionField');
+            const maxPercentInput = document.getElementById('MaxPercentReductionInput');
 
-                if (discountType === '1') {
-                    percentOptions.style.display = 'block';
-                    if (!unlimitedPercentCheckbox.checked) {
-                        maxPercentField.style.display = 'block';
-                        maxPercentInput.setAttribute('required', 'required');
-                    } else {
-                        maxPercentField.style.display = 'none';
-                        maxPercentInput.removeAttribute('required');
-                        maxPercentInput.value = '';
-                    }
+            if (discountType === '1') {
+                percentOptions.style.display = 'block';
+                if (!unlimitedPercentCheckbox.checked) {
+                    maxPercentField.style.display = 'block';
+                    maxPercentInput.setAttribute('required', 'required');
                 } else {
-                    percentOptions.style.display = 'none';
-                    unlimitedPercentCheckbox.checked = false;
                     maxPercentField.style.display = 'none';
                     maxPercentInput.removeAttribute('required');
                     maxPercentInput.value = '';
                 }
+            } else {
+                percentOptions.style.display = 'none';
+                unlimitedPercentCheckbox.checked = false;
+                maxPercentField.style.display = 'none';
+                maxPercentInput.removeAttribute('required');
+                maxPercentInput.value = '';
+            }
+        }
+
+        function getSelectedVoucherUserIds(excludeElement) {
+            const ids = [];
+            document.querySelectorAll('.voucher-user-select').forEach(select => {
+                if (select !== excludeElement && select.value) {
+                    ids.push(select.value);
+                }
+            });
+            return ids;
+        }
+
+        function buildUserOptions(selectedValue, excludeElement) {
+            const selectedIds = getSelectedVoucherUserIds(excludeElement);
+            let optionsHtml = '<option value="">-- Chọn người dùng --</option>';
+
+            allUsers.forEach(user => {
+                if (user.value === selectedValue || !selectedIds.includes(user.value)) {
+                    const selectedAttr = user.value === selectedValue ? ' selected' : '';
+                    optionsHtml += `<option value="${user.value ?? ''}"${selectedAttr}>${user.text ?? ''}</option>`;
+                }
+            });
+
+            return optionsHtml;
+        }
+
+        function updateVoucherUserDropdowns() {
+            document.querySelectorAll('.voucher-user-select').forEach(select => {
+                const currentValue = select.value;
+                select.innerHTML = buildUserOptions(currentValue, select);
+                select.value = currentValue;
+            });
+        }
+
+        function addVoucherUser(userId = '') {
+            const container = document.getElementById('voucherUsersContainer');
+            const row = document.createElement('div');
+            row.className = 'voucher-user-row row g-2 mb-2 align-items-end';
+
+            row.innerHTML = `
+                <div class="col-md-10">
+                    <label class="form-label">Người dùng</label>
+                    <select name="UserIds" class="form-select voucher-user-select" required>
+                        ${buildUserOptions(userId)}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-danger w-100" onclick="removeVoucherUser(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
+                </div>`;
+
+            container.appendChild(row);
+            const select = row.querySelector('select[name="UserIds"]');
+            select.value = userId ?? '';
+            updateVoucherUserDropdowns();
+            toggleVoucherTypeField();
+        }
+
+        function removeVoucherUser(button) {
+            const row = button.closest('.voucher-user-row');
+            if (row) {
+                row.remove();
+                updateVoucherUserDropdowns();
+            }
+        }
+
+        function clearAllVoucherUsers(addDefault = true) {
+            const container = document.getElementById('voucherUsersContainer');
+            container.innerHTML = '';
+            if (addDefault) {
+                addVoucherUser();
+            } else {
+                updateVoucherUserDropdowns();
+            }
+        }
+
+        function triggerVoucherImport() {
+            const input = document.getElementById('voucherImportInput');
+            if (input) {
+                input.value = '';
+                input.click();
+            }
+        }
+
+        function handleVoucherImport(event) {
+            const file = event.target?.files?.[0];
+            if (!file) {
+                return;
             }
 
-            document.getElementById('VoucherType').addEventListener('change', toggleVoucherTypeField);
-            document.getElementById('IsLifeTime').addEventListener('change', toggleEndTimeField);
-            document.getElementById('DiscountType').addEventListener('change', updatePercentDiscountVisibility);
-            document.getElementById('UnlimitedPercentageDiscount').addEventListener('change', updatePercentDiscountVisibility);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const content = e.target?.result;
+                if (typeof content !== 'string') {
+                    return;
+                }
 
+                const lines = content
+                    .split(/\r?\n/)
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+
+                if (!lines.length) {
+                    alert('Không tìm thấy dữ liệu hợp lệ trong file.');
+                    return;
+                }
+
+                const usersToAdd = [];
+                const seen = new Set();
+                let headerSkipped = false;
+
+                lines.forEach(line => {
+                    const parts = line.split(/[;,\t]/).map(part => part.trim());
+                    if (!headerSkipped && parts[0] && parts[0].toLowerCase().includes('user')) {
+                        headerSkipped = true;
+                        return;
+                    }
+
+                    const userId = parts[0];
+                    if (!userId || seen.has(userId)) {
+                        return;
+                    }
+
+                    if (!allUsers.some(user => user.value === userId)) {
+                        return;
+                    }
+
+                    usersToAdd.push(userId);
+                    seen.add(userId);
+                });
+
+                if (!usersToAdd.length) {
+                    alert('Không tìm thấy người dùng hợp lệ trong file.');
+                    return;
+                }
+
+                clearAllVoucherUsers(false);
+                usersToAdd.forEach(id => addVoucherUser(id));
+                updateVoucherUserDropdowns();
+                toggleVoucherTypeField();
+            };
+
+            reader.readAsText(file);
+        }
+
+        document.addEventListener('change', event => {
+            if (event.target.classList.contains('voucher-user-select')) {
+                updateVoucherUserDropdowns();
+            }
+        });
+
+        document.getElementById('VoucherType').addEventListener('change', toggleVoucherTypeField);
+        document.getElementById('IsLifeTime').addEventListener('change', toggleEndTimeField);
+        document.getElementById('DiscountType').addEventListener('change', updatePercentDiscountVisibility);
+        document.getElementById('UnlimitedPercentageDiscount').addEventListener('change', updatePercentDiscountVisibility);
+        document.getElementById('voucherImportInput')?.addEventListener('change', handleVoucherImport);
+
+        document.addEventListener('DOMContentLoaded', () => {
             toggleVoucherTypeField();
             toggleEndTimeField();
             updatePercentDiscountVisibility();
+            updateVoucherUserDropdowns();
         });
     </script>
 }

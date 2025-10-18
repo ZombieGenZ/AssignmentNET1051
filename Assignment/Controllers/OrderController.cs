@@ -5,6 +5,7 @@ using Assignment.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Assignment.Extensions;
@@ -147,37 +148,55 @@ namespace Assignment.Controllers
 
                 if (voucherId.HasValue)
                 {
-                    var voucher = await _context.Vouchers.FindAsync(voucherId.Value);
+                    var voucher = await _context.Vouchers
+                        .Include(v => v.VoucherUsers)
+                        .FirstOrDefaultAsync(v => v.Id == voucherId.Value);
                     var now = DateTime.Now;
-                    if (voucher != null &&
-                        voucher.StartTime <= now &&
-                        (!voucher.EndTime.HasValue || voucher.EndTime.Value >= now || voucher.IsLifeTime) &&
-                        voucher.Quantity > voucher.Used &&
-                        (voucher.Type != VoucherType.Private || voucher.UserId == userId) &&
-                        order.TotalPrice >= voucher.MinimumRequirements)
+
+                    if (voucher != null)
                     {
-                        double discountAmount = 0;
-                        if (voucher.DiscountType == VoucherDiscountType.Money)
+                        var allowedUserIds = voucher.VoucherUsers?
+                            .Where(vu => !vu.IsDeleted)
+                            .Select(vu => vu.UserId)
+                            .ToHashSet() ?? new HashSet<string>();
+
+                        if (!string.IsNullOrWhiteSpace(voucher.UserId))
                         {
-                            discountAmount = voucher.Discount;
+                            allowedUserIds.Add(voucher.UserId);
+                        }
+
+                        var isPrivateVoucherAllowed = voucher.Type != VoucherType.Private ||
+                            (userId != null && allowedUserIds.Contains(userId));
+
+                        if (voucher.StartTime <= now &&
+                            (!voucher.EndTime.HasValue || voucher.EndTime.Value >= now || voucher.IsLifeTime) &&
+                            voucher.Quantity > voucher.Used &&
+                            isPrivateVoucherAllowed &&
+                            order.TotalPrice >= voucher.MinimumRequirements)
+                        {
+                            double discountAmount = 0;
+                            if (voucher.DiscountType == VoucherDiscountType.Money)
+                            {
+                                discountAmount = voucher.Discount;
+                            }
+                            else
+                            {
+                                discountAmount = order.TotalPrice * (voucher.Discount / 100);
+                                if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
+                                {
+                                    discountAmount = voucher.MaximumPercentageReduction.Value;
+                                }
+                            }
+                            order.Discount = Math.Min(discountAmount, order.TotalPrice);
+                            order.VoucherId = voucher.Id.ToString();
+
+                            voucher.Used += 1;
+                            _context.Vouchers.Update(voucher);
                         }
                         else
                         {
-                            discountAmount = order.TotalPrice * (voucher.Discount / 100);
-                            if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
-                            {
-                                discountAmount = voucher.MaximumPercentageReduction.Value;
-                            }
+                            order.VoucherId = null;
                         }
-                        order.Discount = Math.Min(discountAmount, order.TotalPrice);
-                        order.VoucherId = voucher.Id.ToString();
-
-                        voucher.Used += 1;
-                        _context.Vouchers.Update(voucher);
-                    }
-                    else
-                    {
-                        order.VoucherId = null;
                     }
                 }
 
@@ -232,13 +251,23 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Giỏ hàng của bạn đang trống." });
             }
 
-            var voucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper());
+            var voucher = await _context.Vouchers
+                .Include(v => v.VoucherUsers)
+                .FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper());
             var now = DateTime.Now;
 
             if (voucher == null) return Json(new { success = false, error = "Mã voucher không hợp lệ." });
             if (voucher.StartTime > now || (voucher.EndTime.HasValue && voucher.EndTime < now && !voucher.IsLifeTime)) return Json(new { success = false, error = "Voucher đã hết hạn hoặc chưa có hiệu lực." });
             if (voucher.Quantity <= voucher.Used) return Json(new { success = false, error = "Voucher đã hết lượt sử dụng." });
-            if (voucher.Type == VoucherType.Private && voucher.UserId != userId) return Json(new { success = false, error = "Bạn không thể sử dụng voucher này." });
+            var allowedUserIds = voucher.VoucherUsers?
+                .Where(vu => !vu.IsDeleted)
+                .Select(vu => vu.UserId)
+                .ToHashSet() ?? new HashSet<string>();
+            if (!string.IsNullOrWhiteSpace(voucher.UserId))
+            {
+                allowedUserIds.Add(voucher.UserId);
+            }
+            if (voucher.Type == VoucherType.Private && (userId == null || !allowedUserIds.Contains(userId))) return Json(new { success = false, error = "Bạn không thể sử dụng voucher này." });
 
             var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
             var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
