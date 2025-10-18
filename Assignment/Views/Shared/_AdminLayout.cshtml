@@ -202,12 +202,12 @@
 
         <div class="content-wrapper">
             @{ var canViewRevenue = User.HasPermission("GetOrderAll"); }
-            @if (canViewRevenue)
+@*             @if (canViewRevenue)
             {
                 <section class="dashboard-stats mb-4">
                     @await Component.InvokeAsync("AdminRevenue")
                 </section>
-            }
+            } *@
 
             @*             <div class="page-header">
                 <h1 class="page-title">Dashboard</h1>
