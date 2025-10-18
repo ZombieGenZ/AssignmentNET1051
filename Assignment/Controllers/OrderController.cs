@@ -273,6 +273,80 @@ namespace Assignment.Controllers
             return View(orders);
         }
 
+        public async Task<IActionResult> Manage(OrderStatus? status, string? search)
+        {
+            if (!CanManageOrders())
+            {
+                return Forbid();
+            }
+
+            var ordersQuery = _context.Orders
+                .Where(o => !o.IsDeleted)
+                .Include(o => o.OrderItems)!
+                    .ThenInclude(oi => oi.Product)
+                .Include(o => o.OrderItems)!
+                    .ThenInclude(oi => oi.Combo)
+                .AsQueryable();
+
+            if (status.HasValue)
+            {
+                ordersQuery = ordersQuery.Where(o => o.Status == status.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var keyword = search.Trim();
+                var hasId = long.TryParse(keyword, out var orderId);
+
+                ordersQuery = ordersQuery.Where(o =>
+                    EF.Functions.Like(o.Name, $"%{keyword}%") ||
+                    (o.Email != null && EF.Functions.Like(o.Email, $"%{keyword}%")) ||
+                    EF.Functions.Like(o.Phone, $"%{keyword}%") ||
+                    (hasId && o.Id == orderId));
+            }
+
+            var orders = await ordersQuery
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
+
+            ViewBag.StatusFilter = status;
+            ViewBag.SearchTerm = search;
+            ViewBag.CanUpdateStatus = CanManageOrders();
+
+            return View(orders);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateStatus(long id, OrderStatus status, OrderStatus? statusFilter, string? search)
+        {
+            if (!CanManageOrders())
+            {
+                return Forbid();
+            }
+
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id && !o.IsDeleted);
+            if (order == null)
+            {
+                TempData["Error"] = "Không tìm thấy đơn hàng.";
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+            }
+
+            if (order.Status == status)
+            {
+                TempData["Info"] = "Đơn hàng đã ở trạng thái này.";
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+            }
+
+            order.Status = status;
+            order.UpdatedAt = DateTime.Now;
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = $"Cập nhật trạng thái đơn hàng #{order.Id} thành công.";
+            return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+        }
+
         public async Task<IActionResult> PayOsReturn(long id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -376,6 +450,9 @@ namespace Assignment.Controllers
 
             return 0;
         }
+
+        private bool CanManageOrders()
+            => User.HasClaim(c => c.Type == "GetOrderAll");
     }
 }
 

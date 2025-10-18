@@ -130,6 +130,15 @@
                     </a>
                 </li>
             }
+            @if (User.HasClaim(c => c.Type == "GetOrderAll"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Manage" asp-controller="Order" class="sidebar-menu-link">
+                        <i class="fa-solid fa-receipt"></i>
+                        <span>Order</span>
+                    </a>
+                </li>
+            }
 
 @*             <li class="sidebar-menu-item">
                 <a href="#" class="sidebar-menu-link">
