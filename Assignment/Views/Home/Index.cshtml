@@ -102,9 +102,6 @@
                             aria-controls="advanced-search">
                         <i class="fas fa-sliders-h me-1"></i> Tìm kiếm nâng cao
                     </button>
-                    <button type="button" class="btn btn-outline-secondary" id="resetFiltersBtn">
-                        <i class="fas fa-rotate-left me-1"></i> Đặt lại bộ lọc
-                    </button>
                 </div>
             </div>
 
@@ -162,13 +159,18 @@
                                    id="discount-filter"
                                    name="OnlyDiscounted"
                                    @if (filter.OnlyDiscounted)
-                                   {
-                                       <text>checked="checked"</text>
-                                   } />
+                                    {
+                                        <text>checked="checked"</text>
+                                    } />
                             <label class="form-check-label" for="discount-filter">
                                 Chỉ hiển thị ưu đãi/khuyến mãi
                             </label>
                         </div>
+                    </div>
+                    <div class="col-12 d-flex justify-content-end">
+                        <button type="button" class="btn btn-outline-secondary" id="resetFiltersBtn">
+                            <i class="fas fa-rotate-left me-1"></i> Đặt lại bộ lọc
+                        </button>
                     </div>
                 </div>
             </div>

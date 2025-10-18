@@ -1,5 +1,7 @@
 ﻿@model Assignment.Models.Order
 @using Assignment.Enums;
+@using System.Collections.Generic;
+@using System.Linq;
 @{
     ViewData["Title"] = "Thanh Toán";
     var cart = ViewBag.Cart as Assignment.Models.Cart;
@@ -15,8 +17,21 @@
         });
     }
     int payNowValue = (int)PaymentType.PayNow;
-    int paymentMethodCashValue = (int)PaymentMethodType.Cash;
     int paymentMethodBankValue = (int)PaymentMethodType.Bank;
+    var paymentMethodChoices = Enum.GetValues(typeof(PaymentMethodType))
+        .Cast<PaymentMethodType>()
+        .Where(method => method != PaymentMethodType.Cash)
+        .ToList();
+    var paymentMethodLabels = new Dictionary<PaymentMethodType, string>
+    {
+        [PaymentMethodType.Bank] = "Chuyển khoản ngân hàng",
+        [PaymentMethodType.Momo] = "Momo",
+        [PaymentMethodType.ZaloPay] = "ZaloPay",
+        [PaymentMethodType.VnPay] = "VNPay"
+    };
+    var selectedPaymentMethod = Model.PaymentMethod.HasValue && Model.PaymentMethod.Value != PaymentMethodType.Cash
+        ? Model.PaymentMethod.Value
+        : PaymentMethodType.Bank;
 }
 
 <div class="container my-5">
@@ -74,7 +89,25 @@
                         <div id="paymentMethodContainer">
                             <div class="mb-3">
                                 <label asp-for="PaymentMethod" class="form-label">Cổng thanh toán</label>
-                                <select asp-for="PaymentMethod" asp-items="Html.GetEnumSelectList<PaymentMethodType>()" class="form-select"></select>
+                                <select asp-for="PaymentMethod" class="form-select">
+                                    @foreach (var method in paymentMethodChoices)
+                                    {
+                                        var isBank = method == PaymentMethodType.Bank;
+                                        var optionText = paymentMethodLabels.TryGetValue(method, out var label)
+                                            ? label
+                                            : method.ToString();
+                                        if (!isBank)
+                                        {
+                                            optionText += " (Không khả dụng)";
+                                        }
+                                        <option value="@((int)method)"
+                                                @(selectedPaymentMethod == method ? "selected" : string.Empty)
+                                                @(isBank ? string.Empty : "disabled")
+                                                data-available="@(isBank.ToString().ToLowerInvariant())">
+                                            @optionText
+                                        </option>
+                                    }
+                                </select>
                                 <span asp-validation-for="PaymentMethod" class="text-danger"></span>
                             </div>
                         </div>
@@ -181,46 +214,13 @@
             const paymentTypeSelect = $('#PaymentType');
             const paymentMethodContainer = $('#paymentMethodContainer');
             const paymentMethodSelect = $('#PaymentMethod');
-            const cashOption = paymentMethodSelect.find(`option[value='@paymentMethodCashValue']`);
             const initialSubtotal = @totalPrice;
 
-            paymentMethodSelect.find('option').each(function () {
-                const option = $(this);
-                option.attr('data-original-text', option.text());
-            });
-
             function updatePaymentMethods(isPayNow) {
-                paymentMethodSelect.find('option').each(function () {
-                    const option = $(this);
-                    const originalText = option.attr('data-original-text');
-                    if (originalText) {
-                        option.text(originalText);
-                    }
-                    option.prop('disabled', false).prop('hidden', false);
-                });
-
                 if (isPayNow) {
-                    cashOption.prop('disabled', true).prop('hidden', true);
-
-                    paymentMethodSelect.find('option').each(function () {
-                        const option = $(this);
-                        const value = option.val();
-                        if (!value || value === '@paymentMethodCashValue') {
-                            return;
-                        }
-                        if (value !== '@paymentMethodBankValue') {
-                            option.prop('disabled', true);
-                            const originalText = option.attr('data-original-text');
-                            if (originalText) {
-                                option.text(`${originalText} (Hiện không khả dụng)`);
-                            }
-                        }
-                    });
-
                     paymentMethodSelect.val('@paymentMethodBankValue');
                 }
                 else {
-                    cashOption.prop('disabled', false).prop('hidden', false);
                     paymentMethodSelect.val('');
                 }
             }
