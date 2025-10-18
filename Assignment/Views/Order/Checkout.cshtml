@@ -100,9 +100,10 @@
                                         {
                                             optionText += " (Không khả dụng)";
                                         }
+                                        var isSelected = selectedPaymentMethod == method;
                                         <option value="@((int)method)"
-                                                @(selectedPaymentMethod == method ? "selected" : string.Empty)
-                                                @(isBank ? string.Empty : "disabled")
+                                                selected="@(isSelected ? "selected" : null)"
+                                                disabled="@(isBank ? null : "disabled")"
                                                 data-available="@(isBank.ToString().ToLowerInvariant())">
                                             @optionText
                                         </option>
