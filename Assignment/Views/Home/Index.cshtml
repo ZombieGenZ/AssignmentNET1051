@@ -2,6 +2,7 @@
 @using Microsoft.AspNetCore.Routing
 @using System.Globalization
 @using System.Linq
+@using System.Collections.Generic
 
 @{
     ViewData["Title"] = "Trang chủ";
@@ -38,25 +39,34 @@
         baseRoute["OnlyDiscounted"] = "true";
     }
 
-    var allRoute = new RouteValueDictionary(baseRoute)
+    Dictionary<string, string> CreateRoute(string segment, int? categoryId = null)
     {
-        ["Segment"] = "all"
-    };
+        var route = baseRoute.ToDictionary(
+            kvp => kvp.Key,
+            kvp => System.Convert.ToString(kvp.Value, CultureInfo.InvariantCulture) ?? string.Empty);
 
-    var comboRoute = new RouteValueDictionary(baseRoute)
-    {
-        ["Segment"] = "combo"
-    };
+        route["Segment"] = segment;
+
+        if (categoryId.HasValue)
+        {
+            route["CategoryId"] = categoryId.Value.ToString(CultureInfo.InvariantCulture);
+        }
+        else
+        {
+            route.Remove("CategoryId");
+        }
+
+        return route;
+    }
+
+    var allRoute = CreateRoute("all");
+    var comboRoute = CreateRoute("combo");
 
     var categoryRoutes = Model.Categories
         .Select(category => new
         {
             category,
-            route = new RouteValueDictionary(baseRoute)
-            {
-                ["Segment"] = "category",
-                ["CategoryId"] = category.Id
-            }
+            route = CreateRoute("category", category.Id)
         })
         .ToList();
 }
@@ -128,17 +138,17 @@
                     <div class="col-12 col-md-6 col-lg-3">
                         <label class="form-label" for="spicy-filter">Độ cay</label>
                         <select class="form-select" id="spicy-filter" name="IsSpicy">
-                            <option value="" @(filter.IsSpicy.HasValue ? string.Empty : "selected")>Tất cả</option>
-                            <option value="true" @(filter.IsSpicy == true ? "selected" : string.Empty)>Chỉ món cay</option>
-                            <option value="false" @(filter.IsSpicy == false ? "selected" : string.Empty)>Không cay</option>
+                            <option value="" selected="@(!filter.IsSpicy.HasValue)">Tất cả</option>
+                            <option value="true" selected="@(filter.IsSpicy == true)">Chỉ món cay</option>
+                            <option value="false" selected="@(filter.IsSpicy == false)">Không cay</option>
                         </select>
                     </div>
                     <div class="col-12 col-md-6 col-lg-3">
                         <label class="form-label" for="vegetarian-filter">Chế độ ăn</label>
                         <select class="form-select" id="vegetarian-filter" name="IsVegetarian">
-                            <option value="" @(filter.IsVegetarian.HasValue ? string.Empty : "selected")>Tất cả</option>
-                            <option value="true" @(filter.IsVegetarian == true ? "selected" : string.Empty)>Đồ chay</option>
-                            <option value="false" @(filter.IsVegetarian == false ? "selected" : string.Empty)>Không chay</option>
+                            <option value="" selected="@(!filter.IsVegetarian.HasValue)">Tất cả</option>
+                            <option value="true" selected="@(filter.IsVegetarian == true)">Đồ chay</option>
+                            <option value="false" selected="@(filter.IsVegetarian == false)">Không chay</option>
                         </select>
                     </div>
                     <div class="col-12">
@@ -148,7 +158,10 @@
                                    value="true"
                                    id="discount-filter"
                                    name="OnlyDiscounted"
-                                   @(filter.OnlyDiscounted ? "checked" : string.Empty) />
+                                   @if (filter.OnlyDiscounted)
+                                   {
+                                       <text>checked="checked"</text>
+                                   } />
                             <label class="form-check-label" for="discount-filter">
                                 Chỉ hiển thị ưu đãi/khuyến mãi
                             </label>
