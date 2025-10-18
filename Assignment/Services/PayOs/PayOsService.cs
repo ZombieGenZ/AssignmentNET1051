@@ -45,50 +45,29 @@ namespace Assignment.Services.PayOs
                 BuyerPhone = NormalizeOptional(order.Phone)
             };
 
+            var defaultItemName = $"Đơn hàng #{order.Id}";
             if (order.OrderItems != null)
             {
-                var items = new List<PayOsCreatePaymentRequestItem>();
-                var index = 1;
-                foreach (var orderItem in order.OrderItems)
+                var firstItem = order.OrderItems.FirstOrDefault();
+                if (firstItem?.Product != null && !string.IsNullOrWhiteSpace(firstItem.Product.Name))
                 {
-                    if (orderItem == null)
-                    {
-                        continue;
-                    }
-
-                    var price = Convert.ToInt64(Math.Round(orderItem.Price, MidpointRounding.AwayFromZero));
-                    if (price <= 0)
-                    {
-                        continue;
-                    }
-
-                    var quantity = orderItem.Quantity <= 0 ? 1 : orderItem.Quantity;
-                    var name = orderItem.Product?.Name ?? orderItem.Combo?.Name;
-
-                    if (string.IsNullOrWhiteSpace(name))
-                    {
-                        name = orderItem.ProductId.HasValue
-                            ? $"Sản phẩm #{orderItem.ProductId.Value}"
-                            : orderItem.ComboId.HasValue
-                                ? $"Combo #{orderItem.ComboId.Value}"
-                                : $"Mặt hàng #{index}";
-                    }
-
-                    items.Add(new PayOsCreatePaymentRequestItem
-                    {
-                        Name = name!,
-                        Price = price,
-                        Quantity = quantity
-                    });
-
-                    index++;
+                    defaultItemName = firstItem.Product.Name;
                 }
-
-                if (items.Count > 0)
+                else if (firstItem?.Combo != null && !string.IsNullOrWhiteSpace(firstItem.Combo.Name))
                 {
-                    request.Items = items;
+                    defaultItemName = firstItem.Combo.Name;
                 }
             }
+
+            request.Items = new[]
+            {
+                new PayOsCreatePaymentRequestItem
+                {
+                    Name = defaultItemName,
+                    Price = amount,
+                    Quantity = 1
+                }
+            };
 
             if (!string.IsNullOrWhiteSpace(_options.ChecksumKey))
             {

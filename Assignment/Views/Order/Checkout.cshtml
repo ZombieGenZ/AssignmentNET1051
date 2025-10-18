@@ -28,6 +28,7 @@
         @Html.AntiForgeryToken()
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
         <input type="hidden" asp-for="VoucherId" id="appliedVoucherId" />
+        @Html.HiddenFor(m => m.SelectedCartItemIds, new { id = "SelectedCartItemIds" })
 
         <div class="row">
             <!-- Left Column: Customer Info & Payment Method -->
@@ -182,6 +183,8 @@
             const paymentMethodSelect = $('#PaymentMethod');
             const initialSubtotal = @totalPrice;
 
+            paymentMethodSelect.find(`option[value='@paymentMethodCashValue']`).remove();
+
             paymentMethodSelect.find('option').each(function () {
                 const option = $(this);
                 option.attr('data-original-text', option.text());
@@ -250,7 +253,7 @@
                 $.ajax({
                     url: '@Url.Action("ApplyVoucher", "Order")',
                     type: 'POST',
-                    data: { voucherCode: voucherCode },
+                    data: { voucherCode: voucherCode, selectedCartItemIds: $('#SelectedCartItemIds').val() },
                     headers: { "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val() },
                     success: function (response) {
                         if (response.success) {
