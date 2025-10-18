@@ -1,0 +1,35 @@
+@{
+    const string primarySrc = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+    const string fallbackSrc = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+}
+<script src="@primarySrc" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+    (function ensureSheetJsAvailability() {
+        if (typeof window === 'undefined') {
+            return;
+        }
+
+        if (window.XLSX) {
+            return;
+        }
+
+        const fallbackUrl = '@fallbackSrc';
+        if (document.querySelector('script[data-sheetjs-fallback="' + fallbackUrl + '"]')) {
+            return;
+        }
+
+        const script = document.createElement('script');
+        script.src = fallbackUrl;
+        script.crossOrigin = 'anonymous';
+        script.referrerPolicy = 'no-referrer';
+        script.dataset.sheetjsFallback = fallbackUrl;
+        script.onload = function () {
+            console.info('Đã tải thư viện SheetJS từ nguồn dự phòng.');
+        };
+        script.onerror = function (error) {
+            console.error('Không thể tải thư viện SheetJS từ nguồn dự phòng.', error);
+        };
+
+        document.head.appendChild(script);
+    })();
+</script>
