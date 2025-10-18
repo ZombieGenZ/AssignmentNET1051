@@ -110,7 +110,7 @@
                             {
                                 var statusClass = GetStatusBadgeClass(order.Status);
                                 var paymentDescription = order.PaymentType == PaymentType.PayNow
-                                    ? (order.PaymentMethod == PaymentMethodType.Bank ? "Thanh toán PayOS" : "Thanh toán trực tuyến")
+                                    ? (order.PaymentMethod == PaymentMethodType.Bank ? "Chuyển khoản ngân hàng" : "Thanh toán trực tuyến")
                                     : "Thanh toán khi nhận hàng";
                                 <tr>
                                     <td class="fw-semibold">#@order.Id</td>

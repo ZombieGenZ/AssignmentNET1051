@@ -5,7 +5,7 @@
     ViewData["Title"] = $"Đơn hàng #{Model.Id}";
     Layout = "_AdminLayout";
     var paymentDescription = Model.PaymentType == PaymentType.PayNow
-        ? (Model.PaymentMethod == PaymentMethodType.Bank ? "Thanh toán PayOS" : "Thanh toán trực tuyến")
+        ? (Model.PaymentMethod == PaymentMethodType.Bank ? "Chuyển khoản ngân hàng" : "Thanh toán trực tuyến")
         : "Thanh toán khi nhận hàng";
     var paymentTypeDisplay = Model.PaymentType == PaymentType.PayNow ? "Thanh toán ngay" : "Thanh toán khi nhận hàng";
 }
