@@ -102,6 +102,9 @@
                             aria-controls="advanced-search">
                         <i class="fas fa-sliders-h me-1"></i> Tìm kiếm nâng cao
                     </button>
+                    <button type="button" class="btn btn-outline-secondary" id="resetFiltersBtn">
+                        <i class="fas fa-rotate-left me-1"></i> Đặt lại bộ lọc
+                    </button>
                 </div>
             </div>
 
@@ -598,6 +601,24 @@
         }
 
         $(document).ready(function () {
+            $('#resetFiltersBtn').on('click', function () {
+                const form = $('#home-search-form');
+
+                form.find('input[type="text"], input[type="number"]').val('');
+                form.find('select').each(function () {
+                    $(this).val('');
+                });
+                $('#discount-filter').prop('checked', false);
+
+                form.find('input[name="Segment"]').val('all');
+                form.find('input[name="CategoryId"]').remove();
+
+                $('#advanced-search').removeClass('show');
+                $('.advanced-toggle').attr('aria-expanded', 'false');
+
+                form.submit();
+            });
+
             $('.btn-add-cart').on('click', function () {
                 const button = $(this);
                 const id = button.data('id');

@@ -5,268 +5,593 @@
 }
 
 <style>
+    .combo-detail-wrapper {
+        background-color: #f5f7fb;
+        padding: 3rem 0;
+    }
+
     .detail-container {
-        background: white;
-        border-radius: 12px;
-        padding: 30px;
-        margin-top: 30px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        background: #ffffff;
+        border-radius: 24px;
+        padding: 3rem;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
+    }
+
+    .combo-media {
+        position: relative;
+        background: #f8fafc;
+        border-radius: 20px;
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
     }
 
     .combo-detail-image {
         width: 100%;
-        border-radius: 12px;
+        border-radius: 18px;
         object-fit: cover;
-        max-height: 500px;
+        max-height: 520px;
+        box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12);
+    }
+
+    .discount-chip {
+        position: absolute;
+        top: 1.5rem;
+        left: 1.5rem;
+        background: #ef4444;
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 999px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+    }
+
+    .combo-content {
+        padding-left: 0;
+    }
+
+    @media (min-width: 992px) {
+        .combo-content {
+            padding-left: 2.5rem;
+        }
+    }
+
+    .combo-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.4rem 1rem;
+        border-radius: 999px;
+        background: #0f172a;
+        color: #ffffff;
+        font-weight: 600;
+        font-size: 0.9rem;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+        margin-bottom: 1rem;
+    }
+
+    .product-title {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 1.5rem;
+    }
+
+    .rating-large {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 1.1rem;
+        color: #fbbf24;
+        margin-bottom: 1.25rem;
+    }
+
+    .rating-large i {
+        color: #fbbf24;
+    }
+
+    .rating-large span {
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .detail-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .detail-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        border-radius: 999px;
+        padding: 0.35rem 0.85rem;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .detail-tag-collection {
+        background: #e0f2fe;
+        color: #0369a1;
+    }
+
+    .detail-tag-highlight {
+        background: #ede9fe;
+        color: #6d28d9;
     }
 
     .price-section {
-        background: #f8f9fa;
-        padding: 20px;
-        border-radius: 10px;
-        margin: 20px 0;
+        background: rgba(37, 99, 235, 0.08);
+        border: 1px solid rgba(37, 99, 235, 0.15);
+        padding: 1.75rem;
+        border-radius: 20px;
+        margin-bottom: 2rem;
     }
 
     .final-price {
-        color: #ff4444;
-        font-size: 36px;
-        font-weight: bold;
+        color: #2563eb;
+        font-size: 2.3rem;
+        font-weight: 700;
     }
 
     .original-price {
         text-decoration: line-through;
-        color: #999;
-        font-size: 20px;
+        color: #94a3b8;
+        font-size: 1rem;
     }
 
     .badge-large {
-        background: #ff4444;
+        background: #2563eb;
         color: white;
-        padding: 8px 20px;
-        border-radius: 20px;
-        font-size: 18px;
-        font-weight: bold;
+        padding: 0.35rem 1rem;
+        border-radius: 999px;
+        font-size: 0.95rem;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+    }
+
+    .price-subtext {
+        color: #15803d;
+        font-weight: 600;
+        margin-top: 0.75rem;
+    }
+
+    .detail-meta-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
     }
 
     .info-item {
         display: flex;
-        align-items: center;
-        margin: 15px 0;
-        padding: 10px;
-        background: #f8f9fa;
-        border-radius: 8px;
+        align-items: flex-start;
+        gap: 0.85rem;
+        padding: 1.1rem 1.25rem;
+        background: #f8fafc;
+        border-radius: 18px;
+        border: 1px solid #e2e8f0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
 
-        .info-item i {
-            font-size: 24px;
-            margin-right: 15px;
-            color: #ff4444;
-            width: 30px;
-            text-align: center;
-        }
+    .info-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .info-item i {
+        font-size: 1.25rem;
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: rgba(37, 99, 235, 0.12);
+        color: #2563eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .info-item strong {
+        display: block;
+        color: #0f172a;
+        margin-bottom: 0.25rem;
+        font-weight: 600;
+    }
+
+    .info-item .info-text {
+        color: #475569;
+    }
+
+    .info-item .status-positive {
+        color: #16a34a;
+        font-weight: 600;
+    }
+
+    .info-item .status-negative {
+        color: #dc2626;
+        font-weight: 600;
+    }
 
     .quantity-selector {
         display: flex;
         align-items: center;
-        gap: 15px;
-        margin: 20px 0;
+        gap: 0.75rem;
+        margin: 0;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 0.75rem 1rem;
+        width: fit-content;
     }
 
     .quantity-btn {
-        width: 40px;
-        height: 40px;
-        border: 2px solid #ff4444;
-        background: white;
-        color: #ff4444;
-        border-radius: 50%;
-        font-size: 20px;
-        font-weight: bold;
+        width: 42px;
+        height: 42px;
+        border: none;
+        background: #2563eb;
+        color: white;
+        border-radius: 12px;
+        font-size: 1.2rem;
+        font-weight: 600;
         cursor: pointer;
-        transition: all 0.3s;
+        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
     }
 
-        .quantity-btn:hover {
-            background: #ff4444;
-            color: white;
-        }
+    .quantity-btn:hover {
+        background: #1d4ed8;
+        transform: translateY(-1px);
+        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
+    }
 
     .quantity-input {
-        width: 80px;
+        width: 70px;
         text-align: center;
-        font-size: 20px;
-        font-weight: bold;
-        border: 2px solid #ddd;
-        border-radius: 8px;
-        padding: 8px;
+        font-size: 1.25rem;
+        font-weight: 600;
+        border: none;
+        background: transparent;
+        color: #0f172a;
+    }
+
+    .detail-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-top: 1.5rem;
     }
 
     .btn-add-large {
-        background: #ff4444;
+        background: #2563eb;
         color: white;
         border: none;
-        padding: 15px 40px;
-        border-radius: 30px;
-        font-size: 18px;
-        font-weight: bold;
+        padding: 0.95rem 1.5rem;
+        border-radius: 16px;
+        font-size: 1.05rem;
+        font-weight: 600;
         width: 100%;
-        transition: all 0.3s;
+        box-shadow: 0 18px 40px rgba(37, 99, 235, 0.25);
+        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
     }
 
-        .btn-add-large:hover {
-            background: #cc0000;
-            transform: scale(1.02);
-        }
+    .btn-add-large:hover {
+        background: #1d4ed8;
+        transform: translateY(-2px);
+        box-shadow: 0 24px 48px rgba(37, 99, 235, 0.28);
+    }
 
-    .rating-large {
-        color: #ffa500;
-        font-size: 24px;
-        margin: 15px 0;
+    .btn-buy-now {
+        background: #0f172a;
+        border: none;
+        color: white;
+        padding: 0.95rem 1.5rem;
+        border-radius: 16px;
+        font-size: 1.05rem;
+        font-weight: 600;
+        width: 100%;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .btn-buy-now:hover {
+        background: #111827;
+        transform: translateY(-2px);
+        box-shadow: 0 18px 40px rgba(15, 23, 42, 0.25);
+    }
+
+    .detail-extra {
+        margin-top: 2.5rem;
     }
 
     .description-section {
-        margin-top: 30px;
-        padding: 20px;
-        background: #f8f9fa;
-        border-radius: 10px;
+        padding: 1.75rem;
+        background: #f8fafc;
+        border-radius: 18px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+        height: 100%;
     }
 
-    .combo-badge {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 10px 20px;
-        border-radius: 25px;
-        font-size: 16px;
-        font-weight: bold;
-        display: inline-block;
-        margin-bottom: 15px;
+    .description-section h3 {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 1rem;
+    }
+
+    .description-section p {
+        color: #475569;
+        line-height: 1.7;
+        margin-bottom: 0;
+        white-space: pre-line;
+    }
+
+    .combo-items-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+
+    .combo-item-card {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        padding: 0.85rem 1rem;
+        background: #ffffff;
+        border-radius: 16px;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+    }
+
+    .combo-item-card img {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        object-fit: cover;
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+    }
+
+    .combo-item-card strong {
+        color: #0f172a;
+        font-size: 0.95rem;
+        display: block;
+    }
+
+    .combo-item-card span {
+        color: #64748b;
+        font-size: 0.85rem;
+    }
+
+    @media (max-width: 991.98px) {
+        .detail-container {
+            padding: 2rem;
+        }
+
+        .combo-content {
+            padding-left: 0;
+        }
+    }
+
+    @media (max-width: 767.98px) {
+        .detail-container {
+            padding: 1.5rem;
+        }
+
+        .product-title {
+            font-size: 1.75rem;
+        }
+
+        .quantity-selector {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .detail-actions {
+            width: 100%;
+        }
     }
 </style>
 
-<div class="container">
-    <div class="detail-container">
-        @Html.AntiForgeryToken()
-        <div class="row">
-            <div class="col-md-6">
-                <img src="@Model.ImageUrl" class="combo-detail-image" alt="@Model.Name" />
-            </div>
-            <div class="col-md-6">
-                <span class="combo-badge">🎁 COMBO ĐẶC BIỆT</span>
-                <h1 class="mb-3">@Model.Name</h1>
-
-                <div class="rating-large">
-                    @for (int i = 1; i <= 5; i++)
-                    {
-                        if (i <= Math.Floor(Model.AverageEvaluate))
+<div class="combo-detail-wrapper">
+    <div class="container">
+        <div class="detail-container">
+            @Html.AntiForgeryToken()
+            <div class="row g-lg-5 align-items-start">
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <div class="combo-media">
+                        <img src="@Model.ImageUrl" class="combo-detail-image" alt="@Model.Name" />
+                        @if (Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue)
                         {
-                            <i class="fas fa-star"></i>
+                            <span class="discount-chip">-@Model.Discount%</span>
                         }
-                        else if (i - 0.5 <= Model.AverageEvaluate)
+                        else if (Model.DiscountType == Assignment.Enums.DiscountType.FixedAmount && Model.Discount.HasValue)
                         {
-                            <i class="fas fa-star-half-alt"></i>
-                        }
-                        else
-                        {
-                            <i class="far fa-star"></i>
-                        }
-                    }
-                    <span class="ms-2">@Model.AverageEvaluate.ToString("0.0") (@Model.TotalEvaluate đánh giá)</span>
-                </div>
-
-                @{ 
-                    var hasDiscount = Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue;
-                    var finalPrice = PriceCalculator.GetComboFinalPrice(Model);
-                    var savings = Math.Max(Model.Price - finalPrice, 0);
-                }
-                <div class="price-section">
-                    @if (hasDiscount)
-                    {
-                        <div class="mb-2">
-                            <span class="badge-large">-@Model.Discount%</span>
-                        </div>
-                        <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
-                        <div class="final-price">@finalPrice.ToString("N0") ₫</div>
-                        <div class="mt-2 text-success">
-                            <i class="fas fa-tag"></i> Tiết kiệm @savings.ToString("N0") ₫
-                        </div>
-                    }
-                    else
-                    {
-                        <div class="final-price">@finalPrice.ToString("N0") ₫</div>
-                    }
-                </div>
-
-                <div class="info-item">
-                    <i class="fas fa-box"></i>
-                    <div>
-                        <strong>Tình trạng:</strong>
-                        @if (Model.Stock > 0)
-                        {
-                            <span class="text-success">Còn hàng (@Model.Stock combo)</span>
-                        }
-                        else
-                        {
-                            <span class="text-danger">Hết hàng</span>
+                            <span class="discount-chip">Ưu đãi</span>
                         }
                     </div>
                 </div>
+                <div class="col-lg-6">
+                    <div class="combo-content">
+                        <span class="combo-badge"><i class="fas fa-gift"></i> Combo đặc biệt</span>
 
-                <div class="info-item">
-                    <i class="fas fa-chart-line"></i>
-                    <div>
-                        <strong>Đã bán:</strong> @Model.Sold combo
-                    </div>
-                </div>
+                        <h1 class="product-title">@Model.Name</h1>
 
-                @if (Model.ComboItems != null && Model.ComboItems.Any())
-                {
-                    <div class="info-item">
-                        <i class="fas fa-utensils"></i>
-                        <div>
-                            <strong>Bao gồm:</strong> @Model.ComboItems.Count() món
+                        <div class="rating-large">
+                            @for (int i = 1; i <= 5; i++)
+                            {
+                                if (i <= Math.Floor(Model.AverageEvaluate))
+                                {
+                                    <i class="fas fa-star"></i>
+                                }
+                                else if (i - 0.5 <= Model.AverageEvaluate)
+                                {
+                                    <i class="fas fa-star-half-alt"></i>
+                                }
+                                else
+                                {
+                                    <i class="far fa-star"></i>
+                                }
+                            }
+                            <span>@Model.AverageEvaluate.ToString("0.0") (@Model.TotalEvaluate đánh giá)</span>
                         </div>
-                    </div>
-                }
 
-                <div class="quantity-selector">
-                    <button class="quantity-btn" onclick="decreaseQuantity()">-</button>
-                    <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@Model.Stock" />
-                    <button class="quantity-btn" onclick="increaseQuantity()">+</button>
-                </div>
+                        <div class="detail-tags">
+                            @if (Model.ComboItems != null && Model.ComboItems.Any())
+                            {
+                                <span class="detail-tag detail-tag-collection"><i class="fas fa-utensils"></i> @Model.ComboItems.Count() món</span>
+                            }
+                            <span class="detail-tag detail-tag-highlight"><i class="fas fa-shield-alt"></i> Giao nhanh</span>
+                        </div>
 
-                <button class="btn-add-large" onclick="addToCartWithQuantity()" @(Model.Stock <= 0 ? "disabled" : "")>
-                    <i class="fas fa-shopping-cart me-2"></i>
-                    Thêm vào giỏ hàng
-                </button>
-                <button class="btn btn-success w-100 mt-3" onclick="buyNowCombo()" @(Model.Stock <= 0 ? "disabled" : "")>
-                    <i class="fas fa-bolt me-2"></i>Mua ngay
-                </button>
-            </div>
-        </div>
+                        @{
+                            var hasPercentDiscount = Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue;
+                            var hasFixedDiscount = Model.DiscountType == Assignment.Enums.DiscountType.FixedAmount && Model.Discount.HasValue;
+                            var finalPrice = PriceCalculator.GetComboFinalPrice(Model);
+                            var savings = Math.Max(Model.Price - finalPrice, 0);
+                        }
 
-        <div class="description-section">
-            <h3 class="mb-3"><i class="fas fa-align-left me-2"></i>Mô tả combo</h3>
-            <p>@Model.Description</p>
-        </div>
+                        <div class="price-section">
+                            @if (!Model.Discount.HasValue || Model.DiscountType == Assignment.Enums.DiscountType.None)
+                            {
+                                <div class="final-price">@Model.Price.ToString("N0") ₫</div>
+                            }
+                            else if (hasPercentDiscount)
+                            {
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge-large">-@Model.Discount%</span>
+                                    <span class="text-muted small">Ưu đãi theo %</span>
+                                </div>
+                                <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
+                                @if (savings > 0)
+                                {
+                                    <div class="price-subtext">
+                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @savings.ToString("N0") ₫
+                                    </div>
+                                }
+                            }
+                            else if (hasFixedDiscount)
+                            {
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge-large">Giá đặc biệt</span>
+                                    <span class="text-muted small">Ưu đãi độc quyền</span>
+                                </div>
+                                <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
+                                @if (savings > 0)
+                                {
+                                    <div class="price-subtext">
+                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @savings.ToString("N0") ₫
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
+                            }
+                        </div>
 
-        @if (Model.ComboItems != null && Model.ComboItems.Any())
-        {
-            <div class="description-section mt-3">
-                <h3 class="mb-3"><i class="fas fa-list-check me-2"></i>Sản phẩm trong combo</h3>
-                <div class="row g-3">
-                    @foreach (var item in Model.ComboItems)
-                    {
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center p-3 bg-white rounded">
-                                <img src="@item.Product.ProductImageUrl" alt="@item.Product.Name" style="max-width: 50px" />
-                                <div class="ms-2">
-                                    <strong>@item.Product?.Name</strong>
+                        <div class="detail-meta-grid">
+                            <div class="info-item">
+                                <i class="fas fa-box"></i>
+                                <div>
+                                    <strong>Tình trạng</strong>
+                                    @if (Model.Stock > 0)
+                                    {
+                                        <span class="status-positive">Còn hàng (@Model.Stock combo)</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="status-negative">Hết hàng</span>
+                                    }
                                 </div>
                             </div>
+                            <div class="info-item">
+                                <i class="fas fa-chart-line"></i>
+                                <div>
+                                    <strong>Đã bán</strong>
+                                    <span class="info-text">@Model.Sold combo</span>
+                                </div>
+                            </div>
+                            <div class="info-item">
+                                <i class="fas fa-tag"></i>
+                                <div>
+                                    <strong>Ưu đãi</strong>
+                                    @if (savings > 0)
+                                    {
+                                        <span class="info-text">Tiết kiệm @savings.ToString("N0") ₫</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="info-text">Giá tốt mỗi ngày</span>
+                                    }
+                                </div>
+                            </div>
+                            @if (Model.ComboItems != null && Model.ComboItems.Any())
+                            {
+                                <div class="info-item">
+                                    <i class="fas fa-utensils"></i>
+                                    <div>
+                                        <strong>Bao gồm</strong>
+                                        <span class="info-text">@Model.ComboItems.Count() món</span>
+                                    </div>
+                                </div>
+                            }
                         </div>
-                    }
+
+                        <div class="detail-actions">
+                            <div class="quantity-selector">
+                                <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
+                                <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@Model.Stock" />
+                                <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
+                            </div>
+
+                            <button type="button" class="btn-add-large" onclick="addToCartWithQuantity()" @(Model.Stock <= 0 ? "disabled" : "")>
+                                <i class="fas fa-shopping-cart me-2"></i>
+                                Thêm vào giỏ hàng
+                            </button>
+                            <button type="button" class="btn-buy-now" onclick="buyNowCombo()" @(Model.Stock <= 0 ? "disabled" : "")>
+                                <i class="fas fa-bolt me-2"></i>Mua ngay
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        }
+
+            <div class="detail-extra row g-4">
+                <div class="col-lg-6">
+                    <div class="description-section h-100">
+                        <h3><i class="fas fa-align-left me-2"></i>Mô tả combo</h3>
+                        <p>@Model.Description</p>
+                    </div>
+                </div>
+                @if (Model.ComboItems != null && Model.ComboItems.Any())
+                {
+                    <div class="col-lg-6">
+                        <div class="description-section h-100">
+                            <h3><i class="fas fa-list-check me-2"></i>Sản phẩm trong combo</h3>
+                            <div class="combo-items-grid">
+                                @foreach (var item in Model.ComboItems)
+                                {
+                                    var product = item.Product;
+                                    <div class="combo-item-card">
+                                        <img src="@(product?.ProductImageUrl ?? "/images/no-image.jpg")" alt="@(product?.Name ?? "Sản phẩm")" />
+                                        <div>
+                                            <strong>@(product?.Name ?? "Sản phẩm")</strong>
+                                            <span>x@item.Quantity</span>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
     </div>
 </div>
 
