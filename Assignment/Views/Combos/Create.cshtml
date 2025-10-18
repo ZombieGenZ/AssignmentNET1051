@@ -198,6 +198,60 @@
     <script>
         const allProducts = @Html.Raw(productOptionsJson);
 
+        function normalizeProductIdentifier(value) {
+            if (value == null) {
+                return '';
+            }
+
+            let text = String(value).trim();
+            if (!text) {
+                return '';
+            }
+
+            const decimalMatch = text.match(/^(-?\d+)\.0+$/);
+            if (decimalMatch) {
+                text = decimalMatch[1];
+            }
+
+            if (/^-?\d+$/.test(text)) {
+                const normalized = text.replace(/^0+(?=\d)/, '');
+                return normalized.length ? normalized : '0';
+            }
+
+            return text;
+        }
+
+        function findProductByIdentifier(value) {
+            const normalized = normalizeProductIdentifier(value);
+            if (!normalized) {
+                return null;
+            }
+
+            return allProducts.find(product => normalizeProductIdentifier(product.value) === normalized) ?? null;
+        }
+
+        function parsePositiveInteger(value) {
+            if (value == null) {
+                return NaN;
+            }
+
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? Math.trunc(value) : NaN;
+            }
+
+            if (typeof value === 'string') {
+                const cleaned = value.replace(/[,\s]/g, '');
+                if (!cleaned) {
+                    return NaN;
+                }
+
+                const parsed = Number.parseFloat(cleaned);
+                return Number.isFinite(parsed) ? Math.trunc(parsed) : NaN;
+            }
+
+            return NaN;
+        }
+
         function toggleDiscountField() {
             const discountType = document.getElementById('DiscountType').value;
             const discountField = document.getElementById('DiscountField');
@@ -332,33 +386,36 @@
                     const rawProductId = row[0];
                     const rawQuantity = row[1];
 
-                    const productId = rawProductId == null ? '' : String(rawProductId).trim();
-                    if (!productId) {
+                    const productIdText = rawProductId == null ? '' : String(rawProductId).trim();
+                    if (!productIdText) {
                         return;
                     }
 
-                    if (!headerSkipped && productId.toLowerCase().includes('product')) {
+                    if (!headerSkipped && productIdText.toLowerCase().includes('product')) {
                         headerSkipped = true;
                         return;
                     }
 
-                    if (seenProductIds.has(productId)) {
+                    const matchedProduct = findProductByIdentifier(productIdText);
+                    if (!matchedProduct || !matchedProduct.value) {
                         return;
                     }
 
-                    if (!allProducts.some(product => product.value === productId)) {
+                    const normalizedProductId = matchedProduct.value;
+
+                    if (seenProductIds.has(normalizedProductId)) {
                         return;
                     }
 
                     const quantityText = rawQuantity == null ? '' : String(rawQuantity).trim();
-                    const quantity = Number.parseInt(quantityText, 10);
+                    const quantity = parsePositiveInteger(quantityText || rawQuantity);
 
                     if (!Number.isFinite(quantity) || quantity <= 0) {
                         return;
                     }
 
-                    items.push({ productId, quantity });
-                    seenProductIds.add(productId);
+                    items.push({ productId: normalizedProductId, quantity });
+                    seenProductIds.add(normalizedProductId);
                 });
 
                 if (!items.length) {
