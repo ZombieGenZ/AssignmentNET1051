@@ -125,6 +125,16 @@ namespace Assignment.Services.PayOs
 
                 if (payload.Code != 0)
                 {
+                    if (payload.Code == 201)
+                    {
+                        var existingCheckoutUrl = await TryGetExistingCheckoutUrlAsync(order.Id, cancellationToken);
+                        if (!string.IsNullOrWhiteSpace(existingCheckoutUrl))
+                        {
+                            _logger.LogInformation("Reusing existing PayOS checkout URL for order {OrderId} after duplicate request.", order.Id);
+                            return existingCheckoutUrl;
+                        }
+                    }
+
                     var message = string.IsNullOrWhiteSpace(payload.Description)
                         ? $"PayOS trả về mã lỗi {payload.Code}."
                         : $"PayOS trả về mã lỗi {payload.Code}: {payload.Description}";
@@ -151,6 +161,55 @@ namespace Assignment.Services.PayOs
             {
                 _logger.LogError(ex, "Failed to create PayOS payment for order {OrderId}.", order.Id);
                 throw;
+            }
+        }
+
+        private async Task<string?> TryGetExistingCheckoutUrlAsync(long orderCode, CancellationToken cancellationToken)
+        {
+            try
+            {
+                using var response = await _httpClient.GetAsync($"v2/payment-requests/{orderCode}", cancellationToken);
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Unable to retrieve existing PayOS payment request for order {OrderId}. Status code: {StatusCode}", orderCode, response.StatusCode);
+                    return null;
+                }
+
+                var content = await response.Content.ReadAsStringAsync(cancellationToken);
+                PayOsPaymentRequestDetailsResponse? payload = null;
+
+                try
+                {
+                    payload = JsonSerializer.Deserialize<PayOsPaymentRequestDetailsResponse>(content, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true,
+                        NumberHandling = JsonNumberHandling.AllowReadingFromString
+                    });
+                }
+                catch (JsonException jsonEx)
+                {
+                    _logger.LogError(jsonEx, "Unable to parse PayOS payment request details for order {OrderId}. Payload: {Payload}", orderCode, content);
+                    return null;
+                }
+
+                if (payload?.Code != 0)
+                {
+                    _logger.LogWarning("PayOS returned an error when retrieving payment request for order {OrderId}. Payload: {Payload}", orderCode, content);
+                    return null;
+                }
+
+                var checkoutUrl = payload.Data?.CheckoutUrl;
+                if (string.IsNullOrWhiteSpace(checkoutUrl))
+                {
+                    checkoutUrl = payload.Data?.ShortLink;
+                }
+
+                return string.IsNullOrWhiteSpace(checkoutUrl) ? null : checkoutUrl;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve existing PayOS payment request for order {OrderId}.", orderCode);
+                return null;
             }
         }
 
@@ -300,6 +359,27 @@ namespace Assignment.Services.PayOs
         }
 
         private sealed class PayOsCreatePaymentResponseData
+        {
+            [JsonPropertyName("checkoutUrl")]
+            public string? CheckoutUrl { get; set; }
+
+            [JsonPropertyName("shortLink")]
+            public string? ShortLink { get; set; }
+        }
+
+        private sealed class PayOsPaymentRequestDetailsResponse
+        {
+            [JsonPropertyName("code")]
+            public int Code { get; set; }
+
+            [JsonPropertyName("desc")]
+            public string? Description { get; set; }
+
+            [JsonPropertyName("data")]
+            public PayOsPaymentRequestDetailsData? Data { get; set; }
+        }
+
+        private sealed class PayOsPaymentRequestDetailsData
         {
             [JsonPropertyName("checkoutUrl")]
             public string? CheckoutUrl { get; set; }
