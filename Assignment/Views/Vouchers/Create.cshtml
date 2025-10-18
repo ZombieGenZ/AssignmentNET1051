@@ -304,11 +304,28 @@
         }
 
         function removeVoucherUser(button) {
-            const row = button.closest('.voucher-user-row');
-            if (row) {
-                row.remove();
-                updateVoucherUserDropdowns();
+            const container = document.getElementById('voucherUsersContainer');
+            if (!container) {
+                return;
             }
+
+            const rows = container.getElementsByClassName('voucher-user-row');
+            const row = button.closest('.voucher-user-row');
+            if (!row) {
+                return;
+            }
+
+            if (rows.length > 1) {
+                row.remove();
+            } else {
+                const select = row.querySelector('select[name="UserIds"]');
+                if (select) {
+                    select.value = '';
+                }
+            }
+
+            updateVoucherUserDropdowns();
+            toggleVoucherTypeField();
         }
 
         function clearAllVoucherUsers(addDefault = true) {

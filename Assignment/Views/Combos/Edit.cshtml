@@ -219,13 +219,34 @@
             return text;
         }
 
+        function normalizeDisplayText(value) {
+            if (value == null) {
+                return '';
+            }
+
+            return String(value)
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/\s+/g, '');
+        }
+
         function findProductByIdentifier(value) {
             const normalized = normalizeProductIdentifier(value);
-            if (!normalized) {
+            if (normalized) {
+                const matchedById = allProducts.find(product => normalizeProductIdentifier(product.value) === normalized);
+                if (matchedById) {
+                    return matchedById;
+                }
+            }
+
+            const normalizedText = normalizeDisplayText(value);
+            if (!normalizedText) {
                 return null;
             }
 
-            return allProducts.find(product => normalizeProductIdentifier(product.value) === normalized) ?? null;
+            return allProducts.find(product => normalizeDisplayText(product.text) === normalizedText) ?? null;
         }
 
         function parsePositiveInteger(value) {
@@ -336,8 +357,18 @@
             const items = container.getElementsByClassName('combo-item-row');
             if (items.length > 1) {
                 button.closest('.combo-item-row').remove();
-                updateAllDropdowns();
+            } else {
+                const row = button.closest('.combo-item-row');
+                const select = row?.querySelector('select[name="ProductIds"]');
+                const quantityInput = row?.querySelector('input[name="Quantities"]');
+                if (select) {
+                    select.value = '';
+                }
+                if (quantityInput) {
+                    quantityInput.value = 1;
+                }
             }
+            updateAllDropdowns();
         }
 
         function clearAllComboItems(addDefault = true) {
@@ -374,10 +405,10 @@
 
                 const items = [];
                 const seenProductIds = new Set();
-                let headerSkipped = false;
+                let headerHandled = false;
 
                 rows.forEach(row => {
-                    if (!Array.isArray(row) || !row.length) {
+                    if (!Array.isArray(row) || row.every(cell => cell == null || String(cell).trim() === '')) {
                         return;
                     }
 
@@ -389,12 +420,32 @@
                         return;
                     }
 
-                    if (!headerSkipped && productIdText.toLowerCase().includes('product')) {
-                        headerSkipped = true;
-                        return;
+                    const quantityText = rawQuantity == null ? '' : String(rawQuantity).trim();
+                    const normalizedQuantityHeader = quantityText.toLowerCase();
+                    const normalizedProductHeader = productIdText.toLowerCase();
+
+                    let matchedProduct = findProductByIdentifier(productIdText);
+
+                    if (!headerHandled) {
+                        const looksLikeHeader =
+                            normalizedProductHeader.includes('product') ||
+                            normalizedProductHeader.includes('mã') ||
+                            normalizedProductHeader.includes('san pham') ||
+                            normalizedProductHeader.includes('sản phẩm') ||
+                            normalizedProductHeader.includes('id') ||
+                            normalizedProductHeader.includes('code') ||
+                            normalizedQuantityHeader.includes('quantity') ||
+                            normalizedQuantityHeader.includes('số lượng') ||
+                            normalizedQuantityHeader.includes('qty');
+
+                        if (looksLikeHeader && !matchedProduct) {
+                            headerHandled = true;
+                            return;
+                        }
+
+                        headerHandled = true;
                     }
 
-                    const matchedProduct = findProductByIdentifier(productIdText);
                     if (!matchedProduct || !matchedProduct.value) {
                         return;
                     }
@@ -405,7 +456,6 @@
                         return;
                     }
 
-                    const quantityText = rawQuantity == null ? '' : String(rawQuantity).trim();
                     const quantity = parsePositiveInteger(quantityText || rawQuantity);
 
                     if (!Number.isFinite(quantity) || quantity <= 0) {
