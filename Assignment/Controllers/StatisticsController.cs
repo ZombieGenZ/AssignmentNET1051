@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Controllers
 {
-    [Authorize]
+    [Authorize(Policy = "ViewStatisticsPolicy")]
     public class StatisticsController : Controller
     {
         private static readonly HashSet<OrderStatus> RevenueStatuses = new(new[]

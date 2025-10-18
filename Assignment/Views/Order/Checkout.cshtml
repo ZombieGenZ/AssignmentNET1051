@@ -14,7 +14,6 @@
             return unitPrice * item.Quantity;
         });
     }
-    // Get the integer value for PayNow (which is 0 by default) for use in JavaScript
     int payNowValue = (int)PaymentType.PayNow;
     int paymentMethodCashValue = (int)PaymentMethodType.Cash;
     int paymentMethodBankValue = (int)PaymentMethodType.Bank;
@@ -99,7 +98,7 @@
                                     var itemTotal = itemPrice * item.Quantity;
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";
-                                    string itemImage = "/images/no-image.jpg"; // Default image
+                                    string itemImage = "/images/no-image.jpg";
 
                                     if (item.Product != null)
                                     {
@@ -177,7 +176,6 @@
     <script>
         $(document).ready(function () {
 
-            // 1. Pass PayNow enum value to JavaScript (default integer is 0)
             const PAYNOW_VALUE = '@payNowValue'.toString();
             const paymentTypeSelect = $('#PaymentType');
             const paymentMethodContainer = $('#paymentMethodContainer');
@@ -219,10 +217,7 @@
                 }
             }
 
-            // Function to toggle visibility of Payment Method fields
             function togglePaymentMethodFields() {
-                // Check if the selected value matches the PayNow value (0)
-                // Note: The value from the select element is always a string.
                 const isPayNow = paymentTypeSelect.val() === PAYNOW_VALUE;
                 updatePaymentMethods(isPayNow);
 
@@ -233,14 +228,11 @@
                 }
             }
 
-            // Initial state setup: Run once on load to set the correct visibility
             togglePaymentMethodFields();
 
-            // Event listener: Toggle visibility whenever PaymentType selection changes
             paymentTypeSelect.on('change', togglePaymentMethodFields);
 
 
-            // --- Existing Voucher Logic ---
 
             function applyVoucher() {
                 var voucherCode = $('#voucherCode').val();
@@ -290,7 +282,6 @@
                 $('#discount-row').hide();
                 $('#discount-amount').text('');
 
-                // Reset totals
                 var vat = initialSubtotal * 0.15;
                 var totalBill = initialSubtotal + vat;
                 $('#vat-amount').text(vat.toLocaleString('vi-VN') + ' đ');

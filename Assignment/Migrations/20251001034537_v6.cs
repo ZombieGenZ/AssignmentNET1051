@@ -4,10 +4,8 @@
 
 namespace Assignment.Migrations
 {
-    /// <inheritdoc />
     public partial class v6 : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
@@ -33,7 +31,6 @@ namespace Assignment.Migrations
                 onDelete: ReferentialAction.Cascade);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(

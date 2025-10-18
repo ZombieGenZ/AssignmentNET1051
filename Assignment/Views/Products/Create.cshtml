@@ -148,7 +148,6 @@
                 var discountType = document.getElementById('DiscountType').value;
                 var discountField = document.getElementById('DiscountField');
                 var discountInput = document.getElementById('DiscountInput');
-                // 0 = None
                 if (discountType === '0') {
                     discountField.style.display = 'none';
                     discountInput.value = '';
@@ -156,7 +155,6 @@
                 } else {
                     discountField.style.display = 'block';
                     discountInput.setAttribute('required', 'required');
-                    // 1 = Percent
                     if (discountType === '1') {
                         discountInput.setAttribute('max', '100');
                         discountInput.setAttribute('min', '0');
@@ -168,7 +166,6 @@
             }
 
             document.getElementById('DiscountType').addEventListener('change', toggleDiscountField);
-            // Initial check on page load
             toggleDiscountField();
         });
     </script>

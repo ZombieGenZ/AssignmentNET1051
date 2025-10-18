@@ -4,10 +4,8 @@
 
 namespace Assignment.Migrations
 {
-    /// <inheritdoc />
     public partial class v7 : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(
@@ -49,7 +47,6 @@ namespace Assignment.Migrations
                 principalColumn: "Id");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropForeignKey(

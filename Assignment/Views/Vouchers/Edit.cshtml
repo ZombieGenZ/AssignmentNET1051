@@ -149,7 +149,6 @@
                 var voucherType = document.getElementById('VoucherType').value;
                 var userIdField = document.getElementById('UserIdField');
                 var userIdInput = document.getElementById('UserIdInput');
-                // Private = 1
                 if (voucherType === '1') {
                     userIdField.style.display = 'block';
                     userIdInput.setAttribute('required', 'required');
@@ -182,7 +181,6 @@
                 var maxPercentField = document.getElementById('MaxPercentReductionField');
                 var maxPercentInput = document.getElementById('MaxPercentReductionInput');
 
-                // Percent = 1
                 if (discountType === '1') {
                     percentOptions.style.display = 'block';
                     if (!unlimitedPercentCheckbox.checked) {

@@ -18,7 +18,6 @@ namespace Assignment.Controllers
             _context = context;
         }
 
-        // GET: Cart
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -37,7 +36,6 @@ namespace Assignment.Controllers
             return View(cart);
         }
 
-        // POST: Cart/AddProduct
         [HttpPost]
         public async Task<IActionResult> AddProduct(long productId, long quantity = 1)
         {
@@ -80,12 +78,10 @@ namespace Assignment.Controllers
 
             var updatedCart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
-            // Tính toán và trả về số lượng mới
             var newCount = updatedCart?.CartItems.Sum(ci => ci.Quantity) ?? 0;
             return Json(new { success = true, count = newCount });
         }
 
-        // POST: Cart/AddCombo
         [HttpPost]
         public async Task<IActionResult> AddCombo(long comboId, long quantity = 1)
         {
@@ -128,13 +124,11 @@ namespace Assignment.Controllers
 
             var updatedCart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
-            // Tính toán và trả về số lượng mới
             var newCount = updatedCart?.CartItems.Sum(ci => ci.Quantity) ?? 0;
             return Json(new { success = true, count = newCount });
         }
 
 
-        // POST: Cart/UpdateQuantity
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateQuantity(long cartItemId, long quantity)
@@ -158,7 +152,6 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Cart/Remove
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Remove(long cartItemId)
@@ -177,7 +170,6 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // POST: Cart/Clear
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Clear()
@@ -198,7 +190,6 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // GET: Cart/GetCount
         public async Task<IActionResult> GetCount()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

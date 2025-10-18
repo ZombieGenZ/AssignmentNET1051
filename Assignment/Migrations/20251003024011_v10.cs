@@ -4,10 +4,8 @@
 
 namespace Assignment.Migrations
 {
-    /// <inheritdoc />
     public partial class v10 : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AlterColumn<int>(
@@ -19,7 +17,6 @@ namespace Assignment.Migrations
                 oldType: "int");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AlterColumn<int>(

@@ -294,7 +294,6 @@
                 },
                 success: function() {
                     showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
-                     // Get new cart count from server and update UI
                     $.get('@Url.Action("GetCount", "Cart")', function(data) {
                         updateCartCount(data.count);
                     });

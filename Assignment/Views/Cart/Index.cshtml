@@ -3,10 +3,8 @@
 @{
     ViewData["Title"] = "Giỏ Hàng";
     double totalPrice = 0;
-    // Lấy thông tin voucher và giảm giá từ TempData (do Controller truyền sang sau khi xử lý)
     double discount = (double)(TempData["DiscountAmount"] ?? 0.0);
     string voucherCode = (string)TempData["VoucherCode"];
-    // Giữ lại TempData để hiển thị lại sau khi tải trang
     TempData.Keep("DiscountAmount");
     TempData.Keep("VoucherCode");
 }
@@ -205,12 +203,11 @@
 
 @section Scripts {
     <script>
-        // This script ensures the user cannot manually enter a quantity less than 1
         document.querySelectorAll('input[name="quantity"]').forEach(input => {
             input.addEventListener('change', function () {
                 if (this.value < 1) {
                     this.value = 1;
-                    this.form.submit(); // Submit the form to update server-side
+                    this.form.submit();
                 }
             });
         });

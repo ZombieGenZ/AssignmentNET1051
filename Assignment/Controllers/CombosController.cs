@@ -12,7 +12,7 @@ using Assignment.Extensions;
 
 namespace Assignment.Controllers
 {
-    [Authorize] // Thêm Authorize để đảm bảo người dùng đã đăng nhập
+    [Authorize]
     public class CombosController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -24,14 +24,11 @@ namespace Assignment.Controllers
             _authorizationService = authorizationService;
         }
 
-        // GET: Combos
-        // Hiển thị danh sách các combo chưa bị xóa mềm.
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var hasGetAll = User.HasPermission("GetComboAll");
 
-            // Bắt đầu câu truy vấn bằng cách lọc ra các bản ghi đã bị xóa mềm.
             IQueryable<Combo> combos = _context.Combos
                 .Where(c => !c.IsDeleted)
                 .Include(c => c.ComboItems)
@@ -52,8 +49,6 @@ namespace Assignment.Controllers
             return View(await combos.ToListAsync());
         }
 
-        // GET: Combos/Details/5
-        // Chỉ hiển thị chi tiết nếu combo chưa bị xóa.
         public async Task<IActionResult> Details(long? id)
         {
             if (id == null)
@@ -61,9 +56,8 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm combo nếu nó chưa bị xóa mềm.
             var combo = await _context.Combos
-                .Where(c => !c.IsDeleted) // Lọc combo chưa bị xóa
+                .Where(c => !c.IsDeleted)
                 .Include(c => c.ComboItems)
                 .ThenInclude(ci => ci.Product)
                 .FirstOrDefaultAsync(m => m.Id == id);
@@ -82,7 +76,6 @@ namespace Assignment.Controllers
             return View(combo);
         }
 
-        // GET: Combos/Create
         [Authorize(Policy = "CreateComboPolicy")]
         public async Task<IActionResult> Create()
         {
@@ -91,7 +84,6 @@ namespace Assignment.Controllers
             return View();
         }
 
-        // POST: Combos/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateComboPolicy")]
@@ -182,7 +174,6 @@ namespace Assignment.Controllers
                 }
             }
 
-            // Giữ lại dữ liệu sản phẩm khi có lỗi
             var authorizedProducts = await GetAuthorizedProducts();
             ViewData["Products"] = new SelectList(authorizedProducts, "Id", "Name");
             ViewData["SelectedProductIds"] = selectedProductIds;
@@ -191,8 +182,6 @@ namespace Assignment.Controllers
             return View(combo);
         }
 
-        // GET: Combos/Edit/5
-        // Chỉ cho phép chỉnh sửa nếu combo chưa bị xóa.
         public async Task<IActionResult> Edit(long? id)
         {
             if (id == null)
@@ -200,9 +189,8 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm combo nếu nó chưa bị xóa mềm.
             var combo = await _context.Combos
-                .Where(c => !c.IsDeleted) // Lọc combo chưa bị xóa
+                .Where(c => !c.IsDeleted)
                 .Include(c => c.ComboItems)
                 .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -222,7 +210,6 @@ namespace Assignment.Controllers
             return View(combo);
         }
 
-        // POST: Combos/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(long id, [Bind("Name,Description,Stock,DiscountType,Discount,IsPublish,ImageUrl,Id,Index")] Combo combo, List<long> ProductIds, List<long> Quantities)
@@ -232,7 +219,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Đảm bảo combo đang được chỉnh sửa tồn tại và chưa bị xóa mềm.
             var existingCombo = await _context.Combos
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
@@ -357,8 +343,6 @@ namespace Assignment.Controllers
             return View(combo);
         }
 
-        // GET: Combos/Delete/5
-        // Hiển thị trang xác nhận xóa nếu combo chưa bị xóa.
         public async Task<IActionResult> Delete(long? id)
         {
             if (id == null)
@@ -366,9 +350,8 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm combo nếu nó chưa bị xóa mềm.
             var combo = await _context.Combos
-                .Where(c => !c.IsDeleted) // Lọc combo chưa bị xóa
+                .Where(c => !c.IsDeleted)
                 .Include(c => c.ComboItems)
                 .ThenInclude(ci => ci.Product)
                 .FirstOrDefaultAsync(m => m.Id == id);
@@ -387,21 +370,16 @@ namespace Assignment.Controllers
             return View(combo);
         }
 
-        // POST: Combos/Delete/5
-        // Thực hiện xóa mềm.
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
-            // Tải combo và các item liên quan.
-            // Chỉ tìm combo chưa bị xóa mềm.
             var combo = await _context.Combos
                                   .Include(c => c.ComboItems)
                                   .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
             if (combo == null)
             {
-                // Combo có thể đã bị người khác xóa. Chuyển hướng về trang danh sách là an toàn.
                 return RedirectToAction(nameof(Index));
             }
 
@@ -411,17 +389,14 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            // Thực hiện xóa mềm bằng cách đặt cờ và dấu thời gian.
             combo.IsDeleted = true;
             combo.DeletedAt = DateTime.Now;
 
-            // Xóa mềm các ComboItems liên quan
             if (combo.ComboItems != null)
             {
                 foreach (var item in combo.ComboItems)
                 {
                     item.IsDeleted = true;
-                    // Bạn có thể muốn thêm cả DeletedAt cho ComboItem nếu model có.
                 }
             }
 
@@ -432,7 +407,6 @@ namespace Assignment.Controllers
 
         private bool ComboExists(long id)
         {
-            // Phương thức này cũng cần phải bỏ qua các combo đã bị xóa mềm.
             return _context.Combos.Any(e => e.Id == id && !e.IsDeleted);
         }
 
@@ -442,7 +416,6 @@ namespace Assignment.Controllers
             var hasGetProductAll = User.HasPermission("GetProductAll");
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            // Chỉ lấy các sản phẩm chưa bị xóa và được publish
             IQueryable<Product> query = _context.Products.Where(p => !p.IsDeleted && p.IsPublish);
 
             if (hasGetProductAll)
