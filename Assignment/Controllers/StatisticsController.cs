@@ -351,7 +351,7 @@ namespace Assignment.Controllers
                     {
                         var compareDay = filter.CompareStart.Value.Date;
                         filter.CompareStart = compareDay;
-                        filter.CompareEnd = (filter.CompareEnd ?? compareDay).Value.Date;
+                        filter.CompareEnd = filter.CompareEnd?.Date ?? compareDay;
                     }
                     else
                     {

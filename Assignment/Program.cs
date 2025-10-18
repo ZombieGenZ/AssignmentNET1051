@@ -322,6 +322,7 @@ using (var scope = app.Services.CreateScope())
             new Claim("CreateVoucher", "true"),
             new Claim("UpdateVoucherAll", "true"),
             new Claim("DeleteVoucherAll", "true"),
+            new Claim("GetOrderAll", "true"),
         };
 
         foreach (var claim in claims)
