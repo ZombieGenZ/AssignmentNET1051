@@ -24,11 +24,15 @@
 
         @if (Model.Status == OrderStatus.Paid)
         {
-            <p class="text-success mt-3"><i class="fas fa-check-circle me-2"></i>Thanh toán PayOS đã hoàn tất, chúng tôi sẽ bắt đầu xử lý đơn hàng của bạn.</p>
+            <p class="text-success mt-3"><i class="fas fa-check-circle me-2"></i>Thanh toán của bạn đã được xác nhận, chúng tôi sẽ bắt đầu xử lý đơn hàng ngay.</p>
         }
         else if (Model.Status == OrderStatus.Cancelled)
         {
-            <p class="text-danger mt-3"><i class="fas fa-times-circle me-2"></i>Thanh toán PayOS đã bị hủy. Bạn có thể đặt lại đơn hàng hoặc chọn phương thức thanh toán khác.</p>
+            <p class="text-danger mt-3"><i class="fas fa-times-circle me-2"></i>Đơn hàng của bạn đã bị hủy. Bạn có thể đặt lại đơn hàng hoặc chọn phương thức thanh toán khác.</p>
+        }
+        else if (Model.PaymentType == PaymentType.PayNow && Model.PaymentMethod == PaymentMethodType.Bank)
+        {
+            <p class="text-info mt-3"><i class="fas fa-info-circle me-2"></i>Vui lòng hoàn tất chuyển khoản ngân hàng theo hướng dẫn của cửa hàng để đơn hàng được xử lý nhanh chóng.</p>
         }
 
         <div class="mt-4">

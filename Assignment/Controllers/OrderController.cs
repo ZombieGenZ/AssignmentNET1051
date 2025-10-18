@@ -2,13 +2,11 @@
 using Assignment.Models;
 using Assignment.Enums;
 using Assignment.Services;
-using Assignment.Services.PayOs;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
 using Assignment.Extensions;
 using System.Linq;
 using System.Collections.Generic;
@@ -20,15 +18,10 @@ namespace Assignment.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        private readonly IPayOsService _payOsService;
-        private readonly ILogger<OrderController> _logger;
-
-        public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IPayOsService payOsService, ILogger<OrderController> logger)
+        public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
         {
             _context = context;
             _userManager = userManager;
-            _payOsService = payOsService;
-            _logger = logger;
         }
 
         public async Task<IActionResult> Checkout(string? cartItemIds)
@@ -185,30 +178,6 @@ namespace Assignment.Controllers
                 _context.Orders.Add(order);
                 _context.CartItems.RemoveRange(filteredItems);
                 await _context.SaveChangesAsync();
-
-                if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)
-                {
-                    var successUrl = Url.Action(nameof(PayOsReturn), "Order", new { id = order.Id }, Request.Scheme, Request.Host.ToString());
-                    var cancelUrl = Url.Action(nameof(PayOsCancel), "Order", new { id = order.Id }, Request.Scheme, Request.Host.ToString());
-
-                    if (string.IsNullOrWhiteSpace(successUrl) || string.IsNullOrWhiteSpace(cancelUrl))
-                    {
-                        _logger.LogWarning("Cannot build PayOS return or cancel URL for order {OrderId}.", order.Id);
-                        TempData["Error"] = "Không thể xác định địa chỉ phản hồi từ PayOS. Vui lòng thử lại sau.";
-                        return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
-                    }
-
-                    try
-                    {
-                        var payUrl = await _payOsService.CreatePaymentUrlAsync(order, successUrl, cancelUrl);
-                        return Redirect(payUrl);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Unable to create PayOS payment link for order {OrderId}.", order.Id);
-                        TempData["Error"] = "Không thể khởi tạo thanh toán PayOS. Vui lòng thử lại sau hoặc chọn phương thức thanh toán khác.";
-                    }
-                }
 
                 return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
             }
@@ -390,76 +359,6 @@ namespace Assignment.Controllers
 
             TempData["Success"] = $"Cập nhật trạng thái đơn hàng #{order.Id} thành công.";
             return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
-        }
-
-        public async Task<IActionResult> PayOsReturn(long id)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
-
-            if (order == null)
-            {
-                return NotFound();
-            }
-
-            if (order.PaymentType != PaymentType.PayNow || order.PaymentMethod != PaymentMethodType.Bank)
-            {
-                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
-            }
-
-            if (!_payOsService.ValidateRedirectSignature(Request.Query))
-            {
-                TempData["Error"] = "Không thể xác thực kết quả thanh toán PayOS.";
-                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
-            }
-
-            var status = Request.Query["status"].ToString();
-            if (!string.IsNullOrWhiteSpace(status) && !string.Equals(status, "PAID", StringComparison.OrdinalIgnoreCase) && !string.Equals(status, "SUCCESS", StringComparison.OrdinalIgnoreCase))
-            {
-                TempData["Error"] = "Thanh toán PayOS chưa được xác nhận.";
-                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
-            }
-
-            if (order.Status != OrderStatus.Paid)
-            {
-                order.Status = OrderStatus.Paid;
-                order.UpdatedAt = DateTime.Now;
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
-        }
-
-        public async Task<IActionResult> PayOsCancel(long id)
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
-
-            if (order == null)
-            {
-                return NotFound();
-            }
-
-            if (order.PaymentType != PaymentType.PayNow || order.PaymentMethod != PaymentMethodType.Bank)
-            {
-                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
-            }
-
-            if (!_payOsService.ValidateRedirectSignature(Request.Query))
-            {
-                TempData["Error"] = "Không thể xác thực yêu cầu hủy thanh toán PayOS.";
-                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
-            }
-
-            if (order.Status != OrderStatus.Paid)
-            {
-                order.Status = OrderStatus.Cancelled;
-                order.UpdatedAt = DateTime.Now;
-                await _context.SaveChangesAsync();
-            }
-
-            TempData["Error"] = "Thanh toán PayOS đã bị hủy.";
-            return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
         }
 
         public async Task<IActionResult> OrderConfirmation(long id)
