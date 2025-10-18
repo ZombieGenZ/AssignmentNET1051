@@ -23,7 +23,11 @@ namespace Assignment.Services.Payments
             _logger = logger;
             _options = options.Value;
 
-            var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl) ? "https://api.payos.vn/v2/" : _options.BaseUrl;
+            var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl) ? "https://api.payos.vn/v2/" : _options.BaseUrl.Trim();
+            if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
+            {
+                baseUrl += "/";
+            }
             if (_httpClient.BaseAddress == null)
             {
                 _httpClient.BaseAddress = new Uri(baseUrl);
