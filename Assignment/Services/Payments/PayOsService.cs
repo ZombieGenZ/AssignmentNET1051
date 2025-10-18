@@ -135,10 +135,19 @@ namespace Assignment.Services.Payments
 
         private string GenerateSignature(long orderCode, long amount, string description, string returnUrl, string cancelUrl)
         {
-            var rawData = $"{orderCode}{amount}{description}{returnUrl}{cancelUrl}";
+            var data = new SortedDictionary<string, string>
+            {
+                { "amount", amount.ToString() },
+                { "cancelUrl", cancelUrl },
+                { "description", description },
+                { "orderCode", orderCode.ToString() },
+                { "returnUrl", returnUrl }
+            };
+
+            var rawData = string.Join("&", data.Select(kvp => $"{kvp.Key}={kvp.Value}"));
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_options.ChecksumKey ?? string.Empty));
             var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawData));
-            return BitConverter.ToString(hashBytes).Replace("-", string.Empty).ToLowerInvariant();
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
         }
     }
 }
