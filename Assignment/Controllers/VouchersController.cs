@@ -460,6 +460,86 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkDelete([FromForm] List<long> selectedIds)
+        {
+            if (selectedIds == null || selectedIds.Count == 0)
+            {
+                TempData["Info"] = "Vui lòng chọn ít nhất một mã giảm giá để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var vouchers = await _context.Vouchers
+                .Where(v => selectedIds.Contains(v.Id) && !v.IsDeleted)
+                .Include(v => v.VoucherUsers)
+                .ToListAsync();
+
+            if (!vouchers.Any())
+            {
+                TempData["Info"] = "Không tìm thấy mã giảm giá hợp lệ để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var now = DateTime.Now;
+            var deletableVouchers = new List<Voucher>();
+            var voucherUsersToUpdate = new List<VoucherUser>();
+            var unauthorizedCount = 0;
+
+            foreach (var voucher in vouchers)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, voucher, "DeleteVoucherPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                voucher.IsDeleted = true;
+                voucher.DeletedAt = now;
+                voucher.UpdatedAt = now;
+                deletableVouchers.Add(voucher);
+
+                if (voucher.VoucherUsers != null)
+                {
+                    foreach (var voucherUser in voucher.VoucherUsers.Where(vu => !vu.IsDeleted))
+                    {
+                        voucherUser.IsDeleted = true;
+                        voucherUser.DeletedAt = now;
+                        voucherUser.UpdatedAt = now;
+                        voucherUsersToUpdate.Add(voucherUser);
+                    }
+                }
+            }
+
+            if (deletableVouchers.Any())
+            {
+                _context.Vouchers.UpdateRange(deletableVouchers);
+                if (voucherUsersToUpdate.Any())
+                {
+                    _context.VoucherUsers.UpdateRange(voucherUsersToUpdate);
+                }
+
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Đã xóa {deletableVouchers.Count} mã giảm giá.";
+            }
+            else
+            {
+                TempData["Info"] = "Không có mã giảm giá nào được xóa.";
+            }
+
+            if (unauthorizedCount > 0)
+            {
+                var message = $"{unauthorizedCount} mã giảm giá không đủ quyền xóa.";
+                var existingError = TempData.ContainsKey("Error") ? TempData["Error"]?.ToString() : null;
+                TempData["Error"] = string.IsNullOrWhiteSpace(existingError)
+                    ? message
+                    : $"{existingError} {message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         [HttpGet]
         public IActionResult DownloadVoucherTemplate()
         {

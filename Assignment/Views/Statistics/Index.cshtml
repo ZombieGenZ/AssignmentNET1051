@@ -38,13 +38,13 @@
         <h1 class="h3 mb-1">Thống kê doanh thu</h1>
         <p class="text-muted mb-0">Bộ lọc @GetPeriodTypeLabel(Model.Filter.PeriodType).</p>
     </div>
-    <a class="btn btn-outline-secondary" href="@exportUrl"><i class="fas fa-file-export me-2"></i>Xuất báo cáo</a>
+    <a class="btn btn-outline-secondary" href="@exportUrl"><i class="fas fa-file-export me-2"></i>Xuất Excel</a>
 </div>
 
 <form class="row g-3 mb-4" method="get">
     <div class="col-md-3">
         <label asp-for="Filter.PeriodType" class="form-label">Kiểu thống kê</label>
-        <select asp-for="Filter.PeriodType" class="form-select" asp-items="Html.GetEnumSelectList<StatisticsPeriodType>()"></select>
+        <select asp-for="Filter.PeriodType" class="form-select" asp-items="Html.GetEnumSelectList<StatisticsPeriodType>()" data-default-value="@((int)StatisticsPeriodType.Month)"></select>
     </div>
     <div class="col-md-3">
         <label asp-for="Filter.PrimaryStart" class="form-label">Bắt đầu</label>
@@ -55,7 +55,10 @@
         <input asp-for="Filter.PrimaryEnd" class="form-control" type="date" />
     </div>
     <div class="col-md-3 d-flex align-items-end">
-        <button class="btn btn-primary w-100" type="submit"><i class="fas fa-filter me-2"></i>Áp dụng bộ lọc</button>
+        <div class="d-flex w-100 gap-2 flex-wrap">
+            <button class="btn btn-primary flex-fill" type="submit"><i class="fas fa-filter me-2"></i>Áp dụng bộ lọc</button>
+            <button class="btn btn-outline-secondary flex-fill" type="button" id="resetPrimaryFilters"><i class="fas fa-rotate-left me-2"></i>Đặt lại</button>
+        </div>
     </div>
     <div class="col-12">
         <div class="border-top pt-3 mt-2">
@@ -72,6 +75,9 @@
     </div>
     <div class="col-md-3 d-flex align-items-end">
         <div class="form-text">Để trống nếu không cần so sánh.</div>
+    </div>
+    <div class="col-md-3 d-flex align-items-end">
+        <button type="button" class="btn btn-outline-secondary w-100" id="resetCompareFilters"><i class="fas fa-rotate-left me-2"></i>Đặt lại so sánh</button>
     </div>
 </form>
 
@@ -105,7 +111,9 @@
 <div class="card shadow-sm mb-4">
     <div class="card-body">
         <h2 class="card-title h5">Biểu đồ doanh thu</h2>
-        <canvas id="revenueChart"></canvas>
+        <div class="position-relative" style="height: 360px;">
+            <canvas id="revenueChart"></canvas>
+        </div>
     </div>
 </div>
 
@@ -162,16 +170,30 @@
         const revenueLabels = @Html.Raw(labelsJson);
         const primaryRevenue = @Html.Raw(primaryRevenueJson);
         const compareRevenue = @Html.Raw(compareRevenueJson);
-        const ctx = document.getElementById('revenueChart').getContext('2d');
+        const canvas = document.getElementById('revenueChart');
+        const ctx = canvas.getContext('2d');
+
+        const containerHeight = canvas.parentElement ? canvas.parentElement.clientHeight : 360;
+
+        const createGradient = (from, to) => {
+            const gradient = ctx.createLinearGradient(0, 0, 0, containerHeight);
+            gradient.addColorStop(0, from);
+            gradient.addColorStop(1, to);
+            return gradient;
+        };
 
         const datasets = [
             {
                 label: 'Doanh thu',
                 data: primaryRevenue,
-                backgroundColor: 'rgba(255, 99, 132, 0.2)',
-                borderColor: 'rgba(255, 99, 132, 1)',
-                borderWidth: 2,
-                tension: 0.3,
+                backgroundColor: createGradient('rgba(37, 99, 235, 0.35)', 'rgba(37, 99, 235, 0.05)'),
+                borderColor: '#2563eb',
+                borderWidth: 3,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#1d4ed8',
+                pointBorderColor: '#ffffff',
+                tension: 0.35,
                 fill: true
             }
         ];
@@ -180,10 +202,15 @@
             datasets.push({
                 label: 'Doanh thu (so sánh)',
                 data: compareRevenue,
-                backgroundColor: 'rgba(54, 162, 235, 0.2)',
-                borderColor: 'rgba(54, 162, 235, 1)',
-                borderWidth: 2,
-                tension: 0.3,
+                backgroundColor: createGradient('rgba(249, 115, 22, 0.25)', 'rgba(249, 115, 22, 0.05)'),
+                borderColor: '#f97316',
+                borderWidth: 3,
+                borderDash: [6, 4],
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#f97316',
+                pointBorderColor: '#ffffff',
+                tension: 0.35,
                 fill: true
             });
         }
@@ -196,18 +223,38 @@
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 interaction: {
                     mode: 'index',
                     intersect: false
                 },
                 scales: {
+                    x: {
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.2)'
+                        },
+                        ticks: {
+                            color: '#475569'
+                        }
+                    },
                     y: {
                         ticks: {
+                            color: '#475569',
                             callback: value => value.toLocaleString('vi-VN') + ' đ'
+                        },
+                        grid: {
+                            color: 'rgba(148, 163, 184, 0.2)'
                         }
                     }
                 },
                 plugins: {
+                    legend: {
+                        labels: {
+                            font: {
+                                weight: '600'
+                            }
+                        }
+                    },
                     tooltip: {
                         callbacks: {
                             label: context => `${context.dataset.label}: ${context.parsed.y.toLocaleString('vi-VN')} đ`
@@ -216,5 +263,41 @@
                 }
             }
         });
+
+        const setupResetButtons = () => {
+            const primaryReset = document.getElementById('resetPrimaryFilters');
+            const compareReset = document.getElementById('resetCompareFilters');
+            const periodSelect = document.querySelector('[name="Filter.PeriodType"]');
+            const primaryStart = document.querySelector('[name="Filter.PrimaryStart"]');
+            const primaryEnd = document.querySelector('[name="Filter.PrimaryEnd"]');
+            const compareStart = document.querySelector('[name="Filter.CompareStart"]');
+            const compareEnd = document.querySelector('[name="Filter.CompareEnd"]');
+
+            if (primaryReset) {
+                primaryReset.addEventListener('click', function () {
+                    if (primaryStart) primaryStart.value = '';
+                    if (primaryEnd) primaryEnd.value = '';
+                    if (periodSelect) {
+                        const defaultValue = periodSelect.dataset.defaultValue;
+                        if (typeof defaultValue !== 'undefined') {
+                            periodSelect.value = defaultValue;
+                        }
+                    }
+                });
+            }
+
+            if (compareReset) {
+                compareReset.addEventListener('click', function () {
+                    if (compareStart) compareStart.value = '';
+                    if (compareEnd) compareEnd.value = '';
+                });
+            }
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', setupResetButtons);
+        } else {
+            setupResetButtons();
+        }
     </script>
 }

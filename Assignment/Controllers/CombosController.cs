@@ -407,6 +407,86 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkDelete([FromForm] List<long> selectedIds)
+        {
+            if (selectedIds == null || selectedIds.Count == 0)
+            {
+                TempData["Info"] = "Vui lòng chọn ít nhất một combo để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var combos = await _context.Combos
+                .Where(c => selectedIds.Contains(c.Id) && !c.IsDeleted)
+                .Include(c => c.ComboItems)
+                .ToListAsync();
+
+            if (!combos.Any())
+            {
+                TempData["Info"] = "Không tìm thấy combo hợp lệ để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var now = DateTime.Now;
+            var deletableCombos = new List<Combo>();
+            var comboItemsToUpdate = new List<ComboItem>();
+            var unauthorizedCount = 0;
+
+            foreach (var combo in combos)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, combo, "DeleteComboPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                combo.IsDeleted = true;
+                combo.DeletedAt = now;
+                combo.UpdatedAt = now;
+                deletableCombos.Add(combo);
+
+                if (combo.ComboItems != null)
+                {
+                    foreach (var item in combo.ComboItems.Where(ci => !ci.IsDeleted))
+                    {
+                        item.IsDeleted = true;
+                        item.DeletedAt = now;
+                        item.UpdatedAt = now;
+                        comboItemsToUpdate.Add(item);
+                    }
+                }
+            }
+
+            if (deletableCombos.Any())
+            {
+                _context.Combos.UpdateRange(deletableCombos);
+                if (comboItemsToUpdate.Any())
+                {
+                    _context.ComboItems.UpdateRange(comboItemsToUpdate);
+                }
+
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Đã xóa {deletableCombos.Count} combo.";
+            }
+            else
+            {
+                TempData["Info"] = "Không có combo nào được xóa.";
+            }
+
+            if (unauthorizedCount > 0)
+            {
+                var message = $"{unauthorizedCount} combo không đủ quyền xóa.";
+                var existingError = TempData.ContainsKey("Error") ? TempData["Error"]?.ToString() : null;
+                TempData["Error"] = string.IsNullOrWhiteSpace(existingError)
+                    ? message
+                    : $"{existingError} {message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private bool ComboExists(long id)
         {
             return _context.Combos.Any(e => e.Id == id && !e.IsDeleted);

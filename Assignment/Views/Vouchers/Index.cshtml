@@ -28,90 +28,135 @@
             }
         </div>
         <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-hover table-bordered text-center">
-                    <thead class="table-light">
-                        <tr>
-                            <th>@Html.DisplayNameFor(model => model.Code)</th>
-                            <th>@Html.DisplayNameFor(model => model.Name)</th>
-                            <th>@Html.DisplayNameFor(model => model.Type)</th>
-                            <th>@Html.DisplayNameFor(model => model.DiscountType)</th>
-                            <th>@Html.DisplayNameFor(model => model.Discount)</th>
-                            <th>@Html.DisplayNameFor(model => model.Used)</th>
-                            <th>@Html.DisplayNameFor(model => model.Quantity)</th>
-                            <th>Thời gian bắt đầu</th>
-                            <th>Thời gian kết thúc</th>
-                            <th style="width: 15%;">Hành động</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var item in Model)
-                        {
-                            <tr>
-                                <td>@Html.DisplayFor(modelItem => item.Code)</td>
-                                <td>@Html.DisplayFor(modelItem => item.Name)</td>
-                                <td>
-                                    @if (item.Type == VoucherType.Public)
-                                    {
-                                        <span class="badge bg-success">Công khai</span>
-                                    }
-                                    else
-                                    {
-                                        <span class="badge bg-info">Riêng tư</span>
-                                    }
-                                </td>
-                                <td>
-                                    @(item.DiscountType == VoucherDiscountType.Money ? "Tiền mặt" : "Phần trăm")
-                                </td>
-                                <td>
-                                    @if (item.DiscountType == VoucherDiscountType.Money)
-                                    {
-                                        @item.Discount.ToString("C0")
-                                    }
-                                    else
-                                    {
-                                        @($"{item.Discount}%")
-                                    }
-                                </td>
-                                <td>@item.Used.ToString("N0")</td>
-                                <td>@item.Quantity.ToString("N0")</td>
-                                <td>@item.StartTime.ToString("dd/MM/yyyy HH:mm")</td>
-                                <td>
-                                    @if (item.IsLifeTime)
-                                    {
-                                        <span class="badge bg-warning">Vô thời hạn</span>
-                                    }
-                                    else
-                                    {
-                                        @item.EndTime?.ToString("dd/MM/yyyy HH:mm")
-                                    }
-                                </td>
-                                <td>
-                                    <div class="btn-group" role="group">
-                                        @if (User.HasAnyPermission("UpdateVoucher", "UpdateVoucherAll"))
-                                        {
-                                            <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
-                                                <i class="fas fa-edit"></i>
-                                            </a>
-                                        }
-                                        @if (User.HasAnyPermission("GetVoucher", "GetVoucherAll"))
-                                        {
-                                            <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
-                                                <i class="fas fa-info-circle"></i>
-                                            </a>
-                                        }
-                                        @if (User.HasAnyPermission("DeleteVoucher", "DeleteVoucherAll"))
-                                        {
-                                            <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
-                                                <i class="fas fa-trash-alt"></i>
-                                            </a>
-                                        }
-                                    </div>
-                                </td>
-                            </tr>
-                        }
-                    </tbody>
-                </table>
+            @if (TempData["Success"] is string successMessage)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>@successMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (TempData["Error"] is string errorMessage)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>@errorMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (TempData["Info"] is string infoMessage)
+            {
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>@infoMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+
+            <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một mã giảm giá để xóa.">
+                <form asp-action="BulkDelete" method="post">
+                    @Html.AntiForgeryToken()
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>
+                            <span class="text-muted small">Đã chọn <span data-bulk-count>0</span> mã giảm giá</span>
+                            <button type="submit" class="btn btn-sm btn-danger" data-bulk-enable>
+                                <i class="fas fa-trash-alt me-1"></i>Xóa tất cả
+                            </button>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover table-bordered text-center">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 50px;">
+                                        <div class="form-check d-flex justify-content-center mb-0">
+                                            <input class="form-check-input" type="checkbox" data-bulk-select-all />
+                                        </div>
+                                    </th>
+                                    <th>@Html.DisplayNameFor(model => model.Code)</th>
+                                    <th>@Html.DisplayNameFor(model => model.Name)</th>
+                                    <th>@Html.DisplayNameFor(model => model.Type)</th>
+                                    <th>@Html.DisplayNameFor(model => model.DiscountType)</th>
+                                    <th>@Html.DisplayNameFor(model => model.Discount)</th>
+                                    <th>@Html.DisplayNameFor(model => model.Used)</th>
+                                    <th>@Html.DisplayNameFor(model => model.Quantity)</th>
+                                    <th>Thời gian bắt đầu</th>
+                                    <th>Thời gian kết thúc</th>
+                                    <th style="width: 15%;">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in Model)
+                                {
+                                    <tr>
+                                        <td>
+                                            <div class="form-check d-flex justify-content-center mb-0">
+                                                <input class="form-check-input" type="checkbox" name="selectedIds" value="@item.Id" data-bulk-item />
+                                            </div>
+                                        </td>
+                                        <td>@Html.DisplayFor(modelItem => item.Code)</td>
+                                        <td>@Html.DisplayFor(modelItem => item.Name)</td>
+                                        <td>
+                                            @if (item.Type == VoucherType.Public)
+                                            {
+                                                <span class="badge bg-success">Công khai</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-info">Riêng tư</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @(item.DiscountType == VoucherDiscountType.Money ? "Tiền mặt" : "Phần trăm")
+                                        </td>
+                                        <td>
+                                            @if (item.DiscountType == VoucherDiscountType.Money)
+                                            {
+                                                @item.Discount.ToString("C0")
+                                            }
+                                            else
+                                            {
+                                                @($"{item.Discount}%")
+                                            }
+                                        </td>
+                                        <td>@item.Used.ToString("N0")</td>
+                                        <td>@item.Quantity.ToString("N0")</td>
+                                        <td>@item.StartTime.ToString("dd/MM/yyyy HH:mm")</td>
+                                        <td>
+                                            @if (item.IsLifeTime)
+                                            {
+                                                <span class="badge bg-warning">Vô thời hạn</span>
+                                            }
+                                            else
+                                            {
+                                                @item.EndTime?.ToString("dd/MM/yyyy HH:mm")
+                                            }
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                @if (User.HasAnyPermission("UpdateVoucher", "UpdateVoucherAll"))
+                                                {
+                                                    <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                }
+                                                @if (User.HasAnyPermission("GetVoucher", "GetVoucherAll"))
+                                                {
+                                                    <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
+                                                        <i class="fas fa-info-circle"></i>
+                                                    </a>
+                                                }
+                                                @if (User.HasAnyPermission("DeleteVoucher", "DeleteVoucherAll"))
+                                                {
+                                                    <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
+                                                        <i class="fas fa-trash-alt"></i>
+                                                    </a>
+                                                }
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </form>
             </div>
         </div>
     </div>

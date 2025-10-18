@@ -227,6 +227,85 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkDelete([FromForm] List<long> selectedIds)
+        {
+            if (selectedIds == null || selectedIds.Count == 0)
+            {
+                TempData["Info"] = "Vui lòng chọn ít nhất một danh mục để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var categories = await _context.Categories
+                .Where(c => selectedIds.Contains(c.Id) && !c.IsDeleted)
+                .Include(c => c.Products)
+                .ToListAsync();
+
+            if (!categories.Any())
+            {
+                TempData["Info"] = "Không tìm thấy danh mục hợp lệ để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var now = DateTime.Now;
+            var deletedCategories = new List<Category>();
+            var blockedByProducts = new List<string>();
+            var unauthorizedCount = 0;
+
+            foreach (var category in categories)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, category, "DeleteCategoryPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                if (category.Products != null && category.Products.Any(p => !p.IsDeleted))
+                {
+                    blockedByProducts.Add(category.Name);
+                    continue;
+                }
+
+                category.IsDeleted = true;
+                category.DeletedAt = now;
+                category.UpdatedAt = now;
+                deletedCategories.Add(category);
+            }
+
+            if (deletedCategories.Any())
+            {
+                _context.Categories.UpdateRange(deletedCategories);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Đã xóa {deletedCategories.Count} danh mục.";
+            }
+            else if (unauthorizedCount == 0 && !blockedByProducts.Any())
+            {
+                TempData["Info"] = "Không có danh mục nào được xóa.";
+            }
+
+            if (blockedByProducts.Any())
+            {
+                var message = $"Không thể xóa các danh mục: {string.Join(", ", blockedByProducts)} vì vẫn còn sản phẩm.";
+                var existingInfo = TempData.ContainsKey("Info") ? TempData["Info"]?.ToString() : null;
+                TempData["Info"] = string.IsNullOrWhiteSpace(existingInfo)
+                    ? message
+                    : $"{existingInfo} {message}";
+            }
+
+            if (unauthorizedCount > 0)
+            {
+                var message = $"{unauthorizedCount} danh mục không đủ quyền xóa.";
+                var existingError = TempData.ContainsKey("Error") ? TempData["Error"]?.ToString() : null;
+                TempData["Error"] = string.IsNullOrWhiteSpace(existingError)
+                    ? message
+                    : $"{existingError} {message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private bool CategoryExists(long id)
         {
             return _context.Categories.Any(e => e.Id == id && !e.IsDeleted);

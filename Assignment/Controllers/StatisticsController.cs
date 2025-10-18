@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using Assignment.Data;
 using Assignment.Enums;
@@ -10,6 +9,8 @@ using Assignment.ViewModels.Statistics;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ClosedXML.Excel;
+using System.IO;
 
 namespace Assignment.Controllers
 {
@@ -66,36 +67,85 @@ namespace Assignment.Controllers
                     filter.CompareStart.Value, filter.CompareEnd.Value)
                 : null;
 
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("Ten chu ky,Nhan,So luong,Doanh thu");
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("Doanh thu");
 
-            AppendSeries(csvBuilder, primarySeries);
+            var titleRange = worksheet.Range(1, 1, 1, 4);
+            titleRange.Merge();
+            titleRange.Value = "Báo cáo thống kê doanh thu";
+            titleRange.Style.Font.SetBold().Font.SetFontSize(16);
+            titleRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            var timestampRange = worksheet.Range(2, 1, 2, 4);
+            timestampRange.Merge();
+            timestampRange.Value = $"Ngày xuất: {DateTime.Now:dd/MM/yyyy HH:mm}";
+            timestampRange.Style.Font.SetItalic();
+            timestampRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+
+            var currentRow = 4;
+            AppendSeries(worksheet, ref currentRow, primarySeries);
+
             if (compareSeries != null)
             {
-                AppendSeries(csvBuilder, compareSeries);
+                AppendSeries(worksheet, ref currentRow, compareSeries);
             }
 
-            var fileName = $"bao-cao-thong-ke-{DateTime.Now:yyyyMMddHHmmss}.csv";
-            return File(Encoding.UTF8.GetBytes(csvBuilder.ToString()), "text/csv", fileName);
+            worksheet.Columns(1, 4).AdjustToContents();
+            worksheet.Column(2).Style.NumberFormat.Format = "#,##0";
+            worksheet.Column(3).Style.NumberFormat.Format = "#,##0";
+            worksheet.Column(4).Style.NumberFormat.Format = "0.00%";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+            var fileName = $"bao-cao-thong-ke-{DateTime.Now:yyyyMMddHHmmss}.xlsx";
+            return File(stream.ToArray(), "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileName);
         }
 
-        private static void AppendSeries(StringBuilder builder, StatisticsSeriesViewModel series)
+        private static void AppendSeries(IXLWorksheet worksheet, ref int currentRow, StatisticsSeriesViewModel series)
         {
+            var headerRange = worksheet.Range(currentRow, 1, currentRow, 4);
+            headerRange.Merge();
+            headerRange.Value = $"{series.Name}: {series.Start:dd/MM/yyyy} - {series.End:dd/MM/yyyy}";
+            headerRange.Style.Font.SetBold();
+            headerRange.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#e0f2fe"));
+            headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+            headerRange.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            headerRange.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
+            currentRow++;
+
+            worksheet.Cell(currentRow, 1).Value = "Nhãn";
+            worksheet.Cell(currentRow, 2).Value = "Số lượng";
+            worksheet.Cell(currentRow, 3).Value = "Doanh thu (VND)";
+            worksheet.Cell(currentRow, 4).Value = "Tỷ trọng (%)";
+            var columnsHeader = worksheet.Range(currentRow, 1, currentRow, 4);
+            columnsHeader.Style.Font.SetBold();
+            columnsHeader.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+            columnsHeader.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#eff6ff"));
+            columnsHeader.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+            currentRow++;
+
             foreach (var point in series.DataPoints)
             {
-                builder
-                    .Append(series.Name).Append(',')
-                    .Append(point.Label).Append(',')
-                    .Append(point.TotalQuantity).Append(',')
-                    .Append(point.TotalBill.ToString("F2"))
-                    .AppendLine();
+                worksheet.Cell(currentRow, 1).Value = point.Label;
+                worksheet.Cell(currentRow, 2).Value = point.TotalQuantity;
+                worksheet.Cell(currentRow, 3).Value = point.TotalBill;
+                worksheet.Cell(currentRow, 4).Value = series.TotalBill > 0
+                    ? point.TotalBill / series.TotalBill
+                    : 0;
+                currentRow++;
             }
 
-            builder
-                .Append(series.Name).Append(",Tong cong,")
-                .Append(series.TotalQuantity).Append(',')
-                .Append(series.TotalBill.ToString("F2"))
-                .AppendLine();
+            worksheet.Cell(currentRow, 1).Value = "Tổng cộng";
+            worksheet.Cell(currentRow, 2).Value = series.TotalQuantity;
+            worksheet.Cell(currentRow, 3).Value = series.TotalBill;
+            worksheet.Cell(currentRow, 4).Value = series.TotalBill > 0 ? 1 : 0;
+
+            var totalRange = worksheet.Range(currentRow, 1, currentRow, 4);
+            totalRange.Style.Font.SetBold();
+            totalRange.Style.Fill.SetBackgroundColor(XLColor.FromHtml("#dbeafe"));
+            totalRange.Style.Border.TopBorder = XLBorderStyleValues.Thin;
+            totalRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+            currentRow += 2;
         }
 
         private async Task<StatisticsSeriesViewModel> BuildSeriesAsync(string name, StatisticsPeriodType periodType,

@@ -423,6 +423,70 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkUpdateStatus([FromForm] List<long> selectedIds, OrderStatus status, OrderStatus? statusFilter, string? search)
+        {
+            if (!CanManageOrders())
+            {
+                return Forbid();
+            }
+
+            if (selectedIds == null || selectedIds.Count == 0)
+            {
+                TempData["Info"] = "Vui lòng chọn ít nhất một đơn hàng để cập nhật.";
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+            }
+
+            var orders = await _context.Orders
+                .Where(o => selectedIds.Contains(o.Id) && !o.IsDeleted)
+                .ToListAsync();
+
+            if (!orders.Any())
+            {
+                TempData["Info"] = "Không tìm thấy đơn hàng hợp lệ để cập nhật.";
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+            }
+
+            var now = DateTime.Now;
+            var updatedCount = 0;
+            var unchangedCount = 0;
+
+            foreach (var order in orders)
+            {
+                if (order.Status == status)
+                {
+                    unchangedCount++;
+                    continue;
+                }
+
+                order.Status = status;
+                order.UpdatedAt = now;
+                updatedCount++;
+            }
+
+            if (updatedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Đã cập nhật {updatedCount} đơn hàng.";
+            }
+            else
+            {
+                TempData["Info"] = "Không có đơn hàng nào được cập nhật.";
+            }
+
+            if (unchangedCount > 0)
+            {
+                var message = $"{unchangedCount} đơn hàng đã ở trạng thái được chọn.";
+                var existingInfo = TempData.ContainsKey("Info") ? TempData["Info"]?.ToString() : null;
+                TempData["Info"] = string.IsNullOrWhiteSpace(existingInfo)
+                    ? message
+                    : $"{existingInfo} {message}";
+            }
+
+            return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+        }
+
         [HttpGet]
         public async Task<IActionResult> PayOsReturn(long orderId)
         {
