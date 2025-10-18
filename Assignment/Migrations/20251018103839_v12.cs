@@ -14,31 +14,11 @@ namespace Assignment.Migrations
             migrationBuilder.DropIndex(
                 name: "IX_VoucherUsers_VoucherId_UserId",
                 table: "VoucherUsers");
-
-            migrationBuilder.AddColumn<DateTime>(
-                name: "DateOfBirth",
-                table: "AspNetUsers",
-                type: "datetime2",
-                nullable: true);
-
-            migrationBuilder.AddColumn<string>(
-                name: "FullName",
-                table: "AspNetUsers",
-                type: "nvarchar(max)",
-                nullable: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropColumn(
-                name: "DateOfBirth",
-                table: "AspNetUsers");
-
-            migrationBuilder.DropColumn(
-                name: "FullName",
-                table: "AspNetUsers");
-
             migrationBuilder.CreateIndex(
                 name: "IX_VoucherUsers_VoucherId_UserId",
                 table: "VoucherUsers",
