@@ -8,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Security.Claims;
-using System.Text;
+using System.IO;
 using Assignment.Extensions;
+using ClosedXML.Excel;
 
 namespace Assignment.Controllers
 {
@@ -419,13 +420,21 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            const string fileName = "combo_items_template.csv";
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("ProductId,Quantity");
-            csvBuilder.AppendLine("1,1");
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("ComboItems");
+            worksheet.Cell(1, 1).Value = "ProductId";
+            worksheet.Cell(1, 2).Value = "Quantity";
+            worksheet.Cell(2, 1).Value = "1";
+            worksheet.Cell(2, 2).Value = "1";
 
-            var bytes = Encoding.UTF8.GetBytes(csvBuilder.ToString());
-            return File(bytes, "text/csv", fileName);
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            var content = stream.ToArray();
+            const string fileName = "combo_items_template.xlsx";
+            const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(content, contentType, fileName);
         }
 
         [NonAction]

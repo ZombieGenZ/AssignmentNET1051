@@ -83,7 +83,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <input type="file" id="voucherImportInput" class="d-none" accept=".csv" />
+                            <input type="file" id="voucherImportInput" class="d-none" accept=".xlsx,.xls" />
                             <div id="voucherUsersContainer" class="mt-2">
                                 @for (var index = 0; index < selectedUserIds.Count; index++)
                                 {
@@ -189,6 +189,7 @@
     @{
         await Html.RenderPartialAsync("_ValidationScriptsPartial");
     }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js" integrity="sha512-tHjvVwo76mxjSPdZRhqUTrWyd4InENcy+XUG6uHgnIY7M1bRnbV0wOYAV/QXpVZl8vLwawxDFUY8ailqXF/w3g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
     <script>
         const allUsers = @Html.Raw(userOptionsJson);
 
@@ -334,19 +335,10 @@
                 return;
             }
 
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const content = e.target?.result;
-                if (typeof content !== 'string') {
-                    return;
-                }
+            const extension = (file.name.split('.').pop() ?? '').toLowerCase();
 
-                const lines = content
-                    .split(/\r?\n/)
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0);
-
-                if (!lines.length) {
+            const processRows = (rows) => {
+                if (!Array.isArray(rows) || !rows.length) {
                     alert('Không tìm thấy dữ liệu hợp lệ trong file.');
                     return;
                 }
@@ -355,15 +347,23 @@
                 const seen = new Set();
                 let headerSkipped = false;
 
-                lines.forEach(line => {
-                    const parts = line.split(/[;,\t]/).map(part => part.trim());
-                    if (!headerSkipped && parts[0] && parts[0].toLowerCase().includes('user')) {
+                rows.forEach(row => {
+                    if (!Array.isArray(row) || !row.length) {
+                        return;
+                    }
+
+                    const rawUserId = row[0];
+                    const userId = rawUserId == null ? '' : String(rawUserId).trim();
+                    if (!userId) {
+                        return;
+                    }
+
+                    if (!headerSkipped && userId.toLowerCase().includes('user')) {
                         headerSkipped = true;
                         return;
                     }
 
-                    const userId = parts[0];
-                    if (!userId || seen.has(userId)) {
+                    if (seen.has(userId)) {
                         return;
                     }
 
@@ -386,7 +386,59 @@
                 toggleVoucherTypeField();
             };
 
-            reader.readAsText(file);
+            if (extension === 'csv') {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target?.result;
+                    if (typeof content !== 'string') {
+                        alert('Không thể đọc dữ liệu từ file.');
+                        return;
+                    }
+
+                    const rows = content
+                        .split(/\r?\n/)
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .map(line => line.split(/[;,\t]/).map(part => part.trim()));
+
+                    processRows(rows);
+                };
+
+                reader.readAsText(file);
+                return;
+            }
+
+            if (typeof XLSX === 'undefined') {
+                alert('Không thể đọc file Excel trên trình duyệt này.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = e.target?.result;
+                if (!data) {
+                    alert('Không thể đọc dữ liệu từ file.');
+                    return;
+                }
+
+                try {
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    if (!firstSheetName) {
+                        alert('File không có dữ liệu.');
+                        return;
+                    }
+
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', blankrows: false });
+                    processRows(rows);
+                } catch (error) {
+                    console.error(error);
+                    alert('Không thể đọc dữ liệu từ file. Vui lòng kiểm tra lại định dạng.');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
         }
 
         document.addEventListener('change', event => {
