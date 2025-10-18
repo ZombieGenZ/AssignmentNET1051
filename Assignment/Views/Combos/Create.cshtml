@@ -458,10 +458,10 @@
                         return;
                     }
 
-                    const quantity = parsePositiveInteger(quantityText || rawQuantity);
+                    let quantity = parsePositiveInteger(quantityText || rawQuantity);
 
                     if (!Number.isFinite(quantity) || quantity <= 0) {
-                        return;
+                        quantity = 1;
                     }
 
                     items.push({ productId: normalizedProductId, quantity });
