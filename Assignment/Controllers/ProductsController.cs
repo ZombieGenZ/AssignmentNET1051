@@ -248,6 +248,68 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkDelete([FromForm] List<long> selectedIds)
+        {
+            if (selectedIds == null || selectedIds.Count == 0)
+            {
+                TempData["Info"] = "Vui lòng chọn ít nhất một sản phẩm để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var products = await _context.Products
+                .Where(p => selectedIds.Contains(p.Id) && !p.IsDeleted)
+                .ToListAsync();
+
+            if (!products.Any())
+            {
+                TempData["Info"] = "Không tìm thấy sản phẩm hợp lệ để xóa.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var now = DateTime.Now;
+            var deletableProducts = new List<Product>();
+            var unauthorizedCount = 0;
+
+            foreach (var product in products)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, product, "DeleteProductPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                product.IsDeleted = true;
+                product.DeletedAt = now;
+                product.UpdatedAt = now;
+                deletableProducts.Add(product);
+            }
+
+            if (deletableProducts.Any())
+            {
+                _context.Products.UpdateRange(deletableProducts);
+                await _context.SaveChangesAsync();
+                TempData["Success"] = $"Đã xóa {deletableProducts.Count} sản phẩm.";
+            }
+            else
+            {
+                TempData["Info"] = "Không có sản phẩm nào được xóa.";
+            }
+
+            if (unauthorizedCount > 0)
+            {
+                var message = $"{unauthorizedCount} sản phẩm không đủ quyền xóa.";
+                var existingError = TempData.ContainsKey("Error") ? TempData["Error"]?.ToString() : null;
+                TempData["Error"] = string.IsNullOrWhiteSpace(existingError)
+                    ? message
+                    : $"{existingError} {message}";
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
+
         private bool ProductExists(long id)
         {
             return _context.Products.Any(e => e.Id == id && !e.IsDeleted);

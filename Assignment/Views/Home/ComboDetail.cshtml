@@ -345,6 +345,16 @@
         border-radius: 16px;
         border: 1px solid #e2e8f0;
         box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+        text-decoration: none;
+        color: inherit;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    }
+
+    .combo-item-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
+        border-color: #bfdbfe;
+        text-decoration: none;
     }
 
     .combo-item-card img {
@@ -578,13 +588,27 @@
                                 @foreach (var item in Model.ComboItems)
                                 {
                                     var product = item.Product;
-                                    <div class="combo-item-card">
-                                        <img src="@(product?.ProductImageUrl ?? "/images/no-image.jpg")" alt="@(product?.Name ?? "Sản phẩm")" />
-                                        <div>
-                                            <strong>@(product?.Name ?? "Sản phẩm")</strong>
-                                            <span>x@item.Quantity</span>
+
+                                    if (product != null)
+                                    {
+                                        <a class="combo-item-card" asp-controller="Home" asp-action="ProductDetail" asp-route-id="@product.Id">
+                                            <img src="@(product.ProductImageUrl ?? "/images/no-image.jpg")" alt="@product.Name" />
+                                            <div>
+                                                <strong>@product.Name</strong>
+                                                <span>x@item.Quantity</span>
+                                            </div>
+                                        </a>
+                                    }
+                                    else
+                                    {
+                                        <div class="combo-item-card">
+                                            <img src="/images/no-image.jpg" alt="Sản phẩm" />
+                                            <div>
+                                                <strong>Sản phẩm</strong>
+                                                <span>x@item.Quantity</span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    }
                                 }
                             </div>
                         </div>
