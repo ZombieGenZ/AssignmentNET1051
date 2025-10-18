@@ -94,6 +94,15 @@
             <span>Quản Lý</span>
         </a>
         <ul class="sidebar-menu">
+            @if (User.HasAnyPermission("GetOrderAll"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Statistics" class="sidebar-menu-link">
+                        <i class="fa-solid fa-chart-simple"></i>
+                        <span>Statistical</span>
+                    </a>
+                </li>
+            }
             @if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
             {
                 <li class="sidebar-menu-item">
@@ -225,13 +234,13 @@
         </header>
 
         <div class="content-wrapper">
-            @{ var canViewRevenue = User.HasPermission("GetOrderAll"); }
+@*             @{ var canViewRevenue = User.HasPermission("GetOrderAll"); }
             @if (canViewRevenue)
             {
                 <section class="dashboard-stats mb-4">
                     @await Component.InvokeAsync("AdminRevenue")
                 </section>
-            }
+            } *@
             @*             <div class="page-header">
                 <h1 class="page-title">Dashboard</h1>
                 <nav aria-label="breadcrumb">

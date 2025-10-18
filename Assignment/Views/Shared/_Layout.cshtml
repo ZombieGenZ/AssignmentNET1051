@@ -152,6 +152,8 @@
                                     @if (User.HasPermissionWithPrefix("Get"))
                                     {
                                         <li><hr class="dropdown-divider" /></li>
+                                        <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fa-solid fa-gears"></i> Bản điều khiển</a></li>
+                                        @* <li><hr class="dropdown-divider" /></li>
                                         if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
                                         {
                                             <li><a class="dropdown-item" asp-controller="Categories" asp-action="Index"><i class="fas fa-tags me-2"></i>Quản lý Category</a></li>
@@ -172,7 +174,7 @@
                                         {
                                             <li><a class="dropdown-item" asp-controller="Order" asp-action="Manage"><i class="fas fa-receipt me-2"></i>Quản lý Đơn hàng</a></li>
                                         }
-                                        <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fas fa-chart-line me-2"></i>Thống kê doanh thu</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fas fa-chart-line me-2"></i>Thống kê doanh thu</a></li> *@
                                     }
 
                                     <li><hr class="dropdown-divider" /></li>
