@@ -8,8 +8,9 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
-using System.Text;
+using System.IO;
 using Assignment.Extensions;
+using ClosedXML.Excel;
 
 namespace Assignment.Controllers
 {
@@ -467,13 +468,19 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            const string fileName = "voucher_users_template.csv";
-            var csvBuilder = new StringBuilder();
-            csvBuilder.AppendLine("UserId");
-            csvBuilder.AppendLine("sample-user-id");
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("VoucherUsers");
+            worksheet.Cell(1, 1).Value = "UserId";
+            worksheet.Cell(2, 1).Value = "sample-user-id";
 
-            var bytes = Encoding.UTF8.GetBytes(csvBuilder.ToString());
-            return File(bytes, "text/csv", fileName);
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            var content = stream.ToArray();
+            const string fileName = "voucher_users_template.xlsx";
+            const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(content, contentType, fileName);
         }
 
         private bool VoucherExists(long id)
