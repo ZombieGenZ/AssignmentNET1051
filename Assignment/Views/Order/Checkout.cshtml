@@ -89,7 +89,7 @@
                         <div id="paymentMethodContainer">
                             <div class="mb-3">
                                 <label asp-for="PaymentMethod" class="form-label">Cổng thanh toán</label>
-                                <select asp-for="PaymentMethod" class="form-select">
+                                <select id="PaymentMethod" name="PaymentMethod" class="form-select">
                                     @foreach (var method in paymentMethodChoices)
                                     {
                                         var isBank = method == PaymentMethodType.Bank;
@@ -101,8 +101,8 @@
                                             optionText += " (Không khả dụng)";
                                         }
                                         <option value="@((int)method)"
-                                                @(selectedPaymentMethod == method ? "selected" : string.Empty)
-                                                @(isBank ? string.Empty : "disabled")
+                                                @(selectedPaymentMethod == method ? "selected=\"selected\"" : string.Empty)
+                                                @(isBank ? string.Empty : "disabled=\"disabled\"")
                                                 data-available="@(isBank.ToString().ToLowerInvariant())">
                                             @optionText
                                         </option>
