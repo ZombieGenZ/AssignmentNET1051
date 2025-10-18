@@ -4,7 +4,9 @@
     ViewData["Title"] = "Giỏ Hàng";
     double totalPrice = 0;
     double discount = (double)(TempData["DiscountAmount"] ?? 0.0);
-    string voucherCode = (string)TempData["VoucherCode"];
+    string voucherCode = TempData["VoucherCode"] as string ?? string.Empty;
+    int itemCount = Model.CartItems?.Count ?? 0;
+    string discountInvariant = discount.ToString(System.Globalization.CultureInfo.InvariantCulture);
     TempData.Keep("DiscountAmount");
     TempData.Keep("VoucherCode");
 }
@@ -20,6 +22,14 @@
             {
                 <div class="alert alert-success alert-dismissible fade show" role="alert">
                     @TempData["Success"]
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            }
+
+            @if (TempData["Error"] != null)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    @TempData["Error"]
                     <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                 </div>
             }
@@ -44,6 +54,11 @@
                                 <table class="table align-middle">
                                     <thead>
                                         <tr>
+                                            <th class="text-center" style="width: 50px;">
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" id="select-all" checked>
+                                                </div>
+                                            </th>
                                             <th>Sản phẩm</th>
                                             <th>Đơn giá</th>
                                             <th class="text-center">Số lượng</th>
@@ -72,9 +87,20 @@
                                             }
 
                                             double itemTotal = itemPrice * item.Quantity;
+                                            string itemTotalInvariant = itemTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
                                             totalPrice += itemTotal;
 
                                             <tr>
+                                                <td class="text-center">
+                                                    <div class="form-check">
+                                                        <input type="checkbox"
+                                                               class="form-check-input cart-item-checkbox"
+                                                               value="@item.Id"
+                                                               data-id="@item.Id"
+                                                               data-total="@itemTotalInvariant"
+                                                               checked />
+                                                    </div>
+                                                </td>
                                                 <td>
                                                     <div class="d-flex align-items-center">
                                                         <img src="@itemImage" alt="@itemName"
@@ -153,7 +179,7 @@
 
                                 <div class="d-flex justify-content-between mb-2">
                                     <span>Tạm tính:</span>
-                                    <strong>@totalPrice.ToString("N0") đ</strong>
+                                    <strong id="cart-subtotal">@totalPrice.ToString("N0") đ</strong>
                                 </div>
 
                                 <div class="d-flex justify-content-between mb-2">
@@ -161,30 +187,35 @@
                                     <strong class="text-success">Miễn phí</strong>
                                 </div>
 
-                                <hr>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span>VAT (15%):</span>
+                                    <strong id="cart-vat">@((totalPrice * 0.15).ToString("N0")) đ</strong>
+                                </div>
 
-                                @if (discount > 0 && !string.IsNullOrEmpty(voucherCode))
-                                {
-                                    <div class="d-flex justify-content-between mb-2">
-                                        <span class="text-success">
-                                            Giảm giá (@voucherCode)
-                                            <form asp-controller="Cart" asp-action="RemoveVoucher" method="post" class="d-inline ms-2">
-                                                <button type="submit" class="btn btn-sm btn-outline-danger p-0 px-1" style="line-height: 1;">Xóa</button>
-                                            </form>
-                                        </span>
-                                        <strong class="text-success">-@discount.ToString("N0") đ</strong>
-                                    </div>
-                                }
+                                <div id="cart-discount-row" class="d-flex justify-content-between mb-2 text-success @(discount > 0 && !string.IsNullOrEmpty(voucherCode) ? string.Empty : "d-none")">
+                                    <span class="text-success">
+                                        @(discount > 0 && !string.IsNullOrEmpty(voucherCode) ? $"Giảm giá ({voucherCode})" : "Giảm giá")
+                                    </span>
+                                    <strong id="cart-discount-amount">-@discount.ToString("N0") đ</strong>
+                                </div>
+
+                                <hr>
 
                                 <div class="d-flex justify-content-between mb-3">
                                     <h5>Tổng cộng:</h5>
-                                    <h5 class="text-danger">@((totalPrice - discount).ToString("N0")) đ</h5>
+                                    <h5 class="text-danger" id="cart-total">@((totalPrice - discount + (totalPrice - discount) * 0.15).ToString("N0")) đ</h5>
                                 </div>
 
-                                <div class="d-grid">
-                                    <a href="@Url.Action("Checkout", "Order")" class="btn btn-primary w-100 mb-2">
+                                <form asp-controller="Cart" asp-action="ProceedToCheckout" method="post" id="proceedCheckoutForm" class="d-grid">
+                                    @Html.AntiForgeryToken()
+                                    <div id="selected-items-container"></div>
+                                    <button type="submit" class="btn btn-primary w-100 mb-2" id="proceedCheckoutBtn">
                                         <i class="fas fa-credit-card"></i> Tiến hành thanh toán
-                                    </a>
+                                    </button>
+                                </form>
+
+                                <div id="noSelectionWarning" class="alert alert-warning mt-2 d-none" role="alert">
+                                    Vui lòng chọn ít nhất một sản phẩm để thanh toán.
                                 </div>
 
                                 <div class="text-center mt-3">
@@ -203,13 +234,113 @@
 
 @section Scripts {
     <script>
-        document.querySelectorAll('input[name="quantity"]').forEach(input => {
-            input.addEventListener('change', function () {
-                if (this.value < 1) {
-                    this.value = 1;
+        $(document).ready(function () {
+            $('input[name="quantity"]').on('change', function () {
+                const value = parseInt($(this).val(), 10);
+                if (isNaN(value) || value < 1) {
+                    $(this).val(1);
                     this.form.submit();
                 }
             });
+
+            const VAT_RATE = 0.15;
+            const baseDiscount = parseFloat('@discountInvariant');
+            const totalItemCount = @itemCount;
+
+            const checkboxes = $('.cart-item-checkbox');
+            const selectAll = $('#select-all');
+            const subtotalElement = $('#cart-subtotal');
+            const vatElement = $('#cart-vat');
+            const totalElement = $('#cart-total');
+            const discountRow = $('#cart-discount-row');
+            const discountAmountElement = $('#cart-discount-amount');
+            const proceedForm = $('#proceedCheckoutForm');
+            const selectedItemsContainer = $('#selected-items-container');
+            const proceedButton = $('#proceedCheckoutBtn');
+            const noSelectionWarning = $('#noSelectionWarning');
+
+            function formatCurrency(value) {
+                return value.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ';
+            }
+
+            function updateSummary() {
+                let subtotal = 0;
+                let selectedCount = 0;
+
+                checkboxes.each(function () {
+                    const checkbox = $(this);
+                    if (checkbox.is(':checked')) {
+                        subtotal += parseFloat(checkbox.data('total')) || 0;
+                        selectedCount++;
+                    }
+                });
+
+                const hasDiscount = baseDiscount > 0 && totalItemCount > 0 && selectedCount === totalItemCount;
+                const appliedDiscount = hasDiscount ? Math.min(baseDiscount, subtotal) : 0;
+                const vat = subtotal * VAT_RATE;
+                const total = subtotal - appliedDiscount + vat;
+
+                subtotalElement.text(formatCurrency(subtotal));
+                vatElement.text(formatCurrency(vat));
+
+                if (hasDiscount && appliedDiscount > 0) {
+                    discountRow.removeClass('d-none');
+                    discountAmountElement.text('-' + formatCurrency(appliedDiscount));
+                } else {
+                    discountRow.addClass('d-none');
+                    discountAmountElement.text('');
+                }
+
+                totalElement.text(formatCurrency(total));
+
+                proceedButton.prop('disabled', selectedCount === 0);
+                noSelectionWarning.toggleClass('d-none', selectedCount !== 0);
+
+                if (selectedCount === checkboxes.length) {
+                    selectAll.prop('checked', true).prop('indeterminate', false);
+                } else if (selectedCount === 0) {
+                    selectAll.prop('checked', false).prop('indeterminate', false);
+                } else {
+                    selectAll.prop('indeterminate', true);
+                }
+            }
+
+            selectAll.on('change', function () {
+                const isChecked = $(this).is(':checked');
+                selectAll.prop('indeterminate', false);
+                checkboxes.prop('checked', isChecked);
+                updateSummary();
+            });
+
+            checkboxes.on('change', updateSummary);
+
+            proceedForm.on('submit', function (event) {
+                selectedItemsContainer.empty();
+                const selectedIds = [];
+
+                checkboxes.each(function () {
+                    const checkbox = $(this);
+                    if (checkbox.is(':checked')) {
+                        selectedIds.push(checkbox.data('id'));
+                    }
+                });
+
+                if (selectedIds.length === 0) {
+                    event.preventDefault();
+                    updateSummary();
+                    return;
+                }
+
+                selectedIds.forEach(function (id) {
+                    $('<input>', {
+                        type: 'hidden',
+                        name: 'selectedItemIds',
+                        value: id
+                    }).appendTo(selectedItemsContainer);
+                });
+            });
+
+            updateSummary();
         });
     </script>
 }

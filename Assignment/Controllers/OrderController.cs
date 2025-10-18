@@ -10,6 +10,8 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
 using Assignment.Extensions;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace Assignment.Controllers
 {
@@ -29,7 +31,7 @@ namespace Assignment.Controllers
             _logger = logger;
         }
 
-        public async Task<IActionResult> Checkout()
+        public async Task<IActionResult> Checkout(string? cartItemIds)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -37,6 +39,15 @@ namespace Assignment.Controllers
             if (cart == null || !cart.CartItems.Any())
             {
                 TempData["Error"] = "Giỏ hàng của bạn đang trống. Vui lòng thêm sản phẩm trước khi thanh toán.";
+                return RedirectToAction("Index", "Cart");
+            }
+
+            var selectedIds = ParseSelectedCartItemIds(cartItemIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+
+            if (!filteredItems.Any())
+            {
+                TempData["Error"] = "Các sản phẩm đã chọn không còn khả dụng.";
                 return RedirectToAction("Index", "Cart");
             }
 
@@ -49,8 +60,10 @@ namespace Assignment.Controllers
                 Email = user?.Email,
                 Phone = user?.PhoneNumber ?? string.Empty,
                 UserId = userId,
+                SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id))
             };
 
+            cart.CartItems = filteredItems;
             ViewBag.Cart = cart;
             return View(order);
         }
@@ -67,6 +80,15 @@ namespace Assignment.Controllers
                 ModelState.AddModelError("", "Giỏ hàng của bạn trống.");
                 ViewBag.Cart = cart;
                 return View(order);
+            }
+
+            var selectedIds = ParseSelectedCartItemIds(order.SelectedCartItemIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+
+            if (!filteredItems.Any())
+            {
+                TempData["Error"] = "Các sản phẩm đã chọn không còn khả dụng.";
+                return RedirectToAction("Index", "Cart");
             }
 
             ModelState.Remove("Voucher");
@@ -88,6 +110,8 @@ namespace Assignment.Controllers
                 order.PaymentMethod = null;
             }
 
+            order.SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id));
+
             long? voucherId = null;
             if (!string.IsNullOrEmpty(order.VoucherId) && long.TryParse(order.VoucherId, out var parsedId))
             {
@@ -101,7 +125,7 @@ namespace Assignment.Controllers
                 order.Status = OrderStatus.Pending;
 
                 var orderItems = new List<OrderItem>();
-                foreach (var cartItem in cart.CartItems)
+                foreach (var cartItem in filteredItems)
                 {
                     var unitPrice = GetCartItemUnitPrice(cartItem);
                     orderItems.Add(new OrderItem
@@ -159,7 +183,7 @@ namespace Assignment.Controllers
                 order.TotalBill = priceAfterDiscount + order.Vat;
 
                 _context.Orders.Add(order);
-                _context.CartItems.RemoveRange(cart.CartItems);
+                _context.CartItems.RemoveRange(filteredItems);
                 await _context.SaveChangesAsync();
 
                 if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)
@@ -189,13 +213,14 @@ namespace Assignment.Controllers
                 return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
             }
 
+            cart.CartItems = filteredItems;
             ViewBag.Cart = cart;
             return View(order);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApplyVoucher(string voucherCode)
+        public async Task<IActionResult> ApplyVoucher(string voucherCode, string? selectedCartItemIds)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -213,7 +238,15 @@ namespace Assignment.Controllers
             if (voucher.Quantity <= voucher.Used) return Json(new { success = false, error = "Voucher đã hết lượt sử dụng." });
             if (voucher.Type == VoucherType.Private && voucher.UserId != userId) return Json(new { success = false, error = "Bạn không thể sử dụng voucher này." });
 
-            var subtotal = cart.CartItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+
+            if (!filteredItems.Any())
+            {
+                return Json(new { success = false, error = "Các sản phẩm đã chọn không còn khả dụng." });
+            }
+
+            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             if (subtotal < voucher.MinimumRequirements) return Json(new { success = false, error = $"Đơn hàng tối thiểu phải là {voucher.MinimumRequirements:N0}đ." });
 
             double discountAmount = 0;
@@ -445,6 +478,42 @@ namespace Assignment.Controllers
             }
 
             return View(order);
+        }
+
+        private static ISet<long> ParseSelectedCartItemIds(string? selectedCartItemIds)
+        {
+            var result = new HashSet<long>();
+
+            if (string.IsNullOrWhiteSpace(selectedCartItemIds))
+            {
+                return result;
+            }
+
+            var parts = selectedCartItemIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var part in parts)
+            {
+                if (long.TryParse(part, out var value) && value > 0)
+                {
+                    result.Add(value);
+                }
+            }
+
+            return result;
+        }
+
+        private static List<CartItem> FilterCartItems(IEnumerable<CartItem> cartItems, ISet<long> selectedIds)
+        {
+            if (cartItems == null)
+            {
+                return new List<CartItem>();
+            }
+
+            if (selectedIds == null || selectedIds.Count == 0)
+            {
+                return cartItems.ToList();
+            }
+
+            return cartItems.Where(ci => selectedIds.Contains(ci.Id)).ToList();
         }
 
         private static double GetCartItemUnitPrice(CartItem cartItem)

@@ -1,5 +1,6 @@
 ﻿using Assignment.Enums;
 using System.ComponentModel.DataAnnotations;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Assignment.Models
 {
@@ -38,5 +39,8 @@ namespace Assignment.Models
         public OrderStatus Status { get; set; }
 
         public virtual IEnumerable<OrderItem>? OrderItems { get; set; }
+
+        [NotMapped]
+        public string? SelectedCartItemIds { get; set; }
     }
 }

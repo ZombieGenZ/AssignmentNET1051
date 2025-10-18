@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using System.Linq;
 
 namespace Assignment.Controllers
 {
@@ -34,6 +35,31 @@ namespace Assignment.Controllers
             }
 
             return View(cart);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public IActionResult ProceedToCheckout(long[] selectedItemIds)
+        {
+            if (selectedItemIds == null || selectedItemIds.Length == 0)
+            {
+                TempData["Error"] = "Vui lòng chọn ít nhất một sản phẩm để thanh toán.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var normalizedIds = selectedItemIds
+                .Where(id => id > 0)
+                .Distinct()
+                .ToArray();
+
+            if (normalizedIds.Length == 0)
+            {
+                TempData["Error"] = "Vui lòng chọn ít nhất một sản phẩm để thanh toán.";
+                return RedirectToAction(nameof(Index));
+            }
+
+            var idString = string.Join(',', normalizedIds);
+            return RedirectToAction("Checkout", "Order", new { cartItemIds = idString });
         }
 
         [HttpPost]
@@ -83,6 +109,55 @@ namespace Assignment.Controllers
         }
 
         [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BuyNowProduct(long productId, long quantity = 1)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted && p.IsPublish);
+            if (product == null)
+            {
+                return Json(new { success = false, error = "Sản phẩm không khả dụng." });
+            }
+
+            var normalizedQuantity = quantity < 1 ? 1 : quantity;
+            if (product.Stock > 0 && normalizedQuantity > product.Stock)
+            {
+                normalizedQuantity = product.Stock;
+            }
+
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
+
+            if (cart == null)
+            {
+                cart = new Cart { UserId = userId, CartItems = new List<CartItem>() };
+                _context.Carts.Add(cart);
+                await _context.SaveChangesAsync();
+            }
+
+            var existingItem = cart.CartItems.FirstOrDefault(ci => ci.ProductId == productId);
+            if (existingItem != null)
+            {
+                existingItem.Quantity = normalizedQuantity;
+            }
+            else
+            {
+                existingItem = new CartItem
+                {
+                    CartId = cart.Id,
+                    ProductId = productId,
+                    Quantity = normalizedQuantity
+                };
+                _context.CartItems.Add(existingItem);
+            }
+
+            await _context.SaveChangesAsync();
+
+            var redirectUrl = Url.Action("Checkout", "Order", new { cartItemIds = existingItem.Id });
+            return Json(new { success = true, redirectUrl });
+        }
+
+        [HttpPost]
         public async Task<IActionResult> AddCombo(long comboId, long quantity = 1)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -126,6 +201,55 @@ namespace Assignment.Controllers
 
             var newCount = updatedCart?.CartItems.Sum(ci => ci.Quantity) ?? 0;
             return Json(new { success = true, count = newCount });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BuyNowCombo(long comboId, long quantity = 1)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            var combo = await _context.Combos.FirstOrDefaultAsync(c => c.Id == comboId && !c.IsDeleted && c.IsPublish);
+            if (combo == null)
+            {
+                return Json(new { success = false, error = "Combo không khả dụng." });
+            }
+
+            var normalizedQuantity = quantity < 1 ? 1 : quantity;
+            if (combo.Stock > 0 && normalizedQuantity > combo.Stock)
+            {
+                normalizedQuantity = combo.Stock;
+            }
+
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
+
+            if (cart == null)
+            {
+                cart = new Cart { UserId = userId, CartItems = new List<CartItem>() };
+                _context.Carts.Add(cart);
+                await _context.SaveChangesAsync();
+            }
+
+            var existingItem = cart.CartItems.FirstOrDefault(ci => ci.ComboId == comboId);
+            if (existingItem != null)
+            {
+                existingItem.Quantity = normalizedQuantity;
+            }
+            else
+            {
+                existingItem = new CartItem
+                {
+                    CartId = cart.Id,
+                    ComboId = comboId,
+                    Quantity = normalizedQuantity
+                };
+                _context.CartItems.Add(existingItem);
+            }
+
+            await _context.SaveChangesAsync();
+
+            var redirectUrl = Url.Action("Checkout", "Order", new { cartItemIds = existingItem.Id });
+            return Json(new { success = true, redirectUrl });
         }
 
 
