@@ -161,36 +161,38 @@
                                         <span class="badge @statusClass px-3 py-2">@GetStatusDisplay(order.Status)</span>
                                     </td>
                                     <td>
-                                        @if (canUpdateStatus)
-                                        {
-                                            <form asp-action="UpdateStatus" method="post" class="d-flex flex-column gap-2" asp-route-statusFilter="@(statusFilter?.ToString())" asp-route-search="@searchTerm">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@order.Id" />
-                                                <div class="input-group input-group-sm">
-                                                    <label class="input-group-text" for="status-@order.Id">Cập nhật</label>
-                                                    <select class="form-select" id="status-@order.Id" name="status">
-                                                        @foreach (var option in statuses)
-                                                        {
-                                                            <option value="@option" selected="@(order.Status == option ? "selected" : null)">@GetStatusDisplay(option)</option>
-                                                        }
-                                                    </select>
-                                                </div>
-                                                <div class="d-flex flex-wrap gap-2">
-                                                    <button type="submit" class="btn btn-sm btn-primary">
-                                                        <i class="fas fa-save me-1"></i>Lưu
-                                                    </button>
-                                                    <a class="btn btn-sm btn-outline-secondary" asp-action="OrderConfirmation" asp-route-id="@order.Id" target="_blank">
-                                                        <i class="fas fa-eye me-1"></i>Chi tiết
-                                                    </a>
-                                                </div>
-                                            </form>
-                                        }
-                                        else
-                                        {
-                                            <a class="btn btn-sm btn-outline-secondary" asp-action="OrderConfirmation" asp-route-id="@order.Id" target="_blank">
-                                                <i class="fas fa-eye me-1"></i>Chi tiết
-                                            </a>
-                                        }
+                                        <div class="order-actions">
+                                            @if (canUpdateStatus)
+                                            {
+                                                <form asp-action="UpdateStatus" method="post" class="order-actions-form" asp-route-statusFilter="@(statusFilter?.ToString())" asp-route-search="@searchTerm">
+                                                    @Html.AntiForgeryToken()
+                                                    <input type="hidden" name="id" value="@order.Id" />
+                                                    <div class="status-select">
+                                                        <label class="form-label mb-1" for="status-@order.Id">Trạng thái đơn</label>
+                                                        <select class="form-select form-select-sm" id="status-@order.Id" name="status">
+                                                            @foreach (var option in statuses)
+                                                            {
+                                                                <option value="@option" selected="@(order.Status == option ? "selected" : null)">@GetStatusDisplay(option)</option>
+                                                            }
+                                                        </select>
+                                                    </div>
+                                                    <div class="order-action-buttons">
+                                                        <button type="submit" class="btn btn-sm btn-primary">
+                                                            <i class="fas fa-save me-1"></i>Lưu thay đổi
+                                                        </button>
+                                                        <a class="btn btn-sm btn-outline-secondary" asp-action="Details" asp-route-id="@order.Id">
+                                                            <i class="fas fa-eye me-1"></i>Xem chi tiết
+                                                        </a>
+                                                    </div>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <a class="btn btn-sm btn-outline-secondary" asp-action="Details" asp-route-id="@order.Id">
+                                                    <i class="fas fa-eye me-1"></i>Xem chi tiết
+                                                </a>
+                                            }
+                                        </div>
                                     </td>
                                 </tr>
                             }

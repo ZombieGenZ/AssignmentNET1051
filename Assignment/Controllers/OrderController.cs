@@ -9,6 +9,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Logging;
+using Assignment.Extensions;
 
 namespace Assignment.Controllers
 {
@@ -316,6 +317,29 @@ namespace Assignment.Controllers
             return View(orders);
         }
 
+        public async Task<IActionResult> Details(long id)
+        {
+            if (!CanManageOrders())
+            {
+                return Forbid();
+            }
+
+            var order = await _context.Orders
+                .Where(o => o.Id == id && !o.IsDeleted)
+                .Include(o => o.OrderItems)!
+                    .ThenInclude(oi => oi.Product)
+                .Include(o => o.OrderItems)!
+                    .ThenInclude(oi => oi.Combo)
+                .FirstOrDefaultAsync();
+
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            return View(order);
+        }
+
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateStatus(long id, OrderStatus status, OrderStatus? statusFilter, string? search)
@@ -452,7 +476,7 @@ namespace Assignment.Controllers
         }
 
         private bool CanManageOrders()
-            => User.HasClaim(c => c.Type == "GetOrderAll");
+            => User.HasPermission("GetOrderAll");
     }
 }
 

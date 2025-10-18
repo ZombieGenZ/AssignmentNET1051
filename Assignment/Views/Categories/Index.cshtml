@@ -19,7 +19,7 @@
             <h4 class="mb-0 text-primary">
                 <i class="fas fa-tags me-2"></i>@ViewData["Title"]
             </h4>
-            @if (User.HasClaim(c => c.Type == "CreateCategory"))
+            @if (User.HasPermission("CreateCategory"))
             {
                 <a class="btn btn-primary" asp-action="Create">
                     <i class="fas fa-plus me-2"></i>Tạo mới
@@ -44,19 +44,19 @@
                                 <td>@Html.DisplayFor(modelItem => item.Index)</td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        @if (User.HasClaim(c => c.Type == "UpdateCategory" || c.Type == "UpdateCategoryAll"))
+                                        @if (User.HasAnyPermission("UpdateCategory", "UpdateCategoryAll"))
                                         {
                                             <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         }
-                                        @if (User.HasClaim(c => c.Type == "GetCategory" || c.Type == "GetCategoryAll"))
+                                        @if (User.HasAnyPermission("GetCategory", "GetCategoryAll"))
                                         {
                                             <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
                                                 <i class="fas fa-info-circle"></i>
                                             </a>
                                         }
-                                        @if (User.HasClaim(c => c.Type == "DeleteCategory") || User.HasClaim(c => c.Type == "DeleteCategoryAll"))
+                                        @if (User.HasAnyPermission("DeleteCategory", "DeleteCategoryAll"))
                                         {
                                             <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
                                                 <i class="fas fa-trash-alt"></i>

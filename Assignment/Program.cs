@@ -9,6 +9,7 @@ using Microsoft.Extensions.Configuration;
 using System.Security.Claims;
 using Microsoft.Extensions.Options;
 using System.Net.Http.Headers;
+using Assignment.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -138,8 +139,8 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("GetCategoryPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "GetCategoryAll") ||
-            (ctx.User.HasClaim(c => c.Type == "GetCategory") &&
+            ctx.User.HasPermission("GetCategoryAll") ||
+            (ctx.User.HasPermission("GetCategory") &&
              ctx.Resource is Category cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -151,8 +152,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("UpdateCategoryPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "UpdateCategoryAll") ||
-            (ctx.User.HasClaim(c => c.Type == "UpdateCategory") &&
+            ctx.User.HasPermission("UpdateCategoryAll") ||
+            (ctx.User.HasPermission("UpdateCategory") &&
              ctx.Resource is Category cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -160,8 +161,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("DeleteCategoryPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "DeleteCategoryAll") ||
-            (ctx.User.HasClaim(c => c.Type == "DeleteCategory") &&
+            ctx.User.HasPermission("DeleteCategoryAll") ||
+            (ctx.User.HasPermission("DeleteCategory") &&
              ctx.Resource is Category cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -169,8 +170,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("GetProductPolicy", policy =>
     policy.RequireAssertion(ctx =>
-        ctx.User.HasClaim(c => c.Type == "GetProductAll") ||
-        (ctx.User.HasClaim(c => c.Type == "GetProduct") &&
+        ctx.User.HasPermission("GetProductAll") ||
+        (ctx.User.HasPermission("GetProduct") &&
          ctx.Resource is Product cat &&
          cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
     )
@@ -182,8 +183,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("UpdateProductPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "UpdateProductAll") ||
-            (ctx.User.HasClaim(c => c.Type == "UpdateProduct") &&
+            ctx.User.HasPermission("UpdateProductAll") ||
+            (ctx.User.HasPermission("UpdateProduct") &&
              ctx.Resource is Product cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -191,8 +192,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("DeleteProductPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "DeleteProductAll") ||
-            (ctx.User.HasClaim(c => c.Type == "DeleteProduct") &&
+            ctx.User.HasPermission("DeleteProductAll") ||
+            (ctx.User.HasPermission("DeleteProduct") &&
              ctx.Resource is Product cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -200,8 +201,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("GetComboPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "GetComboAll") ||
-            (ctx.User.HasClaim(c => c.Type == "GetCombo") &&
+            ctx.User.HasPermission("GetComboAll") ||
+            (ctx.User.HasPermission("GetCombo") &&
              ctx.Resource is Combo cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -213,8 +214,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("UpdateComboPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "UpdateComboAll") ||
-            (ctx.User.HasClaim(c => c.Type == "UpdateCombo") &&
+            ctx.User.HasPermission("UpdateComboAll") ||
+            (ctx.User.HasPermission("UpdateCombo") &&
              ctx.Resource is Combo cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -222,21 +223,21 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("DeleteComboPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "DeleteComboAll") ||
-            (ctx.User.HasClaim(c => c.Type == "DeleteCombo") &&
+            ctx.User.HasPermission("DeleteComboAll") ||
+            (ctx.User.HasPermission("DeleteCombo") &&
              ctx.Resource is Combo cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
     );
 
     options.AddPolicy("GetVoucherPolicy", policy =>
-    policy.RequireAssertion(ctx =>
-        ctx.User.HasClaim(c => c.Type == "GetVoucherAll") ||
-        (ctx.User.HasClaim(c => c.Type == "GetVoucher") &&
-         ctx.Resource is Voucher cat &&
-         cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-    )
-);
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetVoucherAll") ||
+            (ctx.User.HasPermission("GetVoucher") &&
+             ctx.Resource is Voucher cat &&
+             cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
 
     options.AddPolicy("CreateVoucherPolicy", policy =>
         policy.RequireClaim("CreateVoucher")
@@ -244,8 +245,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("UpdateVoucherPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "UpdateVoucherAll") ||
-            (ctx.User.HasClaim(c => c.Type == "UpdateVoucher") &&
+            ctx.User.HasPermission("UpdateVoucherAll") ||
+            (ctx.User.HasPermission("UpdateVoucher") &&
              ctx.Resource is Voucher cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
@@ -253,8 +254,8 @@ builder.Services.AddAuthorization(options =>
 
     options.AddPolicy("DeleteVoucherPolicy", policy =>
         policy.RequireAssertion(ctx =>
-            ctx.User.HasClaim(c => c.Type == "DeleteVoucherAll") ||
-            (ctx.User.HasClaim(c => c.Type == "DeleteVoucher") &&
+            ctx.User.HasPermission("DeleteVoucherAll") ||
+            (ctx.User.HasPermission("DeleteVoucher") &&
              ctx.Resource is Voucher cat &&
              cat.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )

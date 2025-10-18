@@ -20,7 +20,7 @@
             <h4 class="mb-0 text-primary">
                 <i class="fas fa-ticket-alt me-2"></i>@ViewData["Title"]
             </h4>
-            @if (User.HasClaim(c => c.Type == "CreateVoucher"))
+            @if (User.HasPermission("CreateVoucher"))
             {
                 <a class="btn btn-primary" asp-action="Create">
                     <i class="fas fa-plus me-2"></i>Tạo mới
@@ -88,19 +88,19 @@
                                 </td>
                                 <td>
                                     <div class="btn-group" role="group">
-                                        @if (User.HasClaim(c => c.Type == "UpdateVoucher" || c.Type == "UpdateVoucherAll"))
+                                        @if (User.HasAnyPermission("UpdateVoucher", "UpdateVoucherAll"))
                                         {
                                             <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                         }
-                                        @if (User.HasClaim(c => c.Type == "GetVoucher" || c.Type == "GetVoucherAll"))
+                                        @if (User.HasAnyPermission("GetVoucher", "GetVoucherAll"))
                                         {
                                             <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
                                                 <i class="fas fa-info-circle"></i>
                                             </a>
                                         }
-                                        @if (User.HasClaim(c => c.Type == "DeleteVoucher" || c.Type == "DeleteVoucherAll"))
+                                        @if (User.HasAnyPermission("DeleteVoucher", "DeleteVoucherAll"))
                                         {
                                             <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
                                                 <i class="fas fa-trash-alt"></i>

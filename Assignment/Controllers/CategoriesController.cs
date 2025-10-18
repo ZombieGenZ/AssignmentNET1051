@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Assignment.Data;
+using Assignment.Extensions;
 
 namespace Assignment.Controllers
 {
@@ -29,14 +30,14 @@ namespace Assignment.Controllers
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var hasGetAll = User.HasClaim(c => c.Type == "GetCategoryAll");
+            var hasGetAll = User.HasPermission("GetCategoryAll");
 
             // Bắt đầu câu truy vấn bằng cách lọc ra các bản ghi đã bị xóa mềm.
             IQueryable<Category> categories = _context.Categories.Where(c => !c.IsDeleted);
 
             if (!hasGetAll)
             {
-                if (User.HasClaim(c => c.Type == "GetCategory"))
+                if (User.HasPermission("GetCategory"))
                 {
                     categories = categories.Where(c => c.CreateBy == userId);
                 }

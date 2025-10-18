@@ -106,13 +106,13 @@
                     </dl>
                 </div>
                 <div class="card-footer bg-transparent border-top d-flex justify-content-start gap-2">
-                    @if (User.HasClaim(c => c.Type == "UpdateVoucher" || c.Type == "UpdateVoucherAll"))
+                    @if (User.HasAnyPermission("UpdateVoucher", "UpdateVoucherAll"))
                     {
                         <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.Id">
                             <i class="fas fa-edit me-2"></i>Chỉnh sửa
                         </a>
                     }
-                    @if (User.HasClaim(c => c.Type == "GetVoucher" || c.Type == "GetVoucherAll"))
+                    @if (User.HasAnyPermission("GetVoucher", "GetVoucherAll"))
                     {
                         <a class="btn btn-secondary" asp-action="Index">
                             <i class="fas fa-arrow-left me-2"></i>Trở về danh sách

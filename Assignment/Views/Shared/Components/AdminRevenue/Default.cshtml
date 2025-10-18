@@ -1,0 +1,52 @@
+@model Assignment.ViewModels.Admin.AdminRevenueSummaryViewModel
+
+<div class="row g-3">
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-primary-subtle text-primary">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <div>
+                <p class="stat-label mb-1">Tổng doanh thu</p>
+                <h4 class="stat-value mb-0">@string.Format("{0:N0}đ", Model.TotalRevenue)</h4>
+                <small class="text-muted">Tính cho tất cả đơn hàng đã hoàn tất</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-success-subtle text-success">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+            <div>
+                <p class="stat-label mb-1">Doanh thu tháng này</p>
+                <h4 class="stat-value mb-0">@string.Format("{0:N0}đ", Model.MonthlyRevenue)</h4>
+                <small class="text-muted">Từ @DateTime.Now.ToString("MMMM yyyy")</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-warning-subtle text-warning">
+                <i class="fas fa-sun"></i>
+            </div>
+            <div>
+                <p class="stat-label mb-1">Doanh thu hôm nay</p>
+                <h4 class="stat-value mb-0">@string.Format("{0:N0}đ", Model.TodayRevenue)</h4>
+                <small class="text-muted">Giá trị trung bình: @string.Format("{0:N0}đ", Model.AverageOrderValue)</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-12 col-md-6 col-xl-3">
+        <div class="stat-card">
+            <div class="stat-icon bg-info-subtle text-info">
+                <i class="fas fa-clipboard-check"></i>
+            </div>
+            <div>
+                <p class="stat-label mb-1">Đơn hàng</p>
+                <h4 class="stat-value mb-0">@Model.CompletedOrders hoàn tất</h4>
+                <small class="text-muted">@Model.PendingOrders đơn đang chờ xử lý</small>
+            </div>
+        </div>
+    </div>
+</div>
