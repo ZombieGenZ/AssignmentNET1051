@@ -159,7 +159,7 @@
                         <button type="button" class="btn btn-success btn-sm mt-2" onclick="addComboItem()"><i class="fas fa-plus"></i> Thêm sản phẩm</button>
 
                         <div class="card-footer bg-transparent border-top d-flex justify-content-end gap-2 mt-4">
-                            @if (User.HasClaim(c => c.Type == "GetCombo" || c.Type == "GetComboAll"))
+                            @if (User.HasAnyPermission("GetCombo", "GetComboAll"))
                             {
                                 <a class="btn btn-secondary" asp-action="Index">
                                     <i class="fas fa-arrow-left me-2"></i>Trở về

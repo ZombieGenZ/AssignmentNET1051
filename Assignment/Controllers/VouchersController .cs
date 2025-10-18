@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
+using Assignment.Extensions;
 
 namespace Assignment.Controllers
 {
@@ -28,14 +29,14 @@ namespace Assignment.Controllers
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var hasGetAll = User.HasClaim(c => c.Type == "GetVoucherAll");
+            var hasGetAll = User.HasPermission("GetVoucherAll");
 
             // Bắt đầu câu truy vấn bằng cách lọc ra các bản ghi đã bị xóa mềm.
             IQueryable<Voucher> vouchers = _context.Vouchers.Where(v => !v.IsDeleted);
 
             if (!hasGetAll)
             {
-                if (User.HasClaim(c => c.Type == "GetVoucher"))
+                if (User.HasPermission("GetVoucher"))
                 {
                     vouchers = vouchers.Where(v => v.CreateBy == userId);
                 }

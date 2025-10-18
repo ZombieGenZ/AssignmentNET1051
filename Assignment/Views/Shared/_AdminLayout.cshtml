@@ -94,7 +94,7 @@
             <span>Quản Lý</span>
         </a>
         <ul class="sidebar-menu">
-            @if (User.HasClaim(c => c.Type == "GetCategoryAll" || c.Type == "GetCategory"))
+            @if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
             {
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Categories" class="sidebar-menu-link">
@@ -103,7 +103,7 @@
                     </a>
                 </li>
             }
-            @if (User.HasClaim(c => c.Type == "GetProductAll" || c.Type == "GetProduct"))
+            @if (User.HasAnyPermission("GetProductAll", "GetProduct"))
             {
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Products" class="sidebar-menu-link">
@@ -112,7 +112,7 @@
                     </a>
                 </li>
             }
-            @if (User.HasClaim(c => c.Type == "GetComboAll" || c.Type == "GetCombo"))
+            @if (User.HasAnyPermission("GetComboAll", "GetCombo"))
             {
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Combos" class="sidebar-menu-link">
@@ -121,7 +121,7 @@
                     </a>
                 </li>
             }
-            @if (User.HasClaim(c => c.Type == "GetVoucherAll" || c.Type == "GetVoucher"))
+            @if (User.HasAnyPermission("GetVoucherAll", "GetVoucher"))
             {
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Vouchers" class="sidebar-menu-link">
@@ -130,7 +130,7 @@
                     </a>
                 </li>
             }
-            @if (User.HasClaim(c => c.Type == "GetOrderAll"))
+            @if (User.HasPermission("GetOrderAll"))
             {
                 <li class="sidebar-menu-item">
                     <a asp-action="Manage" asp-controller="Order" class="sidebar-menu-link">
@@ -225,7 +225,14 @@
         </header>
 
         <div class="content-wrapper">
-@*             <div class="page-header">
+            @{ var canViewRevenue = User.HasPermission("GetOrderAll"); }
+            @if (canViewRevenue)
+            {
+                <section class="dashboard-stats mb-4">
+                    @await Component.InvokeAsync("AdminRevenue")
+                </section>
+            }
+            @*             <div class="page-header">
                 <h1 class="page-title">Dashboard</h1>
                 <nav aria-label="breadcrumb">
                     <ol class="breadcrumb">

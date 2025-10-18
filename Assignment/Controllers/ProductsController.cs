@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Services;
+using Assignment.Extensions;
 
 namespace Assignment.Controllers
 {
@@ -31,7 +32,7 @@ namespace Assignment.Controllers
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var hasGetAll = User.HasClaim(c => c.Type == "GetProductAll");
+            var hasGetAll = User.HasPermission("GetProductAll");
 
             // Bắt đầu câu truy vấn bằng cách lọc ra các bản ghi đã bị xóa mềm.
             IQueryable<Product> products = _context.Products
@@ -40,7 +41,7 @@ namespace Assignment.Controllers
 
             if (!hasGetAll)
             {
-                if (User.HasClaim(c => c.Type == "GetProduct"))
+                if (User.HasPermission("GetProduct"))
                 {
                     products = products.Where(p => p.CreateBy == userId);
                 }
@@ -296,7 +297,7 @@ namespace Assignment.Controllers
         [NonAction]
         private async Task<List<Category>> GetAuthorizedCategories()
         {
-            var hasGetCategoryAll = User.HasClaim(c => c.Type == "GetCategoryAll");
+            var hasGetCategoryAll = User.HasPermission("GetCategoryAll");
 
             // Chỉ lấy các danh mục chưa bị xóa.
             IQueryable<Category> categoriesQuery = _context.Categories.Where(c => !c.IsDeleted);

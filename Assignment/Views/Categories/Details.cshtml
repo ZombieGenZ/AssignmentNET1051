@@ -29,13 +29,13 @@
                     </dl>
                 </div>
                 <div class="card-footer bg-transparent border-top d-flex justify-content-start gap-2">
-                    @if (User.HasClaim(c => c.Type == "UpdateCategory" || c.Type == "UpdateCategoryAll"))
+                    @if (User.HasAnyPermission("UpdateCategory", "UpdateCategoryAll"))
                     {
                         <a class="btn btn-warning" asp-action="Edit" asp-route-id="@Model.Id">
                             <i class="fas fa-edit me-2"></i>Chỉnh sửa
                         </a>
                     }
-                    @if (User.HasClaim(c => c.Type == "GetCategory" || c.Type == "GetCategoryAll"))
+                    @if (User.HasAnyPermission("GetCategory", "GetCategoryAll"))
                     {
                         <a class="btn btn-secondary" asp-action="Index">
                             <i class="fas fa-arrow-left me-2"></i>Trở về danh sách

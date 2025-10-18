@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using System.Linq;
 using System.Security.Claims;
+using Assignment.Extensions;
 
 namespace Assignment.Controllers
 {
@@ -28,7 +29,7 @@ namespace Assignment.Controllers
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var hasGetAll = User.HasClaim(c => c.Type == "GetComboAll");
+            var hasGetAll = User.HasPermission("GetComboAll");
 
             // Bắt đầu câu truy vấn bằng cách lọc ra các bản ghi đã bị xóa mềm.
             IQueryable<Combo> combos = _context.Combos
@@ -38,7 +39,7 @@ namespace Assignment.Controllers
 
             if (!hasGetAll)
             {
-                if (User.HasClaim(c => c.Type == "GetCombo"))
+                if (User.HasPermission("GetCombo"))
                 {
                     combos = combos.Where(c => c.CreateBy == userId);
                 }
@@ -438,7 +439,7 @@ namespace Assignment.Controllers
         [NonAction]
         private async Task<List<Product>> GetAuthorizedProducts()
         {
-            var hasGetProductAll = User.HasClaim(c => c.Type == "GetProductAll");
+            var hasGetProductAll = User.HasPermission("GetProductAll");
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             // Chỉ lấy các sản phẩm chưa bị xóa và được publish

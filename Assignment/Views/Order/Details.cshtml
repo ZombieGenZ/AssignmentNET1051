@@ -1,0 +1,144 @@
+@using Assignment.Enums
+@model Assignment.Models.Order
+
+@{
+    ViewData["Title"] = $"Đơn hàng #{Model.Id}";
+    Layout = "_AdminLayout";
+    var paymentDescription = Model.PaymentType == PaymentType.PayNow
+        ? (Model.PaymentMethod == PaymentMethodType.Bank ? "Thanh toán PayOS" : "Thanh toán trực tuyến")
+        : "Thanh toán khi nhận hàng";
+    var paymentTypeDisplay = Model.PaymentType == PaymentType.PayNow ? "Thanh toán ngay" : "Thanh toán khi nhận hàng";
+}
+
+@functions {
+    private static string GetStatusDisplay(OrderStatus status) => status switch
+    {
+        OrderStatus.Pending => "Chờ xử lý",
+        OrderStatus.Paid => "Đã thanh toán",
+        OrderStatus.Processing => "Đang xử lý",
+        OrderStatus.Completed => "Hoàn thành",
+        OrderStatus.Cancelled => "Đã hủy",
+        _ => status.ToString()
+    };
+
+    private static string GetStatusBadgeClass(OrderStatus status) => status switch
+    {
+        OrderStatus.Pending => "bg-warning text-dark",
+        OrderStatus.Paid => "bg-info text-dark",
+        OrderStatus.Processing => "bg-primary",
+        OrderStatus.Completed => "bg-success",
+        OrderStatus.Cancelled => "bg-danger",
+        _ => "bg-secondary"
+    };
+}
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm mb-4">
+        <div class="card-header bg-light d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+            <div>
+                <h4 class="mb-1 text-primary">
+                    <i class="fas fa-receipt me-2"></i>Chi tiết đơn hàng #@Model.Id
+                </h4>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    <span class="badge @GetStatusBadgeClass(Model.Status) px-3 py-2">@GetStatusDisplay(Model.Status)</span>
+                    <span class="text-muted small"><i class="far fa-clock me-1"></i>Tạo lúc: @Model.CreatedAt.ToString("dd/MM/yyyy HH:mm")</span>
+                    @if (Model.UpdatedAt.HasValue)
+                    {
+                        <span class="text-muted small"><i class="fas fa-sync-alt me-1"></i>Cập nhật: @Model.UpdatedAt.Value.ToString("dd/MM/yyyy HH:mm")</span>
+                    }
+                </div>
+            </div>
+            <div class="d-flex gap-2">
+                <a asp-action="Manage" class="btn btn-outline-secondary"><i class="fas fa-arrow-left me-2"></i>Quay lại quản lý</a>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row g-4">
+                <div class="col-12 col-xl-4">
+                    <div class="order-detail-card h-100">
+                        <h6 class="text-uppercase text-muted fw-semibold mb-3">Thông tin khách hàng</h6>
+                        <p class="mb-1"><strong>Họ tên:</strong> @Model.Name</p>
+                        <p class="mb-1"><strong>Email:</strong> @(string.IsNullOrWhiteSpace(Model.Email) ? "Không có" : Model.Email)</p>
+                        <p class="mb-1"><strong>Điện thoại:</strong> @Model.Phone</p>
+                        @if (!string.IsNullOrWhiteSpace(Model.Note))
+                        {
+                            <p class="mb-0"><strong>Ghi chú:</strong> @Model.Note</p>
+                        }
+                    </div>
+                </div>
+                <div class="col-12 col-xl-4">
+                    <div class="order-detail-card h-100">
+                        <h6 class="text-uppercase text-muted fw-semibold mb-3">Thanh toán</h6>
+                        <p class="mb-1"><strong>Hình thức:</strong> @paymentDescription</p>
+                        <p class="mb-1"><strong>Loại thanh toán:</strong> @paymentTypeDisplay</p>
+                        <p class="mb-1"><strong>Số lượng:</strong> @Model.TotalQuantity</p>
+                        <p class="mb-0"><strong>Trạng thái:</strong> @GetStatusDisplay(Model.Status)</p>
+                    </div>
+                </div>
+                <div class="col-12 col-xl-4">
+                    <div class="order-detail-card h-100">
+                        <h6 class="text-uppercase text-muted fw-semibold mb-3">Tổng kết</h6>
+                        <p class="mb-1 d-flex justify-content-between"><span>Tạm tính:</span><span>@string.Format("{0:N0}đ", Model.TotalPrice)</span></p>
+                        <p class="mb-1 d-flex justify-content-between"><span>Giảm giá:</span><span class="text-danger">-@string.Format("{0:N0}đ", Model.Discount)</span></p>
+                        <p class="mb-1 d-flex justify-content-between"><span>VAT:</span><span>@string.Format("{0:N0}đ", Model.Vat)</span></p>
+                        <hr />
+                        <p class="mb-0 d-flex justify-content-between align-items-center fw-semibold text-primary">
+                            <span>Thành tiền</span>
+                            <span>@string.Format("{0:N0}đ", Model.TotalBill)</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-light">
+            <h5 class="mb-0 text-primary"><i class="fas fa-box-open me-2"></i>Sản phẩm trong đơn</h5>
+        </div>
+        <div class="card-body">
+            @if (Model.OrderItems?.Any() == true)
+            {
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Sản phẩm</th>
+                                <th class="text-center" style="width: 120px;">Số lượng</th>
+                                <th class="text-end" style="width: 160px;">Đơn giá</th>
+                                <th class="text-end" style="width: 160px;">Thành tiền</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var item in Model.OrderItems!)
+                            {
+                                var itemName = item.Product?.Name ?? item.Combo?.Name ?? "Không xác định";
+                                var lineTotal = item.Price * item.Quantity;
+                                <tr>
+                                    <td>
+                                        <div class="fw-semibold">@itemName</div>
+                                        @if (item.Product != null && !string.IsNullOrWhiteSpace(item.Product.Description))
+                                        {
+                                            <div class="text-muted small">@item.Product.Description</div>
+                                        }
+                                        else if (item.Combo != null && !string.IsNullOrWhiteSpace(item.Combo.Description))
+                                        {
+                                            <div class="text-muted small">Combo</div>
+                                        }
+                                    </td>
+                                    <td class="text-center">@item.Quantity</td>
+                                    <td class="text-end">@string.Format("{0:N0}đ", item.Price)</td>
+                                    <td class="text-end fw-semibold">@string.Format("{0:N0}đ", lineTotal)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            else
+            {
+                <p class="text-muted mb-0">Đơn hàng chưa có sản phẩm nào.</p>
+            }
+        </div>
+    </div>
+</div>
