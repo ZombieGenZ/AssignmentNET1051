@@ -5,7 +5,6 @@
 @model StatisticsViewModel
 
 @{
-    Layout = "_AdminLayout";
     ViewData["Title"] = "Thống kê";
     var labelsJson = JsonSerializer.Serialize(Model.PrimarySeries.DataPoints.Select(p => p.Label));
     var primaryRevenueJson = JsonSerializer.Serialize(Model.PrimarySeries.DataPoints.Select(p => Math.Round(p.TotalBill, 2)));

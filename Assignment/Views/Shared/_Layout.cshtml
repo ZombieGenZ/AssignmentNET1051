@@ -149,7 +149,11 @@
                                     @if (User.HasPermissionWithPrefix("Get") || User.HasPermission("ViewStatistics"))
                                     {
                                         <li><hr class="dropdown-divider" /></li>
+<<<<<<< HEAD
                                         @if (User.HasPermission("ViewStatistics"))
+=======
+                                        if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
+>>>>>>> parent of ec22b91 (Update)
                                         {
                                             <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fa-solid fa-chart-line me-2"></i>Thống kê</a></li>
                                         }
@@ -173,6 +177,10 @@
                                         {
                                             <li><a class="dropdown-item" asp-controller="Order" asp-action="Manage"><i class="fas fa-receipt me-2"></i>Đơn hàng</a></li>
                                         }
+<<<<<<< HEAD
+=======
+                                        <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fas fa-chart-line me-2"></i>Thống kê doanh thu</a></li>
+>>>>>>> parent of ec22b91 (Update)
                                     }
 
                                     <li><hr class="dropdown-divider" /></li>
