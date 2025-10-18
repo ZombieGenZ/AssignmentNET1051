@@ -168,6 +168,10 @@
                                         {
                                             <li><a class="dropdown-item" asp-controller="Vouchers" asp-action="Index"><i class="fas fa-ticket-alt me-2"></i>Quản lý Voucher</a></li>
                                         }
+                                        if (User.HasClaim(c => c.Type == "GetOrderAll"))
+                                        {
+                                            <li><a class="dropdown-item" asp-controller="Order" asp-action="Manage"><i class="fas fa-receipt me-2"></i>Quản lý Đơn hàng</a></li>
+                                        }
                                         <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fas fa-chart-line me-2"></i>Thống kê doanh thu</a></li>
                                     }
 
