@@ -254,7 +254,6 @@
                     {
                         <div class="col-md-6">
                             <div class="d-flex align-items-center p-3 bg-white rounded">
-                                @* <i class="fas fa-check-circle text-success me-3" style="font-size: 24px;"></i> *@
                                 <img src="@item.Product.ProductImageUrl" alt="@item.Product.Name" style="max-width: 50px" />
                                 <div class="ms-2">
                                     <strong>@item.Product?.Name</strong>
@@ -302,7 +301,6 @@
                 },
                 success: function() {
                     showNotification('Đã thêm combo vào giỏ hàng!', 'success');
-                    // Get new cart count from server and update UI
                     $.get('@Url.Action("GetCount", "Cart")', function(data) {
                         updateCartCount(data.count);
                     });

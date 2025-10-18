@@ -1,30 +1,28 @@
 @using Assignment.Models
 ﻿@using Microsoft.AspNetCore.Identity
+@using System
 @using System.Linq
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 <!DOCTYPE html>
-<html lang="en">
+<html lang="vi">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - FoodApp</title>
+    <title>@ViewData["Title"] - FoodApp Việt</title>
 
-    <!-- Bootstrap CSS -->
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
 
-    <!-- Font Awesome -->
     <script src="https://kit.fontawesome.com/476445fe42.js" crossorigin="anonymous"></script>
 
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;700&display=swap" rel="stylesheet">
 
-    <!-- Custom CSS -->
     <style>
         :root {
-            --primary-color: #FF6347; /* Tomato Red - a classic fast-food color */
+            --primary-color: #FF6347;
             --dark-bg: #212529;
             --light-bg: #f8f9fa;
         }
@@ -105,7 +103,7 @@
                 </button>
 
                 <div id="mainNavbar" class="collapse navbar-collapse">
-                    <!-- Main Nav Links -->
+
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
                             <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">Trang chủ</a>
@@ -115,27 +113,27 @@
                         </li>
                     </ul>
 
-                    <!-- Right-side Nav (Identity/Cart) -->
+
                     <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
-                            <!-- Cart Icon -->
+
                             <li class="nav-item me-3">
                                 <a class="nav-link position-relative fs-5" asp-area="" asp-controller="Cart" asp-action="Index" title="Giỏ hàng">
                                     <i class="fas fa-shopping-cart"></i>
                                     <span id="cart-count" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger cart-badge">
                                         0
-                                        <span class="visually-hidden">items in cart</span>
+                                        <span class="visually-hidden">sản phẩm trong giỏ</span>
                                     </span>
                                 </a>
                             </li>
 
-                            // C# logic to determine user initials and name
-                            var userName = User.Identity?.Name ?? "User";
-                            var initials = string.IsNullOrWhiteSpace(userName) ? "?" : string.Concat(userName.Split(' ').Select(s => s[0])).ToUpper();
+                            @{
+                                var userName = User.Identity?.Name ?? "Người dùng";
+                                var nameParts = userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                                var initials = nameParts.Length == 0 ? "?" : string.Concat(nameParts.Select(part => char.ToUpperInvariant(part[0])));
+                            }
 
-
-                            <!-- User Dropdown -->
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="accountMenu"
                                    role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -148,33 +146,33 @@
                                     <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index"><i class="fas fa-user-circle me-2"></i>Hồ sơ</a></li>
                                     <li><a class="dropdown-item" asp-area="" asp-controller="Order" asp-action="History"><i class="fas fa-history me-2"></i>Lịch sử đặt hàng</a></li>
 
-                                    <!-- Management Links (based on Claims) -->
-                                    @if (User.HasPermissionWithPrefix("Get"))
+                                    @if (User.HasPermissionWithPrefix("Get") || User.HasPermission("ViewStatistics"))
                                     {
                                         <li><hr class="dropdown-divider" /></li>
-                                        <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fa-solid fa-gears"></i> Bản điều khiển</a></li>
-                                        @* <li><hr class="dropdown-divider" /></li>
-                                        if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
+                                        @if (User.HasPermission("ViewStatistics"))
                                         {
-                                            <li><a class="dropdown-item" asp-controller="Categories" asp-action="Index"><i class="fas fa-tags me-2"></i>Quản lý Category</a></li>
+                                            <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fa-solid fa-chart-line me-2"></i>Thống kê</a></li>
                                         }
-                                        if (User.HasAnyPermission("GetProductAll", "GetProduct"))
+                                        @if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
                                         {
-                                            <li><a class="dropdown-item" asp-controller="Products" asp-action="Index"><i class="fas fa-hamburger me-2"></i>Quản lý Product</a></li>
+                                            <li><a class="dropdown-item" asp-controller="Categories" asp-action="Index"><i class="fas fa-tags me-2"></i>Danh mục</a></li>
                                         }
-                                        if (User.HasAnyPermission("GetComboAll", "GetCombo"))
+                                        @if (User.HasAnyPermission("GetProductAll", "GetProduct"))
                                         {
-                                            <li><a class="dropdown-item" asp-controller="Combos" asp-action="Index"><i class="fas fa-box-open me-2"></i>Quản lý Combo</a></li>
+                                            <li><a class="dropdown-item" asp-controller="Products" asp-action="Index"><i class="fas fa-hamburger me-2"></i>Sản phẩm</a></li>
                                         }
-                                        if (User.HasAnyPermission("GetVoucherAll", "GetVoucher"))
+                                        @if (User.HasAnyPermission("GetComboAll", "GetCombo"))
                                         {
-                                            <li><a class="dropdown-item" asp-controller="Vouchers" asp-action="Index"><i class="fas fa-ticket-alt me-2"></i>Quản lý Voucher</a></li>
+                                            <li><a class="dropdown-item" asp-controller="Combos" asp-action="Index"><i class="fas fa-box-open me-2"></i>Combo</a></li>
                                         }
-                                        if (User.HasPermission("GetOrderAll"))
+                                        @if (User.HasAnyPermission("GetVoucherAll", "GetVoucher"))
                                         {
-                                            <li><a class="dropdown-item" asp-controller="Order" asp-action="Manage"><i class="fas fa-receipt me-2"></i>Quản lý Đơn hàng</a></li>
+                                            <li><a class="dropdown-item" asp-controller="Vouchers" asp-action="Index"><i class="fas fa-ticket-alt me-2"></i>Mã giảm giá</a></li>
                                         }
-                                        <li><a class="dropdown-item" asp-controller="Statistics" asp-action="Index"><i class="fas fa-chart-line me-2"></i>Thống kê doanh thu</a></li> *@
+                                        @if (User.HasPermission("GetOrderAll"))
+                                        {
+                                            <li><a class="dropdown-item" asp-controller="Order" asp-action="Manage"><i class="fas fa-receipt me-2"></i>Đơn hàng</a></li>
+                                        }
                                     }
 
                                     <li><hr class="dropdown-divider" /></li>
@@ -188,7 +186,6 @@
                         }
                         else
                         {
-                            <!-- Anon User Links -->
                             <li class="nav-item">
                                 <a class="btn btn-outline-secondary me-2" asp-area="Identity" asp-page="/Account/Login">Đăng nhập</a>
                             </li>
@@ -210,57 +207,47 @@
 
     <footer class="footer mt-auto py-3">
         <div class="container text-center">
-            &copy; @DateTime.Now.Year - FoodApp - <a asp-area="" asp-controller="Home" asp-action="Privacy">Chính sách bảo mật</a>
+            &copy; @DateTime.Now.Year - FoodApp Việt - <a asp-area="" asp-controller="Home" asp-action="Privacy">Chính sách bảo mật</a>
         </div>
     </footer>
 
-    <!-- Tải jQuery TẠI ĐÂY (quan trọng!) -->
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 
-    <!-- Bootstrap JS (phụ thuộc vào jQuery) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- === SCRIPT CẬP NHẬT GIỎ HÀNG === -->
     @if (SignInManager.IsSignedIn(User))
     {
         <script type="text/javascript">
-            // Function to update the cart count badge on the UI
             function updateCartBadge(count) {
                 var cartBadge = $('#cart-count');
                 if (cartBadge.length) {
                     var displayCount = count > 0 ? count : 0;
                     cartBadge.text(displayCount);
-                    // Always ensure the badge is visible when the user is signed in
                     cartBadge.removeClass('d-none');
                 }
             }
 
-            // Function to fetch the cart count from the server
             function fetchCartCount() {
                 $.ajax({
                     url: '@Url.Action("GetCount", "Cart")',
                     type: 'GET',
                     success: function (data) {
-                        // The server response should be { count: N }
                         updateCartBadge(data.count);
                     },
                     error: function (jqXHR, textStatus, errorThrown) {
-                        // Handle errors (like 401 Unauthorized or API failure) by showing 0
                         if (jqXHR.status !== 401) {
-                            console.error("Error fetching cart count: ", textStatus, errorThrown);
+                            console.error("Lỗi khi tải số lượng giỏ hàng: ", textStatus, errorThrown);
                         }
                         updateCartBadge(0);
                     }
                 });
             }
 
-            // When the document is fully loaded, fetch the initial cart count
             $(document).ready(function () {
                 fetchCartCount();
             });
         </script>
     }
-    <!-- === KẾT THÚC SCRIPT === -->
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

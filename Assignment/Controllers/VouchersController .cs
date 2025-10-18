@@ -10,7 +10,7 @@ using Assignment.Extensions;
 
 namespace Assignment.Controllers
 {
-    [Authorize] // Thêm Authorize ở cấp controller để yêu cầu đăng nhập cho tất cả các action
+    [Authorize]
     public class VouchersController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -24,14 +24,11 @@ namespace Assignment.Controllers
             _userManager = userManager;
         }
 
-        // GET: Vouchers
-        // Hiển thị danh sách các voucher chưa bị xóa mềm.
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var hasGetAll = User.HasPermission("GetVoucherAll");
 
-            // Bắt đầu câu truy vấn bằng cách lọc ra các bản ghi đã bị xóa mềm.
             IQueryable<Voucher> vouchers = _context.Vouchers.Where(v => !v.IsDeleted);
 
             if (!hasGetAll)
@@ -49,8 +46,6 @@ namespace Assignment.Controllers
             return View(await vouchers.ToListAsync());
         }
 
-        // GET: Vouchers/Details/5
-        // Chỉ hiển thị chi tiết nếu voucher chưa bị xóa.
         public async Task<IActionResult> Details(long? id)
         {
             if (id == null)
@@ -58,7 +53,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm voucher nếu nó chưa bị xóa mềm.
             var voucher = await _context.Vouchers
                 .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
 
@@ -73,7 +67,6 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            // Tải thông tin người dùng nếu voucher là loại Private
             if (voucher.Type == Enums.VoucherType.Private && !string.IsNullOrEmpty(voucher.UserId))
             {
                 var user = await _userManager.FindByIdAsync(voucher.UserId);
@@ -83,7 +76,6 @@ namespace Assignment.Controllers
             return View(voucher);
         }
 
-        // GET: Vouchers/Create
         [Authorize(Policy = "CreateVoucherPolicy")]
         public async Task<IActionResult> Create()
         {
@@ -92,13 +84,11 @@ namespace Assignment.Controllers
             return View();
         }
 
-        // POST: Vouchers/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateVoucherPolicy")]
         public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction")] Voucher voucher)
         {
-            // Kiểm tra xem mã voucher đã tồn tại và chưa bị xóa hay chưa
             var codeExists = await _context.Vouchers.AnyAsync(v => v.Code == voucher.Code && !v.IsDeleted);
             if (codeExists)
             {
@@ -107,19 +97,16 @@ namespace Assignment.Controllers
 
             if (ModelState.IsValid)
             {
-                // Xử lý logic cho Type
                 if (voucher.Type == Enums.VoucherType.Public)
                 {
                     voucher.UserId = null;
                 }
 
-                // Xử lý logic cho IsLifeTime
                 if (voucher.IsLifeTime)
                 {
                     voucher.EndTime = null;
                 }
 
-                // Xử lý logic cho UnlimitedPercentageDiscount
                 if (voucher.UnlimitedPercentageDiscount)
                 {
                     voucher.MaximumPercentageReduction = null;
@@ -129,7 +116,6 @@ namespace Assignment.Controllers
                 voucher.CreatedAt = DateTime.Now;
                 voucher.UpdatedAt = null;
                 voucher.DeletedAt = null;
-                // Đặt cờ IsDeleted thành false một cách tường minh khi tạo mới.
                 voucher.IsDeleted = false;
 
                 _context.Add(voucher);
@@ -137,14 +123,11 @@ namespace Assignment.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Nếu model không hợp lệ, tải lại danh sách người dùng cho dropdown
             var users = await _userManager.Users.ToListAsync();
             ViewData["UserId"] = new SelectList(users, "Id", "Email", voucher.UserId);
             return View(voucher);
         }
 
-        // GET: Vouchers/Edit/5
-        // Chỉ cho phép chỉnh sửa nếu voucher chưa bị xóa.
         public async Task<IActionResult> Edit(long? id)
         {
             if (id == null)
@@ -152,7 +135,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm voucher nếu nó chưa bị xóa mềm.
             var voucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
             if (voucher == null)
             {
@@ -170,7 +152,6 @@ namespace Assignment.Controllers
             return View(voucher);
         }
 
-        // POST: Vouchers/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,Id")] Voucher voucher)
@@ -180,7 +161,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Đảm bảo voucher đang được chỉnh sửa tồn tại và chưa bị xóa mềm.
             var existingVoucher = await _context.Vouchers.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
             if (existingVoucher == null)
             {
@@ -193,7 +173,6 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            // Kiểm tra nếu mã voucher mới trùng với một voucher khác (chưa bị xóa)
             var codeExists = await _context.Vouchers.AnyAsync(v => v.Code == voucher.Code && v.Id != voucher.Id && !v.IsDeleted);
             if (codeExists)
             {
@@ -204,31 +183,26 @@ namespace Assignment.Controllers
             {
                 try
                 {
-                    // Xử lý logic cho Type
                     if (voucher.Type == Enums.VoucherType.Public)
                     {
                         voucher.UserId = null;
                     }
 
-                    // Xử lý logic cho IsLifeTime
                     if (voucher.IsLifeTime)
                     {
                         voucher.EndTime = null;
                     }
 
-                    // Xử lý logic cho UnlimitedPercentageDiscount
                     if (voucher.UnlimitedPercentageDiscount)
                     {
                         voucher.MaximumPercentageReduction = null;
                     }
 
-                    // Giữ lại các thông tin gốc (người tạo, ngày tạo, trạng thái xóa).
                     voucher.CreateBy = existingVoucher.CreateBy;
                     voucher.CreatedAt = existingVoucher.CreatedAt;
                     voucher.IsDeleted = existingVoucher.IsDeleted;
                     voucher.DeletedAt = existingVoucher.DeletedAt;
 
-                    // Cập nhật thời gian chỉnh sửa.
                     voucher.UpdatedAt = DateTime.Now;
 
                     _context.Update(voucher);
@@ -248,14 +222,11 @@ namespace Assignment.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Nếu model không hợp lệ, tải lại danh sách người dùng cho dropdown
             var users = await _userManager.Users.ToListAsync();
             ViewData["UserId"] = new SelectList(users, "Id", "Email", voucher.UserId);
             return View(voucher);
         }
 
-        // GET: Vouchers/Delete/5
-        // Hiển thị trang xác nhận xóa nếu voucher chưa bị xóa.
         public async Task<IActionResult> Delete(long? id)
         {
             if (id == null)
@@ -263,7 +234,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm voucher nếu nó chưa bị xóa mềm.
             var voucher = await _context.Vouchers
                 .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
 
@@ -278,7 +248,6 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            // Tải thông tin người dùng nếu voucher là loại Private
             if (voucher.Type == Enums.VoucherType.Private && !string.IsNullOrEmpty(voucher.UserId))
             {
                 var user = await _userManager.FindByIdAsync(voucher.UserId);
@@ -288,18 +257,14 @@ namespace Assignment.Controllers
             return View(voucher);
         }
 
-        // POST: Vouchers/Delete/5
-        // Thực hiện xóa mềm.
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
-            // Chỉ tìm voucher chưa bị xóa mềm.
             var voucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
 
             if (voucher == null)
             {
-                // Voucher có thể đã bị người khác xóa. Chuyển hướng về trang danh sách là an toàn.
                 return RedirectToAction(nameof(Index));
             }
 
@@ -309,7 +274,6 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            // Thực hiện xóa mềm bằng cách đặt cờ và dấu thời gian.
             voucher.IsDeleted = true;
             voucher.DeletedAt = DateTime.Now;
 
@@ -320,7 +284,6 @@ namespace Assignment.Controllers
 
         private bool VoucherExists(long id)
         {
-            // Phương thức này cũng cần phải bỏ qua các voucher đã bị xóa mềm.
             return _context.Vouchers.Any(e => e.Id == id && !e.IsDeleted);
         }
     }

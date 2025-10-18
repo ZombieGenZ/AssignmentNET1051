@@ -1,14 +1,13 @@
 ﻿@page
 @model LoginWithRecoveryCodeModel
 @{
-    ViewData["Title"] = "Recovery code verification";
+    ViewData["Title"] = "Xác minh mã khôi phục";
 }
 
 <h1>@ViewData["Title"]</h1>
 <hr />
 <p>
-    You have requested to log in with a recovery code. This login will not be remembered until you provide
-    an authenticator app code at log in or disable 2FA and log in again.
+    Bạn đang đăng nhập bằng mã khôi phục. Lần đăng nhập này sẽ không được ghi nhớ cho đến khi bạn cung cấp mã từ ứng dụng xác thực hoặc tắt xác thực hai yếu tố và đăng nhập lại.
 </p>
 <div class="row">
     <div class="col-md-4">
@@ -19,7 +18,7 @@
                 <label asp-for="Input.RecoveryCode" class="form-label"></label>
                 <span asp-validation-for="Input.RecoveryCode" class="text-danger"></span>
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
+            <button type="submit" class="w-100 btn btn-lg btn-primary">Đăng nhập</button>
         </form>
     </div>
 </div>

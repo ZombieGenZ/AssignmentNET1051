@@ -27,14 +27,11 @@ namespace Assignment.Controllers
             _authorizationService = authorizationService;
         }
 
-        // GET: Products
-        // Hiển thị danh sách các sản phẩm chưa bị xóa mềm.
         public async Task<IActionResult> Index()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var hasGetAll = User.HasPermission("GetProductAll");
 
-            // Bắt đầu câu truy vấn bằng cách lọc ra các bản ghi đã bị xóa mềm.
             IQueryable<Product> products = _context.Products
                                                    .Where(p => !p.IsDeleted)
                                                    .Include(p => p.Category);
@@ -54,8 +51,6 @@ namespace Assignment.Controllers
             return View(await products.ToListAsync());
         }
 
-        // GET: Products/Details/5
-        // Chỉ hiển thị chi tiết nếu sản phẩm chưa bị xóa.
         public async Task<IActionResult> Details(long? id)
         {
             if (id == null)
@@ -63,7 +58,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm sản phẩm nếu nó chưa bị xóa mềm.
             var product = await _context.Products
                 .Include(p => p.Category)
                 .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
@@ -82,7 +76,6 @@ namespace Assignment.Controllers
             return View(product);
         }
 
-        // GET: Products/Create
         [Authorize(Policy = "CreateProductPolicy")]
         public async Task<IActionResult> Create()
         {
@@ -91,7 +84,6 @@ namespace Assignment.Controllers
             return View();
         }
 
-        // POST: Products/Create
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateProductPolicy")]
@@ -108,7 +100,6 @@ namespace Assignment.Controllers
                 product.CreatedAt = DateTime.Now;
                 product.UpdatedAt = null;
                 product.DeletedAt = null;
-                // Đặt cờ IsDeleted thành false một cách tường minh khi tạo mới.
                 product.IsDeleted = false;
 
                 _context.Add(product);
@@ -120,8 +111,6 @@ namespace Assignment.Controllers
             return View(product);
         }
 
-        // GET: Products/Edit/5
-        // Chỉ cho phép chỉnh sửa nếu sản phẩm chưa bị xóa.
         public async Task<IActionResult> Edit(long? id)
         {
             if (id == null)
@@ -129,7 +118,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm sản phẩm nếu nó chưa bị xóa mềm.
             var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
             if (product == null)
             {
@@ -147,7 +135,6 @@ namespace Assignment.Controllers
             return View(product);
         }
 
-        // POST: Products/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Edit(long id, [Bind("Name,Description,Price,Stock,DiscountType,Discount,IsPublish,ProductImageUrl,PreparationTime,Calories,Ingredients,IsSpicy,IsVegetarian,CategoryId,Id,CreateBy,CreatedAt")] Product product)
@@ -157,7 +144,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Đảm bảo sản phẩm đang được chỉnh sửa tồn tại và chưa bị xóa mềm.
             var existingProduct = await _context.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
             if (existingProduct == null)
             {
@@ -179,13 +165,11 @@ namespace Assignment.Controllers
                         product.Discount = null;
                     }
 
-                    // Giữ lại các thông tin gốc (người tạo, ngày tạo, trạng thái xóa).
                     product.CreateBy = existingProduct.CreateBy;
                     product.CreatedAt = existingProduct.CreatedAt;
                     product.IsDeleted = existingProduct.IsDeleted;
                     product.DeletedAt = existingProduct.DeletedAt;
 
-                    // Cập nhật thời gian chỉnh sửa.
                     product.UpdatedAt = DateTime.Now;
 
                     _context.Update(product);
@@ -211,8 +195,6 @@ namespace Assignment.Controllers
             return View(product);
         }
 
-        // GET: Products/Delete/5
-        // Hiển thị trang xác nhận xóa nếu sản phẩm chưa bị xóa.
         public async Task<IActionResult> Delete(long? id)
         {
             if (id == null)
@@ -220,7 +202,6 @@ namespace Assignment.Controllers
                 return NotFound();
             }
 
-            // Tìm sản phẩm nếu nó chưa bị xóa mềm.
             var product = await _context.Products
                 .Include(p => p.Category)
                 .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
@@ -239,18 +220,14 @@ namespace Assignment.Controllers
             return View(product);
         }
 
-        // POST: Products/Delete/5
-        // Thực hiện xóa mềm.
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
-            // Chỉ tìm sản phẩm chưa bị xóa mềm.
             var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
             if (product == null)
             {
-                // Sản phẩm có thể đã bị người khác xóa. Chuyển hướng về trang danh sách là an toàn.
                 return RedirectToAction(nameof(Index));
             }
 
@@ -260,26 +237,9 @@ namespace Assignment.Controllers
                 return Forbid();
             }
 
-            //if (product.CartItems.Any())
-            //{
-            //    _context.CartItems.UpdateRange(product.CartItems.Select(ci =>
-            //    {
-            //        ci.IsDeleted = true;
-            //        ci.DeletedAt = DateTime.Now;
-            //    }));
-            //}
-
-            //if (product.ComboItems.Any())
-            //{
-            //    _context.ComboItems.UpdateRange(product.ComboItems.Select(ci =>
-            //    {
-            //        ci.IsDeleted = true;
-            //        ci.DeletedAt = DateTime.Now;
-            //    }));
-            //}
 
 
-            // Thực hiện xóa mềm bằng cách đặt cờ và dấu thời gian.
+
             product.IsDeleted = true;
             product.DeletedAt = DateTime.Now;
 
@@ -290,7 +250,6 @@ namespace Assignment.Controllers
 
         private bool ProductExists(long id)
         {
-            // Phương thức này cũng cần phải bỏ qua các sản phẩm đã bị xóa mềm.
             return _context.Products.Any(e => e.Id == id && !e.IsDeleted);
         }
 
@@ -299,17 +258,14 @@ namespace Assignment.Controllers
         {
             var hasGetCategoryAll = User.HasPermission("GetCategoryAll");
 
-            // Chỉ lấy các danh mục chưa bị xóa.
             IQueryable<Category> categoriesQuery = _context.Categories.Where(c => !c.IsDeleted);
 
             if (hasGetCategoryAll)
             {
-                // Load tất cả categories chưa bị xóa.
                 return await categoriesQuery.ToListAsync();
             }
             else
             {
-                // Chỉ load categories của user hiện tại và chưa bị xóa.
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 return await categoriesQuery
                     .Where(c => c.CreateBy == userId)

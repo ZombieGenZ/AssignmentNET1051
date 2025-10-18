@@ -1,5 +1,3 @@
-// Licensed to the .NET Foundation under one or more agreements.
-// The .NET Foundation licenses this file to you under the MIT license.
 #nullable disable
 
 using Assignment.Models;
@@ -46,34 +44,22 @@ namespace Assignment.Areas.Identity.Pages.Account
             _emailSender = emailSender;
         }
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         [BindProperty]
         public InputModel Input { get; set; }
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public string ReturnUrl { get; set; }
 
-        /// <summary>
-        ///     This API supports the ASP.NET Core Identity default UI infrastructure and is not intended to be used
-        ///     directly from your code. This API may change or be removed in future releases.
-        /// </summary>
         public IList<AuthenticationScheme> ExternalLogins { get; set; }
 
         public class InputModel
         {
             [Required]
-            [Display(Name = "Full Name")]
+            [Display(Name = "Họ và tên")]
             public string FullName { get; set; }
 
             [Required]
             [StringLength(32, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 3)]
-            [Display(Name = "User Name")]
+            [Display(Name = "Tên người dùng")]
             public string UserName { get; set; }
 
             [Required]
@@ -83,22 +69,22 @@ namespace Assignment.Areas.Identity.Pages.Account
 
             [Required]
             [DataType(DataType.Date)]
-            [Display(Name = "Date of Birth")]
+            [Display(Name = "Ngày sinh")]
             public DateTime? DateOfBirth { get; set; }
 
             [Required]
             [Phone]
-            [Display(Name = "Phone Number")]
+            [Display(Name = "Số điện thoại")]
             public string Phone { get; set; }
 
             [Required]
             [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
             [DataType(DataType.Password)]
-            [Display(Name = "Password")]
+            [Display(Name = "Mật khẩu")]
             public string Password { get; set; }
 
             [DataType(DataType.Password)]
-            [Display(Name = "Confirm password")]
+            [Display(Name = "Xác nhận mật khẩu")]
             [Compare("Password", ErrorMessage = "The password and confirmation password do not match.")]
             public string ConfirmPassword { get; set; }
         }
@@ -146,8 +132,8 @@ namespace Assignment.Areas.Identity.Pages.Account
                         values: new { area = "Identity", userId = userId, code = code, returnUrl = returnUrl },
                         protocol: Request.Scheme);
 
-                    await _emailSender.SendEmailAsync(Input.Email, "Confirm your email",
-                        $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+                    await _emailSender.SendEmailAsync(Input.Email, "Xác nhận email của bạn",
+                        $"Vui lòng xác nhận tài khoản bằng cách <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>nhấn vào đây</a>.");
 
                     if (_userManager.Options.SignIn.RequireConfirmedAccount)
                     {
@@ -165,7 +151,6 @@ namespace Assignment.Areas.Identity.Pages.Account
                 }
             }
 
-            // If we got this far, something failed, redisplay form
             return Page();
         }
 
@@ -177,9 +162,7 @@ namespace Assignment.Areas.Identity.Pages.Account
             }
             catch
             {
-                throw new InvalidOperationException($"Can't create an instance of '{nameof(ApplicationUser)}'. " +
-                    $"Ensure that '{nameof(ApplicationUser)}' is not an abstract class and has a parameterless constructor, or alternatively " +
-                    $"override the register page in /Areas/Identity/Pages/Account/Register.cshtml");
+                throw new InvalidOperationException($"Không thể tạo thể hiện của '{nameof(ApplicationUser)}'. Hãy đảm bảo lớp không phải dạng trừu tượng và có constructor không tham số, hoặc ghi đè trang đăng ký tại /Areas/Identity/Pages/Account/Register.cshtml");
             }
         }
 
@@ -187,7 +170,7 @@ namespace Assignment.Areas.Identity.Pages.Account
         {
             if (!_userManager.SupportsUserEmail)
             {
-                throw new NotSupportedException("The default UI requires a user store with email support.");
+                throw new NotSupportedException("Giao diện mặc định yêu cầu kho người dùng hỗ trợ email.");
             }
             return (IUserEmailStore<ApplicationUser>)_userStore;
         }

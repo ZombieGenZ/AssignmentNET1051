@@ -21,13 +21,13 @@ namespace Assignment.Models
         public double TotalPrice { get; set; }
         [Required]
         [Range(0, double.MaxValue)]
-        public double Discount { get; set; } // Apply from Voucher
+        public double Discount { get; set; }
         [Required]
         [Range(0, double.MaxValue)]
-        public double Vat { get; set; } // 15% of TotalPrice
+        public double Vat { get; set; }
         [Required]
         [Range(0, double.MaxValue)]
-        public double TotalBill { get; set; } // TotalPrice - Discount + Vat
+        public double TotalBill { get; set; }
         public string? Note { get; set; }
         public string? UserId { get; set; }
         public string? VoucherId { get; set; }

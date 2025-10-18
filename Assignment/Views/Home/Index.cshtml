@@ -204,11 +204,6 @@
             const data = { [paramName]: id, quantity: 1 };
             const token = $('input[name="__RequestVerificationToken"]').val();
 
-            // if (!token) {
-            //     console.error("Không tìm thấy __RequestVerificationToken! Hãy chắc chắn @Html.AntiForgeryToken() đã được render trên trang.");
-            //     showNotification('Lỗi bảo mật, không thể thêm vào giỏ hàng.', 'error');
-            //     return;
-            // }
             console.log("Token đã được tìm thấy.");
 
             $.ajax({
@@ -286,17 +281,14 @@
         }
 
         $(document).ready(function () {
-            // Gắn sự kiện click vào tất cả các nút có class 'btn-add-cart'
             $('.btn-add-cart').on('click', function () {
                 const button = $(this);
                 const id = button.data('id');
                 const type = button.data('type');
 
-                // Gọi hàm addToCart với dữ liệu lấy từ thuộc tính data-*
                 addToCart(id, type);
             });
 
-            // Cập nhật số lượng giỏ hàng nếu người dùng đã đăng nhập
             if ($('#cart-count').length > 0) {
                updateCartCount();
             }

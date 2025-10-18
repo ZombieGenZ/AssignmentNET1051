@@ -29,7 +29,6 @@ namespace Assignment.Controllers
             _logger = logger;
         }
 
-        // GET: Order/Checkout
         public async Task<IActionResult> Checkout()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -50,14 +49,12 @@ namespace Assignment.Controllers
                 Email = user?.Email,
                 Phone = user?.PhoneNumber ?? string.Empty,
                 UserId = userId,
-                // You can pre-fill other fields like email/phone if they are in user claims
             };
 
-            ViewBag.Cart = cart; // Pass cart data to the view for summary
+            ViewBag.Cart = cart;
             return View(order);
         }
 
-        // POST: Order/Checkout
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Checkout(Order order)
@@ -99,7 +96,6 @@ namespace Assignment.Controllers
 
             if (ModelState.IsValid)
             {
-                // Server-side calculation to ensure data integrity
                 order.UserId = userId;
                 order.CreatedAt = DateTime.Now;
                 order.Status = OrderStatus.Pending;
@@ -122,12 +118,10 @@ namespace Assignment.Controllers
                 order.TotalPrice = orderItems.Sum(oi => oi.Price * oi.Quantity);
                 order.Discount = 0;
 
-                // --- Re-validate and Apply Voucher before saving ---
                 if (voucherId.HasValue)
                 {
                     var voucher = await _context.Vouchers.FindAsync(voucherId.Value);
                     var now = DateTime.Now;
-                    // Re-run validation checks
                     if (voucher != null &&
                         voucher.StartTime <= now &&
                         (!voucher.EndTime.HasValue || voucher.EndTime.Value >= now || voucher.IsLifeTime) &&
@@ -140,7 +134,7 @@ namespace Assignment.Controllers
                         {
                             discountAmount = voucher.Discount;
                         }
-                        else // Percent
+                        else
                         {
                             discountAmount = order.TotalPrice * (voucher.Discount / 100);
                             if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
@@ -148,21 +142,20 @@ namespace Assignment.Controllers
                                 discountAmount = voucher.MaximumPercentageReduction.Value;
                             }
                         }
-                        order.Discount = Math.Min(discountAmount, order.TotalPrice); // Ensure discount is not more than total
+                        order.Discount = Math.Min(discountAmount, order.TotalPrice);
                         order.VoucherId = voucher.Id.ToString();
 
-                        voucher.Used += 1; // Increment used count
+                        voucher.Used += 1;
                         _context.Vouchers.Update(voucher);
                     }
                     else
                     {
-                        order.VoucherId = null; // Invalidate voucher if checks fail
+                        order.VoucherId = null;
                     }
                 }
 
-                // --- Final Calculations ---
                 double priceAfterDiscount = order.TotalPrice - order.Discount;
-                order.Vat = priceAfterDiscount * 0.15; // 15% VAT on the discounted price
+                order.Vat = priceAfterDiscount * 0.15;
                 order.TotalBill = priceAfterDiscount + order.Vat;
 
                 _context.Orders.Add(order);
@@ -196,11 +189,10 @@ namespace Assignment.Controllers
                 return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
             }
 
-            ViewBag.Cart = cart; // Pass cart data again
+            ViewBag.Cart = cart;
             return View(order);
         }
 
-        // POST: Order/ApplyVoucher
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ApplyVoucher(string voucherCode)
@@ -216,7 +208,6 @@ namespace Assignment.Controllers
             var voucher = await _context.Vouchers.FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper());
             var now = DateTime.Now;
 
-            // --- Validation ---
             if (voucher == null) return Json(new { success = false, error = "Mã voucher không hợp lệ." });
             if (voucher.StartTime > now || (voucher.EndTime.HasValue && voucher.EndTime < now && !voucher.IsLifeTime)) return Json(new { success = false, error = "Voucher đã hết hạn hoặc chưa có hiệu lực." });
             if (voucher.Quantity <= voucher.Used) return Json(new { success = false, error = "Voucher đã hết lượt sử dụng." });
@@ -225,13 +216,12 @@ namespace Assignment.Controllers
             var subtotal = cart.CartItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             if (subtotal < voucher.MinimumRequirements) return Json(new { success = false, error = $"Đơn hàng tối thiểu phải là {voucher.MinimumRequirements:N0}đ." });
 
-            // --- Calculate Discount ---
             double discountAmount = 0;
             if (voucher.DiscountType == VoucherDiscountType.Money)
             {
                 discountAmount = voucher.Discount;
             }
-            else // Percent
+            else
             {
                 discountAmount = subtotal * (voucher.Discount / 100);
                 if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
@@ -242,7 +232,6 @@ namespace Assignment.Controllers
 
             discountAmount = Math.Min(discountAmount, subtotal);
 
-            // --- Calculate new totals ---
             double priceAfterDiscount = subtotal - discountAmount;
             double vatAmount = priceAfterDiscount * 0.15;
             double totalBill = priceAfterDiscount + vatAmount;
@@ -258,7 +247,6 @@ namespace Assignment.Controllers
         }
 
 
-        // GET: Order/History
         public async Task<IActionResult> History()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -441,7 +429,6 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
         }
 
-        // GET: Order/OrderConfirmation
         public async Task<IActionResult> OrderConfirmation(long id)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);

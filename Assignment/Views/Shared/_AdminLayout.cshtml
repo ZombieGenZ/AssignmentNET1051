@@ -13,7 +13,6 @@
     <link href="~/css/admin-layout.css" rel="stylesheet" />
     <script src="https://kit.fontawesome.com/476445fe42.js" crossorigin="anonymous"></script>
     <style>
-        /* CSS cho dropdown người dùng */
         .user-profile-container {
             position: relative;
             display: inline-block;
@@ -29,7 +28,7 @@
             display: none;
             position: absolute;
             right: 0;
-            top: 120%; /* Vị trí ngay dưới user profile */
+            top: 120%;
             background-color: #fff;
             min-width: 180px;
             box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
@@ -75,7 +74,6 @@
                 border-top: 1px solid #e3e6f0;
             }
 
-            /* CSS cho nút logout trong form */
             .dropdown-menu-user form {
                 padding: 0;
                 margin: 0;
@@ -94,12 +92,12 @@
             <span>Quản Lý</span>
         </a>
         <ul class="sidebar-menu">
-            @if (User.HasAnyPermission("GetOrderAll"))
+            @if (User.HasPermission("ViewStatistics"))
             {
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Statistics" class="sidebar-menu-link">
                         <i class="fa-solid fa-chart-simple"></i>
-                        <span>Statistical</span>
+                        <span>Thống kê</span>
                     </a>
                 </li>
             }
@@ -108,7 +106,7 @@
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Categories" class="sidebar-menu-link">
                         <i class="fa-solid fa-list-ul"></i>
-                        <span>Category</span>
+                        <span>Danh mục</span>
                     </a>
                 </li>
             }
@@ -117,7 +115,7 @@
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Products" class="sidebar-menu-link">
                         <i class="fa-solid fa-box"></i>
-                        <span>Product</span>
+                        <span>Sản phẩm</span>
                     </a>
                 </li>
             }
@@ -135,7 +133,7 @@
                 <li class="sidebar-menu-item">
                     <a asp-action="Index" asp-controller="Vouchers" class="sidebar-menu-link">
                         <i class="fa-solid fa-ticket"></i>
-                        <span>Voucher</span>
+                        <span>Mã giảm giá</span>
                     </a>
                 </li>
             }
@@ -144,41 +142,11 @@
                 <li class="sidebar-menu-item">
                     <a asp-action="Manage" asp-controller="Order" class="sidebar-menu-link">
                         <i class="fa-solid fa-receipt"></i>
-                        <span>Order</span>
+                        <span>Đơn hàng</span>
                     </a>
                 </li>
             }
 
-@*             <li class="sidebar-menu-item">
-                <a href="#" class="sidebar-menu-link">
-                    <i class="fas fa-users"></i>
-                    <span>Người dùng</span>
-                </a>
-            </li>
-            <li class="sidebar-menu-item">
-                <a href="#" class="sidebar-menu-link">
-                    <i class="fas fa-box"></i>
-                    <span>Sản phẩm</span>
-                </a>
-            </li>
-            <li class="sidebar-menu-item">
-                <a href="#" class="sidebar-menu-link">
-                    <i class="fas fa-shopping-cart"></i>
-                    <span>Đơn hàng</span>
-                </a>
-            </li>
-            <li class="sidebar-menu-item">
-                <a href="#" class="sidebar-menu-link">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Báo cáo</span>
-                </a>
-            </li>
-            <li class="sidebar-menu-item">
-                <a href="#" class="sidebar-menu-link">
-                    <i class="fas fa-cog"></i>
-                    <span>Cài đặt</span>
-                </a>
-            </li> *@
         </ul>
     </aside>
 
@@ -191,8 +159,6 @@
             </button>
 
             <div class="header-search">
-                @* <i class="fas fa-search"></i>
-                <input type="text" placeholder="Tìm kiếm..."> *@
             </div>
 
             <div class="header-right">
@@ -234,41 +200,17 @@
         </header>
 
         <div class="content-wrapper">
-@*             @{ var canViewRevenue = User.HasPermission("GetOrderAll"); }
-            @if (canViewRevenue)
-            {
-                <section class="dashboard-stats mb-4">
-                    @await Component.InvokeAsync("AdminRevenue")
-                </section>
-            } *@
-            @*             <div class="page-header">
-                <h1 class="page-title">Dashboard</h1>
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="#">Trang chủ</a></li>
-                        <li class="breadcrumb-item active">Dashboard</li>
-                    </ol>
-                </nav>
-            </div> *@
-
-            <main role="main">
+                        <main role="main">
                 @RenderBody()
             </main>
         </div>
-@* 
-        <footer class="footer">
-            <div class="container-fluid">
-                &copy; 2025 - Hệ Thống Quản Lý -
-                <a href="#" style="color: var(--primary-color); text-decoration: none;">Privacy</a>
-            </div>
-        </footer> *@
+
     </div>
 
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            // Logic cho sidebar menu toggle
             const menuToggle = document.getElementById('menuToggle');
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('overlay');
@@ -283,7 +225,6 @@
                 overlay.classList.remove('active');
             });
 
-            // Logic tự động active sidebar link dựa trên URL
             const menuLinks = document.querySelectorAll('.sidebar-menu-link');
             const currentPath = window.location.pathname.toLowerCase();
             let bestMatch = null;
@@ -294,9 +235,7 @@
 
                 const linkPath = linkHref.toLowerCase();
 
-                // Tìm link khớp với URL nhất (dài nhất)
                 if (currentPath.startsWith(linkPath)) {
-                    // Xử lý trường hợp đặc biệt cho trang chủ
                     if (linkPath === '/' && currentPath !== '/') {
                         return;
                     }
@@ -312,22 +251,18 @@
                 bestMatch.classList.add('active');
             }
 
-            // Logic cho dropdown người dùng
             const userProfileToggle = document.getElementById('userProfileToggle');
             const userDropdown = document.getElementById('userDropdown');
 
             if (userProfileToggle) {
                 userProfileToggle.addEventListener('click', function (event) {
-                    // Ngăn sự kiện click lan ra window, tránh việc đóng dropdown ngay lập tức
                     event.stopPropagation();
                     userDropdown.classList.toggle('show');
                 });
             }
 
-            // Đóng dropdown khi click ra ngoài
             window.addEventListener('click', function (event) {
                 if (userDropdown && userDropdown.classList.contains('show')) {
-                    // Kiểm tra xem vị trí click có nằm ngoài dropdown và ngoài nút toggle không
                     if (!userProfileToggle.contains(event.target)) {
                         userDropdown.classList.remove('show');
                     }

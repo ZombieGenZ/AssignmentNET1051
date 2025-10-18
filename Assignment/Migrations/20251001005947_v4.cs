@@ -4,10 +4,8 @@
 
 namespace Assignment.Migrations
 {
-    /// <inheritdoc />
     public partial class v4 : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<long>(
@@ -18,7 +16,6 @@ namespace Assignment.Migrations
                 defaultValue: 0L);
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(

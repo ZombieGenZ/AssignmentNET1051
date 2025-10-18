@@ -158,7 +158,6 @@ namespace Assignment.Services.PayOs
         {
             if (string.IsNullOrWhiteSpace(_options.ChecksumKey))
             {
-                // Without a checksum key we cannot validate the signature, so treat it as valid.
                 return true;
             }
 
@@ -198,12 +197,6 @@ namespace Assignment.Services.PayOs
 
         private static string BuildSignature(PayOsCreatePaymentRequest request, string checksumKey)
         {
-            // The PayOS signature must be generated from every field included in
-            // the request payload (except for the signature itself) sorted in
-            // ascending order by key. When optional buyer information is
-            // present in the payload it also needs to participate in the
-            // signature. Otherwise PayOS considers the payload tampered with and
-            // returns error code 201 (invalid signature).
             var parts = new SortedDictionary<string, string>(StringComparer.Ordinal)
             {
                 ["amount"] = request.Amount.ToString(),
