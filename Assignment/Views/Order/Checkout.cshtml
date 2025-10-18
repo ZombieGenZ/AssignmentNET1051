@@ -181,9 +181,8 @@
             const paymentTypeSelect = $('#PaymentType');
             const paymentMethodContainer = $('#paymentMethodContainer');
             const paymentMethodSelect = $('#PaymentMethod');
+            const cashOption = paymentMethodSelect.find(`option[value='@paymentMethodCashValue']`);
             const initialSubtotal = @totalPrice;
-
-            paymentMethodSelect.find(`option[value='@paymentMethodCashValue']`).remove();
 
             paymentMethodSelect.find('option').each(function () {
                 const option = $(this);
@@ -201,21 +200,27 @@
                 });
 
                 if (isPayNow) {
-                    paymentMethodSelect.find(`option[value='@paymentMethodCashValue']`).prop('disabled', true).prop('hidden', true);
+                    cashOption.prop('disabled', true).prop('hidden', true);
 
-                    paymentMethodSelect.find(`option`).each(function () {
+                    paymentMethodSelect.find('option').each(function () {
                         const option = $(this);
                         const value = option.val();
-                        if (value && value !== '@paymentMethodBankValue') {
+                        if (!value || value === '@paymentMethodCashValue') {
+                            return;
+                        }
+                        if (value !== '@paymentMethodBankValue') {
                             option.prop('disabled', true);
                             const originalText = option.attr('data-original-text');
-                            option.text(`${originalText} (Không khả dụng)`);
+                            if (originalText) {
+                                option.text(`${originalText} (Hiện không khả dụng)`);
+                            }
                         }
                     });
 
                     paymentMethodSelect.val('@paymentMethodBankValue');
                 }
                 else {
+                    cashOption.prop('disabled', false).prop('hidden', false);
                     paymentMethodSelect.val('');
                 }
             }
