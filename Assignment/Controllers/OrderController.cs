@@ -8,8 +8,11 @@ using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Identity;
 using Assignment.Extensions;
+using System;
 using System.Linq;
 using System.Collections.Generic;
+using Assignment.Services.Payments;
+using Microsoft.Extensions.Logging;
 
 namespace Assignment.Controllers
 {
@@ -18,10 +21,15 @@ namespace Assignment.Controllers
     {
         private readonly ApplicationDbContext _context;
         private readonly UserManager<ApplicationUser> _userManager;
-        public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager)
+        private readonly IPayOsService _payOsService;
+        private readonly ILogger<OrderController> _logger;
+
+        public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IPayOsService payOsService, ILogger<OrderController> logger)
         {
             _context = context;
             _userManager = userManager;
+            _payOsService = payOsService;
+            _logger = logger;
         }
 
         public async Task<IActionResult> Checkout(string? cartItemIds)
@@ -126,7 +134,9 @@ namespace Assignment.Controllers
                         Price = unitPrice,
                         Quantity = cartItem.Quantity,
                         ProductId = cartItem.ProductId,
-                        ComboId = cartItem.ComboId
+                        ComboId = cartItem.ComboId,
+                        Product = cartItem.Product,
+                        Combo = cartItem.Combo
                     });
                 }
 
@@ -178,6 +188,29 @@ namespace Assignment.Controllers
                 _context.Orders.Add(order);
                 _context.CartItems.RemoveRange(filteredItems);
                 await _context.SaveChangesAsync();
+
+                if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)
+                {
+                    var returnUrl = Url.Action(nameof(PayOsReturn), "Order", new { orderId = order.Id }, Request.Scheme) ?? string.Empty;
+                    var cancelUrl = Url.Action(nameof(PayOsCancel), "Order", new { orderId = order.Id }, Request.Scheme) ?? string.Empty;
+                    var description = $"Thanh toán đơn hàng #{order.Id}";
+
+                    try
+                    {
+                        var paymentLink = await _payOsService.CreatePaymentLinkAsync(order, description, returnUrl, cancelUrl);
+                        if (paymentLink != null && !string.IsNullOrWhiteSpace(paymentLink.CheckoutUrl))
+                        {
+                            return Redirect(paymentLink.CheckoutUrl);
+                        }
+
+                        TempData["Error"] = "Không thể tạo liên kết thanh toán PayOS. Đơn hàng của bạn vẫn đang chờ thanh toán.";
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Không thể tạo thanh toán PayOS cho đơn hàng {OrderId}", order.Id);
+                        TempData["Error"] = "Có lỗi xảy ra khi kết nối với PayOS. Đơn hàng của bạn vẫn đang chờ thanh toán.";
+                    }
+                }
 
                 return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
             }
@@ -359,6 +392,71 @@ namespace Assignment.Controllers
 
             TempData["Success"] = $"Cập nhật trạng thái đơn hàng #{order.Id} thành công.";
             return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> PayOsReturn(long orderId)
+        {
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId && !o.IsDeleted);
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.Equals(order.UserId, userId, StringComparison.Ordinal))
+            {
+                return Forbid();
+            }
+
+            if (order.PaymentType != PaymentType.PayNow || order.PaymentMethod != PaymentMethodType.Bank)
+            {
+                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+            }
+
+            try
+            {
+                var details = await _payOsService.GetPaymentDetailsAsync(order.Id);
+                if (details != null && string.Equals(details.Status, "PAID", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (order.Status != OrderStatus.Paid)
+                    {
+                        order.Status = OrderStatus.Paid;
+                        order.UpdatedAt = DateTime.Now;
+                        await _context.SaveChangesAsync();
+                    }
+                }
+                else
+                {
+                    TempData["Error"] = "Thanh toán PayOS chưa được xác nhận. Đơn hàng của bạn vẫn đang chờ thanh toán.";
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Không thể xác minh thanh toán PayOS cho đơn hàng {OrderId}", order.Id);
+                TempData["Error"] = "Không thể xác minh thanh toán PayOS. Vui lòng thử lại sau.";
+            }
+
+            return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> PayOsCancel(long orderId)
+        {
+            var order = await _context.Orders.FirstOrDefaultAsync(o => o.Id == orderId && !o.IsDeleted);
+            if (order == null)
+            {
+                return NotFound();
+            }
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.Equals(order.UserId, userId, StringComparison.Ordinal))
+            {
+                return Forbid();
+            }
+
+            TempData["Error"] = "Thanh toán PayOS đã bị hủy hoặc không thành công. Đơn hàng của bạn vẫn đang chờ thanh toán.";
+            return RedirectToAction(nameof(OrderConfirmation), new { id = orderId });
         }
 
         public async Task<IActionResult> OrderConfirmation(long id)
