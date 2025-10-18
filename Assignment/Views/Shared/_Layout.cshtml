@@ -118,6 +118,9 @@
                     <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
+                            var userName = User.Identity?.Name ?? "Người dùng";
+                            var nameParts = userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            var initials = nameParts.Length == 0 ? "?" : string.Concat(nameParts.Select(part => char.ToUpperInvariant(part[0])));
 
                             <li class="nav-item me-3">
                                 <a class="nav-link position-relative fs-5" asp-area="" asp-controller="Cart" asp-action="Index" title="Giỏ hàng">
@@ -128,12 +131,6 @@
                                     </span>
                                 </a>
                             </li>
-
-                            @{
-                                var userName = User.Identity?.Name ?? "Người dùng";
-                                var nameParts = userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                                var initials = nameParts.Length == 0 ? "?" : string.Concat(nameParts.Select(part => char.ToUpperInvariant(part[0])));
-                            }
 
                             <li class="nav-item dropdown">
                                 <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" id="accountMenu"
