@@ -39,7 +39,7 @@
         baseRoute["OnlyDiscounted"] = "true";
     }
 
-    Dictionary<string, string> CreateRoute(string segment, int? categoryId = null)
+    Dictionary<string, string> CreateRoute(string segment, long? categoryId = null)
     {
         var route = baseRoute.ToDictionary(
             kvp => kvp.Key,
