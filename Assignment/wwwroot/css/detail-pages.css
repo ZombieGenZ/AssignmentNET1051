@@ -164,13 +164,36 @@
 }
 
 .rating-stars {
-    display: inline-block;
+    --star-size: 2.4rem;
+    --star-gap: 0.6rem;
+    --star-inactive: rgba(255, 255, 255, 0.45);
+    --star-active: #ffb224;
+    --star-glow: rgba(255, 179, 71, 0.35);
+    --star-hover: #ffd789;
+    position: relative;
+    display: inline-flex;
+    flex-direction: row-reverse;
+    align-items: center;
+    gap: var(--star-gap);
+    padding: 0.85rem 1.25rem;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.08), rgba(15, 23, 42, 0.16));
+    backdrop-filter: blur(18px);
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
 }
 
-.rating-stars::after {
+.rating-stars::before {
     content: "";
-    display: table;
-    clear: both;
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg, rgba(255, 143, 0, 0.75), rgba(105, 0, 199, 0.65));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: exclude;
+    pointer-events: none;
 }
 
 .rating-stars > input {
@@ -178,77 +201,87 @@
 }
 
 .rating-stars > label {
-    float: right;
+    position: relative;
+    display: grid;
+    place-items: center;
     cursor: pointer;
-    font-size: 2rem;
-    line-height: 1;
-    margin-left: 4px;
+    transition: transform 0.25s ease, filter 0.25s ease;
 }
 
 .rating-stars > label > svg {
-    display: block;
-    fill: #666;
-    transition: fill 0.3s ease;
+    width: var(--star-size);
+    height: var(--star-size);
+    fill: var(--star-inactive);
+    filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.18));
+    transition: fill 0.25s ease, transform 0.25s ease, filter 0.25s ease;
 }
 
-.rating-stars > input:checked ~ label > svg {
-    fill: #ffa723;
+.rating-stars > label::after {
+    content: attr(title);
+    position: absolute;
+    bottom: -2.2rem;
+    left: 50%;
+    transform: translateX(-50%) scale(0.85);
+    transform-origin: top center;
+    background: rgba(15, 23, 42, 0.82);
+    color: #ffffff;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.rating-stars > label:hover::after,
+.rating-stars > input:checked + label::after {
+    opacity: 1;
+    transform: translateX(-50%) scale(1);
 }
 
 .rating-stars > label:hover > svg,
 .rating-stars > label:hover ~ label > svg {
-    fill: #ff9e0b;
+    fill: var(--star-hover);
+    filter: drop-shadow(0 14px 24px var(--star-glow));
+    transform: translateY(-2px) scale(1.05);
 }
 
-.rating-stars > label[data-star="1"]:hover > svg,
-.rating-stars > label[data-star="1"]:hover ~ label > svg {
-    fill: #a23c3c !important;
-}
-
-.rating-stars > label[data-star="2"]:hover > svg,
-.rating-stars > label[data-star="2"]:hover ~ label > svg {
-    fill: #99542d !important;
-}
-
-.rating-stars > label[data-star="3"]:hover > svg,
-.rating-stars > label[data-star="3"]:hover ~ label > svg {
-    fill: #9f7e18 !important;
-}
-
-.rating-stars > label[data-star="4"]:hover > svg,
-.rating-stars > label[data-star="4"]:hover ~ label > svg {
-    fill: #22885e !important;
-}
-
-.rating-stars > label[data-star="5"]:hover > svg,
-.rating-stars > label[data-star="5"]:hover ~ label > svg {
-    fill: #7951ac !important;
+.rating-stars > input:checked ~ label > svg {
+    fill: var(--star-active);
+    filter: drop-shadow(0 14px 24px var(--star-glow));
 }
 
 .rating-stars > input[id$='star1']:checked ~ label > svg {
-    fill: #ef4444;
+    fill: #f87171;
 }
 
 .rating-stars > input[id$='star2']:checked ~ label > svg {
-    fill: #e06c2b;
+    fill: #fb923c;
 }
 
 .rating-stars > input[id$='star3']:checked ~ label > svg {
-    fill: #eab308;
+    fill: #facc15;
 }
 
 .rating-stars > input[id$='star4']:checked ~ label > svg {
-    fill: #19c37d;
+    fill: #34d399;
 }
 
 .rating-stars > input[id$='star5']:checked ~ label > svg {
-    fill: #ab68ff;
+    fill: #c084fc;
 }
 
 .rating-stars > input:focus-visible + label {
-    outline: 2px solid #ffa723;
-    outline-offset: 4px;
-    border-radius: 6px;
+    outline: 3px solid rgba(255, 180, 0, 0.35);
+    outline-offset: 6px;
+    border-radius: 12px;
+}
+
+.rating-stars:focus-within {
+    box-shadow: 0 0 0 4px rgba(255, 180, 0, 0.18), 0 12px 28px rgba(15, 23, 42, 0.14);
 }
 
 .detail-card__description {
