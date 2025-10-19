@@ -1,7 +1,9 @@
 using System.ComponentModel.DataAnnotations;
+using Microsoft.EntityFrameworkCore;
 
 namespace Assignment.Models
 {
+    [Index(nameof(VoucherId), nameof(ProductId), IsUnique = true)]
     public class VoucherProduct : BaseEntity
     {
         [Required]
