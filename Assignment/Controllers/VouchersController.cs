@@ -144,7 +144,7 @@ namespace Assignment.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateVoucherPolicy")]
-        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
+        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount")] Voucher voucher, List<string> UserIds, List<string> ProductIds)
         {
             var codeExists = await _context.Vouchers.AnyAsync(v => v.Code == voucher.Code && !v.IsDeleted);
             if (codeExists)
@@ -172,7 +172,9 @@ namespace Assignment.Controllers
             }
 
             var selectedProductIds = ProductIds?
-                .Where(id => id > 0)
+                .Select(idValue => long.TryParse(idValue, out var parsedId) ? parsedId : (long?)null)
+                .Where(parsedId => parsedId.HasValue && parsedId.Value > 0)
+                .Select(parsedId => parsedId!.Value)
                 .Distinct()
                 .ToList() ?? new List<long>();
 
@@ -341,7 +343,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount,Id")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
+        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount,Id")] Voucher voucher, List<string> UserIds, List<string> ProductIds)
         {
             if (id != voucher.Id)
             {
@@ -386,7 +388,9 @@ namespace Assignment.Controllers
             }
 
             var selectedProductIds = ProductIds?
-                .Where(idValue => idValue > 0)
+                .Select(idValue => long.TryParse(idValue, out var parsedId) ? parsedId : (long?)null)
+                .Where(parsedId => parsedId.HasValue && parsedId.Value > 0)
+                .Select(parsedId => parsedId!.Value)
                 .Distinct()
                 .ToList() ?? new List<long>();
 
