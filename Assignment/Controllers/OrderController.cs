@@ -140,7 +140,7 @@ namespace Assignment.Controllers
                 appliedVouchers = await _context.Vouchers
                     .Include(v => v.VoucherUsers)
                     .Include(v => v.VoucherProducts)
-                    .Where(v => appliedVoucherIds.Contains(v.Id) && !v.IsDeleted)
+                    .Where(v => appliedVoucherIds.Contains(v.Id) && !v.IsDeleted && v.IsPublish)
                     .ToListAsync();
 
                 appliedVouchers = appliedVouchers
@@ -272,7 +272,7 @@ namespace Assignment.Controllers
             var existingVouchers = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
                 .Include(v => v.VoucherProducts)
-                .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted)
+                .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted && v.IsPublish)
                 .ToListAsync();
 
             existingVouchers = existingVouchers
@@ -292,7 +292,7 @@ namespace Assignment.Controllers
             var voucher = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
                 .Include(v => v.VoucherProducts)
-                .FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper() && !v.IsDeleted);
+                .FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper() && !v.IsDeleted && v.IsPublish);
 
             if (voucher == null)
             {
@@ -377,7 +377,7 @@ namespace Assignment.Controllers
             var vouchers = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
                 .Include(v => v.VoucherProducts)
-                .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted)
+                .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted && v.IsPublish)
                 .ToListAsync();
 
             vouchers = vouchers
@@ -754,6 +754,11 @@ namespace Assignment.Controllers
             if (voucher == null)
             {
                 return (false, "Voucher không hợp lệ.", 0);
+            }
+
+            if (!voucher.IsPublish)
+            {
+                return (false, "Voucher hiện không khả dụng.", 0);
             }
 
             var now = DateTime.Now;

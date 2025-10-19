@@ -57,6 +57,14 @@ namespace Assignment.Models
         [Range(1, int.MaxValue)]
         [DisplayName("Số voucher áp dụng chung tối đa")]
         public int? MaxCombinedUsageCount { get; set; }
+        [Required]
+        [DefaultValue(true)]
+        [DisplayName("Cho phép sử dụng")]
+        public bool IsPublish { get; set; } = true;
+        [Required]
+        [DefaultValue(false)]
+        [DisplayName("Hiển thị công khai")]
+        public bool IsShow { get; set; } = false;
         public virtual ICollection<VoucherUser>? VoucherUsers { get; set; }
         public virtual ICollection<VoucherProduct>? VoucherProducts { get; set; }
         public virtual ICollection<OrderVoucher>? OrderVouchers { get; set; }

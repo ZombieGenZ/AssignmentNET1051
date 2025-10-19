@@ -120,6 +120,21 @@
                         <dt class="col-sm-4">@Html.DisplayNameFor(model => model.Quantity)</dt>
                         <dd class="col-sm-8">@Model.Quantity.ToString("N0")</dd>
 
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.IsPublish)</dt>
+                        <dd class="col-sm-8">@(Model.IsPublish ? "Có" : "Không")</dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.IsShow)</dt>
+                        <dd class="col-sm-8">
+                            @if (Model.Type == VoucherType.Public)
+                            {
+                                @(Model.IsShow ? "Có" : "Không")
+                            }
+                            else
+                            {
+                                <span class="text-muted">Không áp dụng</span>
+                            }
+                        </dd>
+
                         <dt class="col-sm-4">Thời gian bắt đầu</dt>
                         <dd class="col-sm-8">@Model.StartTime.ToString("dd/MM/yyyy HH:mm")</dd>
 

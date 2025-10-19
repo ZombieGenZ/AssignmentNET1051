@@ -1,0 +1,140 @@
+@model Assignment.ViewModels.PagedResult<Assignment.ViewModels.Vouchers.PublicVoucherViewModel>
+
+@{
+    ViewData["Title"] = "Tìm mã giảm giá";
+    var vouchers = Model?.Items ?? Enumerable.Empty<Assignment.ViewModels.Vouchers.PublicVoucherViewModel>();
+    var referenceTime = ViewBag.ReferenceTime as DateTime? ?? DateTime.Now;
+    var hasItems = vouchers.Any();
+}
+
+<div class="container my-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-ticket-alt me-2 text-danger"></i>Mã giảm giá hiện có</h2>
+            <p class="text-muted mb-0">Lưu các mã giảm giá công khai để sử dụng trong những đơn hàng tiếp theo.</p>
+        </div>
+        @if (User.Identity?.IsAuthenticated == true)
+        {
+            <a class="btn btn-outline-primary mt-3 mt-md-0" asp-action="Mine">
+                <i class="fas fa-heart me-2"></i>Voucher của tôi
+            </a>
+        }
+    </div>
+
+    @if (TempData["Success"] != null)
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @TempData["Success"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @TempData["Error"]
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (!hasItems)
+    {
+        <div class="text-center py-5">
+            <i class="fas fa-ticket-alt fa-4x text-muted mb-3"></i>
+            <h4>Hiện chưa có mã giảm giá công khai nào.</h4>
+            <p class="text-muted">Quay lại sau để xem những ưu đãi mới nhất từ chúng tôi.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var voucher in vouchers)
+            {
+                var isActive = voucher.IsActive(referenceTime);
+                var isAvailable = voucher.IsAvailable;
+                var statusBadge = isActive ? "bg-success" : "bg-secondary";
+                var statusText = isActive ? "Đang diễn ra" : (referenceTime < voucher.StartTime ? "Sắp diễn ra" : "Đã kết thúc");
+                var isPercentage = voucher.DiscountType == Assignment.Enums.VoucherDiscountType.Percent;
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span class="badge @statusBadge">@statusText</span>
+                            <span class="badge @(isAvailable ? "bg-info" : "bg-danger")">
+                                @(isAvailable ? "Còn lượt" : "Hết lượt")
+                            </span>
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            <h5 class="card-title">@voucher.Name</h5>
+                            <h6 class="card-subtitle mb-2 text-muted">Mã: @voucher.Code</h6>
+                            <p class="card-text flex-grow-1">@voucher.Description</p>
+                            <ul class="list-unstyled small text-muted mb-3">
+                                <li><i class="fas fa-percentage me-2"></i>Loại giảm giá: @(isPercentage ? "Phần trăm" : "Tiền mặt")</li>
+                                <li>
+                                    <i class="fas fa-coins me-2"></i>
+                                    Mức giảm: @(isPercentage ? $"{voucher.Discount:N0}%" : $"{voucher.Discount:N0} đ")
+                                    @if (isPercentage && !voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue)
+                                    {
+                                        <span class="d-block ms-4">Tối đa: @voucher.MaximumPercentageReduction.Value.ToString("N0") đ</span>
+                                    }
+                                </li>
+                                <li><i class="fas fa-wallet me-2"></i>Áp dụng cho đơn từ: @voucher.MinimumRequirements.ToString("N0") đ</li>
+                                <li><i class="fas fa-boxes me-2"></i>Phạm vi: @(voucher.ProductScope == Assignment.Enums.VoucherProductScope.AllProducts ? "Tất cả sản phẩm" : "Một số sản phẩm")</li>
+                                <li>
+                                    <i class="fas fa-clock me-2"></i>
+                                    @if (voucher.IsLifeTime)
+                                    {
+                                        <span>Không giới hạn thời gian</span>
+                                    }
+                                    else
+                                    {
+                                        <span>@voucher.StartTime.ToString("dd/MM/yyyy") - @voucher.EndTime?.ToString("dd/MM/yyyy")</span>
+                                    }
+                                </li>
+                            </ul>
+                            <div class="mt-auto">
+                                @if (User.Identity?.IsAuthenticated == true)
+                                {
+                                    <form asp-action="Save" method="post" class="d-grid gap-2">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@voucher.Id" />
+                                        <input type="hidden" name="page" value="@Model?.CurrentPage" />
+                                        <button type="submit" class="btn @(voucher.IsSaved ? "btn-outline-secondary" : "btn-primary")" @(voucher.IsSaved ? "disabled" : null)>
+                                            <i class="fas fa-bookmark me-2"></i>
+                                            @(voucher.IsSaved ? "Đã lưu" : "Lưu voucher")
+                                        </button>
+                                    </form>
+                                }
+                                else
+                                {
+                                    <a class="btn btn-primary w-100" asp-area="Identity" asp-page="/Account/Login">
+                                        <i class="fas fa-sign-in-alt me-2"></i>Đăng nhập để lưu
+                                    </a>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (Model?.TotalPages > 1)
+        {
+            <nav class="mt-4" aria-label="Danh sách voucher">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item @(Model.CurrentPage <= 1 ? "disabled" : string.Empty)">
+                        <a class="page-link" asp-action="Public" asp-route-page="@(Model.CurrentPage - 1)">Trước</a>
+                    </li>
+                    @for (var i = 1; i <= Model.TotalPages; i++)
+                    {
+                        <li class="page-item @(i == Model.CurrentPage ? "active" : string.Empty)">
+                            <a class="page-link" asp-action="Public" asp-route-page="@i">@i</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.CurrentPage >= Model.TotalPages ? "disabled" : string.Empty)">
+                        <a class="page-link" asp-action="Public" asp-route-page="@(Model.CurrentPage + 1)">Sau</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    }
+</div>

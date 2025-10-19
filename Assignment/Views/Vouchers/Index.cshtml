@@ -141,6 +141,8 @@
                                         <th>@Html.DisplayNameFor(model => model.Items.First().Discount)</th>
                                         <th>@Html.DisplayNameFor(model => model.Items.First().Used)</th>
                                         <th>@Html.DisplayNameFor(model => model.Items.First().Quantity)</th>
+                                        <th>@Html.DisplayNameFor(model => model.Items.First().IsPublish)</th>
+                                        <th>@Html.DisplayNameFor(model => model.Items.First().IsShow)</th>
                                         <th>@Html.DisplayNameFor(model => model.Items.First().MaxCombinedUsageCount)</th>
                                         <th>Thời gian bắt đầu</th>
                                         <th>Thời gian kết thúc</th>
@@ -199,6 +201,33 @@
                                                 else
                                                 {
                                                     <span class="text-muted">Không giới hạn</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (voucher.IsPublish)
+                                                {
+                                                    <span class="badge bg-success">Bật</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="badge bg-secondary">Tắt</span>
+                                                }
+                                            </td>
+                                            <td>
+                                                @if (voucher.Type == VoucherType.Public)
+                                                {
+                                                    if (voucher.IsShow)
+                                                    {
+                                                        <span class="badge bg-success">Hiển thị</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <span class="badge bg-secondary">Ẩn</span>
+                                                    }
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-muted">N/A</span>
                                                 }
                                             </td>
                                             <td>@voucher.StartTime.ToString("dd/MM/yyyy HH:mm")</td>
