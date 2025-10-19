@@ -49,7 +49,7 @@
                     </h4>
                 </div>
                 <div class="card-body">
-                    <form asp-action="Edit">
+                    <form asp-action="Edit" method="post">
                         <input type="hidden" asp-for="Id" />
                         <input type="hidden" asp-for="CreateBy" />
                         <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
