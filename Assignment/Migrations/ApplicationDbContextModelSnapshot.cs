@@ -383,15 +383,12 @@ namespace Assignment.Migrations
                     b.Property<double>("Vat")
                         .HasColumnType("float");
 
-                    b.Property<string>("VoucherId")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<long?>("VoucherId1")
+                    b.Property<long?>("VoucherId")
                         .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("VoucherId1");
+                    b.HasIndex("VoucherId");
 
                     b.ToTable("Orders");
                 });
@@ -874,7 +871,7 @@ namespace Assignment.Migrations
                 {
                     b.HasOne("Assignment.Models.Voucher", "Voucher")
                         .WithMany()
-                        .HasForeignKey("VoucherId1");
+                        .HasForeignKey("VoucherId");
 
                     b.Navigation("Voucher");
                 });
