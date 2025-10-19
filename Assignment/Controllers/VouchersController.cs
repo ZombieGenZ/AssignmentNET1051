@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -87,15 +88,15 @@ namespace Assignment.Controllers
 
                     var lookup = users.ToDictionary(
                         u => u.Id,
-                        u => string.IsNullOrWhiteSpace(u.Email) ? (u.UserName ?? u.Id) : u.Email);
+                        u => BuildUserDisplayName(u));
 
-                    ViewData["VoucherUserEmails"] = activeVoucherUsers
+                    ViewData["VoucherUserDisplayNames"] = activeVoucherUsers
                         .Select(id => lookup.TryGetValue(id, out var email) ? email : id)
                         .ToList();
                 }
                 else
                 {
-                    ViewData["VoucherUserEmails"] = new List<string>();
+                    ViewData["VoucherUserDisplayNames"] = new List<string>();
                 }
             }
 
@@ -406,15 +407,15 @@ namespace Assignment.Controllers
 
                     var lookup = users.ToDictionary(
                         u => u.Id,
-                        u => string.IsNullOrWhiteSpace(u.Email) ? (u.UserName ?? u.Id) : u.Email);
+                        u => BuildUserDisplayName(u));
 
-                    ViewData["VoucherUserEmails"] = userIds
+                    ViewData["VoucherUserDisplayNames"] = userIds
                         .Select(id => lookup.TryGetValue(id, out var email) ? email : id)
                         .ToList();
                 }
                 else
                 {
-                    ViewData["VoucherUserEmails"] = new List<string>();
+                    ViewData["VoucherUserDisplayNames"] = new List<string>();
                 }
             }
 
@@ -568,6 +569,64 @@ namespace Assignment.Controllers
             return _context.Vouchers.Any(e => e.Id == id && !e.IsDeleted);
         }
 
+        private static string BuildUserDisplayName(ApplicationUser user)
+        {
+            if (user == null)
+            {
+                return string.Empty;
+            }
+
+            var parts = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(user.FullName))
+            {
+                parts.Add(user.FullName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(user.Email))
+            {
+                parts.Add(user.Email);
+            }
+
+            if (!string.IsNullOrWhiteSpace(user.UserName) &&
+                !string.Equals(user.UserName, user.Id, StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(user.UserName, user.Email, StringComparison.OrdinalIgnoreCase))
+            {
+                parts.Add(user.UserName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(user.Id))
+            {
+                parts.Add($"ID: {user.Id}");
+            }
+
+            var distinctParts = new List<string>();
+            foreach (var part in parts)
+            {
+                if (!distinctParts.Any(existing => string.Equals(existing, part, StringComparison.OrdinalIgnoreCase)))
+                {
+                    distinctParts.Add(part);
+                }
+            }
+
+            if (!distinctParts.Any())
+            {
+                return string.Empty;
+            }
+
+            if (distinctParts.Count == 1 && distinctParts[0].StartsWith("ID:", StringComparison.OrdinalIgnoreCase))
+            {
+                return $"Người dùng chưa đặt tên ({distinctParts[0]})";
+            }
+
+            var primary = distinctParts[0];
+            var extras = distinctParts.Skip(1).ToList();
+
+            return extras.Any()
+                ? $"{primary} ({string.Join(", ", extras)})"
+                : primary;
+        }
+
         [NonAction]
         private async Task<List<SelectListItem>> GetUserOptionsAsync(IEnumerable<string>? selectedIds = null)
         {
@@ -582,7 +641,7 @@ namespace Assignment.Controllers
             return users.Select(user => new SelectListItem
             {
                 Value = user.Id,
-                Text = string.IsNullOrWhiteSpace(user.Email) ? (user.UserName ?? user.Id) : user.Email,
+                Text = BuildUserDisplayName(user),
                 Selected = selectedSet.Contains(user.Id)
             }).ToList();
         }

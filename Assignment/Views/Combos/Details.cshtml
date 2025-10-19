@@ -107,10 +107,23 @@
                                 <tbody>
                                     @foreach (var item in Model.ComboItems)
                                     {
-                                        <tr>
-                                            <td>@item.Product?.Name</td>
-                                            <td class="text-end">@item.Quantity</td>
-                                        </tr>
+                                    <tr>
+                                        <td>
+                                            @{
+                                                var isProduct = item.Product != null;
+                                                var badgeText = isProduct ? "Sản phẩm" : "Combo";
+                                                var badgeClass = isProduct ? "bg-success" : "bg-info";
+                                                var displayName = isProduct
+                                                    ? item.Product?.Name ?? $"Sản phẩm #{item.ProductId}"
+                                                    : $"Combo #{item.ProductId}";
+                                            }
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="badge @badgeClass">@badgeText</span>
+                                                <span>@displayName</span>
+                                            </div>
+                                        </td>
+                                        <td class="text-end">@item.Quantity</td>
+                                    </tr>
                                     }
                                 </tbody>
                             </table>
