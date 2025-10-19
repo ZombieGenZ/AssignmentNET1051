@@ -138,6 +138,15 @@
                         <dt class="col-sm-4">@Html.DisplayNameFor(model => model.MinimumRequirements)</dt>
                         <dd class="col-sm-8">@Model.MinimumRequirements.ToString("C0")</dd>
 
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.HasCombinedUsageLimit)</dt>
+                        <dd class="col-sm-8">@(Model.HasCombinedUsageLimit ? "Có" : "Không")</dd>
+
+                        @if (Model.HasCombinedUsageLimit && Model.MaxCombinedUsageCount.HasValue)
+                        {
+                            <dt class="col-sm-4">@Html.DisplayNameFor(model => model.MaxCombinedUsageCount)</dt>
+                            <dd class="col-sm-8">@Model.MaxCombinedUsageCount?.ToString("N0")</dd>
+                        }
+
                         @if (Model.DiscountType == VoucherDiscountType.Percent)
                         {
                             <dt class="col-sm-4">@Html.DisplayNameFor(model => model.UnlimitedPercentageDiscount)</dt>

@@ -197,6 +197,21 @@
 
                         <div class="row align-items-end">
                             <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input asp-for="HasCombinedUsageLimit" class="form-check-input" type="checkbox" role="switch" id="HasCombinedUsageLimit">
+                                    <label class="form-check-label" asp-for="HasCombinedUsageLimit"></label>
+                                </div>
+                                <span asp-validation-for="HasCombinedUsageLimit" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6 mb-3" id="MaxCombinedUsageCountWrapper" style="display: @(Model?.HasCombinedUsageLimit == true ? "block" : "none")">
+                                <label asp-for="MaxCombinedUsageCount" class="form-label"></label>
+                                <input asp-for="MaxCombinedUsageCount" class="form-control" type="number" min="1">
+                                <span asp-validation-for="MaxCombinedUsageCount" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="row align-items-end">
+                            <div class="col-md-6 mb-3">
                                 <label asp-for="StartTime" class="form-label"></label>
                                 <input asp-for="StartTime" class="form-control" type="datetime-local">
                                 <span asp-validation-for="StartTime" class="text-danger"></span>
@@ -756,11 +771,30 @@
             }
         });
 
+        function toggleCombinedUsageLimitField() {
+            const toggle = document.getElementById('HasCombinedUsageLimit');
+            const wrapper = document.getElementById('MaxCombinedUsageCountWrapper');
+            const input = document.getElementById('MaxCombinedUsageCount');
+            if (!toggle || !wrapper) {
+                return;
+            }
+
+            if (toggle.checked) {
+                wrapper.style.display = 'block';
+            } else {
+                wrapper.style.display = 'none';
+                if (input) {
+                    input.value = '';
+                }
+            }
+        }
+
         document.getElementById('VoucherType').addEventListener('change', toggleVoucherTypeField);
         document.getElementById('ProductScope').addEventListener('change', toggleProductScopeField);
         document.getElementById('IsLifeTime').addEventListener('change', toggleEndTimeField);
         document.getElementById('DiscountType').addEventListener('change', updatePercentDiscountVisibility);
         document.getElementById('UnlimitedPercentageDiscount').addEventListener('change', updatePercentDiscountVisibility);
+        document.getElementById('HasCombinedUsageLimit').addEventListener('change', toggleCombinedUsageLimitField);
         document.getElementById('voucherImportInput')?.addEventListener('change', handleVoucherImport);
         document.getElementById('voucherProductImportInput')?.addEventListener('change', handleVoucherProductImport);
 
@@ -771,6 +805,7 @@
             updatePercentDiscountVisibility();
             updateVoucherUserDropdowns();
             updateVoucherProductDropdowns();
+            toggleCombinedUsageLimitField();
         });
     </script>
 }

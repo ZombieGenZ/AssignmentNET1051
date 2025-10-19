@@ -33,6 +33,7 @@ namespace Assignment.Models
         public string? UserId { get; set; }
         public long? VoucherId { get; set; }
         public virtual Voucher? Voucher { get; set; }
+        public virtual ICollection<OrderVoucher>? OrderVouchers { get; set; }
         public PaymentMethodType? PaymentMethod { get; set; }
         public PaymentType PaymentType { get; set; }
         [Required]
@@ -42,5 +43,7 @@ namespace Assignment.Models
 
         [NotMapped]
         public string? SelectedCartItemIds { get; set; }
+        [NotMapped]
+        public List<long> AppliedVoucherIds { get; set; } = new();
     }
 }

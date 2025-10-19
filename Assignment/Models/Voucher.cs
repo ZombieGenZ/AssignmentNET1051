@@ -50,7 +50,15 @@ namespace Assignment.Models
         public bool UnlimitedPercentageDiscount { get; set; } = false;
         [Range(0, double.MaxValue)]
         public double? MaximumPercentageReduction { get; set; }
+        [Required]
+        [DefaultValue(false)]
+        [DisplayName("Giới hạn số voucher áp dụng chung")]
+        public bool HasCombinedUsageLimit { get; set; } = false;
+        [Range(1, int.MaxValue)]
+        [DisplayName("Số voucher áp dụng chung tối đa")]
+        public int? MaxCombinedUsageCount { get; set; }
         public virtual ICollection<VoucherUser>? VoucherUsers { get; set; }
         public virtual ICollection<VoucherProduct>? VoucherProducts { get; set; }
+        public virtual ICollection<OrderVoucher>? OrderVouchers { get; set; }
     }
 }

@@ -78,6 +78,7 @@
                                     <th>@Html.DisplayNameFor(model => model.Discount)</th>
                                     <th>@Html.DisplayNameFor(model => model.Used)</th>
                                     <th>@Html.DisplayNameFor(model => model.Quantity)</th>
+                                    <th>@Html.DisplayNameFor(model => model.MaxCombinedUsageCount)</th>
                                     <th>Thời gian bắt đầu</th>
                                     <th>Thời gian kết thúc</th>
                                     <th style="width: 15%;">Hành động</th>
@@ -129,6 +130,16 @@
                                         </td>
                                         <td>@item.Used.ToString("N0")</td>
                                         <td>@item.Quantity.ToString("N0")</td>
+                                        <td>
+                                            @if (item.HasCombinedUsageLimit && item.MaxCombinedUsageCount.HasValue)
+                                            {
+                                                @item.MaxCombinedUsageCount.Value.ToString("N0")
+                                            }
+                                            else
+                                            {
+                                                <span class="text-muted">Không giới hạn</span>
+                                            }
+                                        </td>
                                         <td>@item.StartTime.ToString("dd/MM/yyyy HH:mm")</td>
                                         <td>
                                             @if (item.IsLifeTime)

@@ -144,12 +144,21 @@ namespace Assignment.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateVoucherPolicy")]
-        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
+        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
         {
             var codeExists = await _context.Vouchers.AnyAsync(v => v.Code == voucher.Code && !v.IsDeleted);
             if (codeExists)
             {
                 ModelState.AddModelError("Code", "Mã voucher này đã tồn tại. Vui lòng chọn một mã khác.");
+            }
+
+            if (!voucher.HasCombinedUsageLimit)
+            {
+                voucher.MaxCombinedUsageCount = null;
+            }
+            else if (!voucher.MaxCombinedUsageCount.HasValue)
+            {
+                ModelState.AddModelError("MaxCombinedUsageCount", "Vui lòng nhập số voucher có thể áp dụng chung tối đa.");
             }
 
             var selectedUserIds = UserIds?
@@ -227,6 +236,11 @@ namespace Assignment.Controllers
                 if (voucher.UnlimitedPercentageDiscount)
                 {
                     voucher.MaximumPercentageReduction = null;
+                }
+
+                if (!voucher.HasCombinedUsageLimit)
+                {
+                    voucher.MaxCombinedUsageCount = null;
                 }
 
                 voucher.CreateBy = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -327,7 +341,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,Id")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
+        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount,Id")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
         {
             if (id != voucher.Id)
             {
@@ -350,6 +364,15 @@ namespace Assignment.Controllers
             if (codeExists)
             {
                 ModelState.AddModelError("Code", "Mã voucher này đã tồn tại. Vui lòng chọn một mã khác.");
+            }
+
+            if (!voucher.HasCombinedUsageLimit)
+            {
+                voucher.MaxCombinedUsageCount = null;
+            }
+            else if (!voucher.MaxCombinedUsageCount.HasValue)
+            {
+                ModelState.AddModelError("MaxCombinedUsageCount", "Vui lòng nhập số voucher có thể áp dụng chung tối đa.");
             }
 
             var selectedUserIds = UserIds?
@@ -429,6 +452,11 @@ namespace Assignment.Controllers
                     if (voucher.UnlimitedPercentageDiscount)
                     {
                         voucher.MaximumPercentageReduction = null;
+                    }
+
+                    if (!voucher.HasCombinedUsageLimit)
+                    {
+                        voucher.MaxCombinedUsageCount = null;
                     }
 
                     voucher.CreateBy = existingVoucher.CreateBy;
