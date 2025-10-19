@@ -45,15 +45,15 @@
 
                         @if (Model.Type == VoucherType.Private)
                         {
-                            var voucherUsers = ViewData["VoucherUserEmails"] as System.Collections.Generic.List<string> ?? new System.Collections.Generic.List<string>();
+                            var voucherUsers = ViewData["VoucherUserDisplayNames"] as System.Collections.Generic.List<string> ?? new System.Collections.Generic.List<string>();
                             <dt class="col-sm-4">Người dùng</dt>
                             <dd class="col-sm-8">
                                 @if (voucherUsers.Any())
                                 {
                                     <ul class="list-unstyled mb-0">
-                                        @foreach (var email in voucherUsers)
+                                        @foreach (var userDisplay in voucherUsers)
                                         {
-                                            <li><i class="fas fa-user me-2 text-primary"></i>@email</li>
+                                            <li><i class="fas fa-user me-2 text-primary"></i>@userDisplay</li>
                                         }
                                     </ul>
                                 }

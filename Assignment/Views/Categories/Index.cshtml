@@ -49,7 +49,7 @@
                 </div>
             }
 
-            <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một danh mục để xóa.">
+            <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một danh mục để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} danh mục đã chọn?">
                 <form asp-action="BulkDelete" method="post">
                     @Html.AntiForgeryToken()
                     <div class="d-flex justify-content-between align-items-center mb-3">

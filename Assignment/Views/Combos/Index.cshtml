@@ -49,7 +49,7 @@
                 </div>
             }
 
-            <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một combo để xóa.">
+            <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một combo để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} combo đã chọn?">
                 <form asp-action="BulkDelete" method="post">
                     @Html.AntiForgeryToken()
                     <div class="d-flex justify-content-between align-items-center mb-3">
@@ -108,7 +108,25 @@
                                                 <ul class="list-unstyled mb-0">
                                                     @foreach (var comboItem in item.ComboItems)
                                                     {
-                                                        <li><img style="width: 25px; height: 25px; object-fit: cover;" src="@comboItem.Product.ProductImageUrl" alt="@comboItem.Product.Name" class="img-fluid rounded me-2" /> x@(comboItem.Quantity) @comboItem.Product.Name</li>
+                                                        var isProduct = comboItem.Product != null;
+                                                        var badgeText = isProduct ? "Sản phẩm" : "Combo";
+                                                        var badgeClass = isProduct ? "bg-success" : "bg-info";
+                                                        var displayName = isProduct
+                                                            ? comboItem.Product?.Name ?? $"Sản phẩm #{comboItem.ProductId}"
+                                                            : $"Combo #{comboItem.ProductId}";
+                                                        var imageUrl = isProduct && !string.IsNullOrWhiteSpace(comboItem.Product?.ProductImageUrl)
+                                                            ? comboItem.Product.ProductImageUrl
+                                                            : "/images/no-image.jpg";
+                                                        <li class="d-flex align-items-center gap-2 mb-2">
+                                                            <img style="width: 32px; height: 32px; object-fit: cover;" src="@imageUrl" alt="@displayName" class="img-fluid rounded" />
+                                                            <div class="d-flex flex-column">
+                                                                <div class="d-flex align-items-center gap-2">
+                                                                    <span class="badge @badgeClass">@badgeText</span>
+                                                                    <span class="fw-semibold">@displayName</span>
+                                                                </div>
+                                                                <span class="text-muted small">Số lượng: @comboItem.Quantity</span>
+                                                            </div>
+                                                        </li>
                                                     }
                                                 </ul>
                                             }

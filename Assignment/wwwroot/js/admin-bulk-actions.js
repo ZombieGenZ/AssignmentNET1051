@@ -21,6 +21,7 @@
         const countEl = container.querySelector('[data-bulk-count]');
         const enableTargets = getElements(container, '[data-bulk-enable]');
         const emptyMessage = container.dataset.bulkEmptyMessage || 'Vui lòng chọn ít nhất một mục.';
+        const confirmTemplate = container.dataset.bulkConfirm || '';
 
         function selectedItems() {
             return getElements(container, '[data-bulk-item]:checked');
@@ -70,10 +71,22 @@
         });
 
         form.addEventListener('submit', function (event) {
-            if (selectedItems().length === 0) {
+            const selected = selectedItems();
+            const count = selected.length;
+
+            if (count === 0) {
                 event.preventDefault();
                 if (emptyMessage) {
                     window.alert(emptyMessage);
+                }
+                return;
+            }
+
+            if (confirmTemplate) {
+                const message = confirmTemplate.replace('{count}', count.toString());
+                if (!window.confirm(message)) {
+                    event.preventDefault();
+                    return;
                 }
             }
         });
