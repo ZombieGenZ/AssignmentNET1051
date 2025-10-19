@@ -20,6 +20,7 @@ namespace Assignment.Controllers
             ViewData["CanCreate"] = User.HasPermission("CreateProduct");
             ViewData["CanUpdate"] = User.HasAnyPermission("UpdateProductAll", "UpdateProduct");
             ViewData["CanDelete"] = User.HasAnyPermission("DeleteProductAll", "DeleteProduct");
+            ViewData["CanView"] = canViewAll || canViewOwn;
 
             return View();
         }

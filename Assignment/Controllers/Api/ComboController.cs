@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.IO;
+using System.Linq;
 using System.Security.Claims;
 using Assignment.Data;
 using Assignment.Enums;
@@ -7,6 +9,7 @@ using Assignment.Models;
 using Assignment.Services;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -377,6 +380,148 @@ namespace Assignment.Controllers.Api
             return File(content, contentType, fileName);
         }
 
+        [HttpPost("import-items")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportComboItems([FromForm] IFormFile? file)
+        {
+            if (!User.HasAnyPermission("CreateCombo", "CreateComboAll", "UpdateCombo", "UpdateComboAll"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách sản phẩm." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu sản phẩm." });
+                }
+
+                var itemQuantities = new Dictionary<long, long>();
+                var invalidEntries = new List<string>();
+
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    var productRaw = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(productRaw))
+                    {
+                        continue;
+                    }
+
+                    if (row.RowNumber() == 1 && string.Equals(productRaw, "ProductId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!long.TryParse(productRaw, out var productId) || productId <= 0)
+                    {
+                        invalidEntries.Add(productRaw);
+                        continue;
+                    }
+
+                    var quantityCell = row.Cell(2);
+                    long quantity;
+                    if (quantityCell.TryGetValue(out double numericQuantity))
+                    {
+                        quantity = (long)Math.Round(numericQuantity);
+                    }
+                    else
+                    {
+                        var quantityRaw = quantityCell.GetString()?.Trim();
+                        if (string.IsNullOrWhiteSpace(quantityRaw))
+                        {
+                            quantity = 1;
+                        }
+                        else if (!long.TryParse(quantityRaw, out quantity))
+                        {
+                            invalidEntries.Add($"{productId} (số lượng không hợp lệ)");
+                            continue;
+                        }
+                    }
+
+                    if (quantity <= 0)
+                    {
+                        invalidEntries.Add($"{productId} (số lượng không hợp lệ)");
+                        continue;
+                    }
+
+                    if (itemQuantities.ContainsKey(productId))
+                    {
+                        itemQuantities[productId] += quantity;
+                    }
+                    else
+                    {
+                        itemQuantities[productId] = quantity;
+                    }
+                }
+
+                if (itemQuantities.Count == 0)
+                {
+                    return Ok(new ComboItemsImportResponse
+                    {
+                        InvalidEntries = invalidEntries
+                    });
+                }
+
+                var productIds = itemQuantities.Keys.ToList();
+                var authorizedProducts = await GetAuthorizedProducts();
+                var productLookup = authorizedProducts.ToDictionary(p => p.Id);
+
+                var items = new List<ComboItemImport>();
+                var products = new List<ComboItemProduct>();
+
+                foreach (var productId in productIds)
+                {
+                    if (!productLookup.TryGetValue(productId, out var product))
+                    {
+                        invalidEntries.Add(productId.ToString());
+                        continue;
+                    }
+
+                    items.Add(new ComboItemImport
+                    {
+                        ProductId = productId,
+                        Quantity = itemQuantities[productId]
+                    });
+
+                    products.Add(new ComboItemProduct
+                    {
+                        Id = product.Id,
+                        Name = product.Name,
+                        FinalPrice = PriceCalculator.GetProductFinalPrice(product),
+                        ProductImageUrl = product.ProductImageUrl
+                    });
+                }
+
+                return Ok(new ComboItemsImportResponse
+                {
+                    Items = items,
+                    Products = products,
+                    InvalidEntries = invalidEntries
+                });
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "File không hợp lệ hoặc bị hỏng." });
+            }
+        }
+
         private void ValidateComboRequest(ComboRequest request)
         {
             if (request.DiscountType == DiscountType.FixedAmount)
@@ -527,6 +672,33 @@ namespace Assignment.Controllers.Api
                 CreatedBy = combo.CreateBy,
                 Items = items
             };
+        }
+
+        public class ComboItemsImportResponse
+        {
+            public List<ComboItemImport> Items { get; set; } = new();
+
+            public List<string> InvalidEntries { get; set; } = new();
+
+            public List<ComboItemProduct> Products { get; set; } = new();
+        }
+
+        public class ComboItemImport
+        {
+            public long ProductId { get; set; }
+
+            public long Quantity { get; set; }
+        }
+
+        public class ComboItemProduct
+        {
+            public long Id { get; set; }
+
+            public string Name { get; set; } = string.Empty;
+
+            public double FinalPrice { get; set; }
+
+            public string? ProductImageUrl { get; set; }
         }
 
         public class ComboRequest

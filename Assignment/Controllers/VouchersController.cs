@@ -21,11 +21,6 @@ namespace Assignment.Controllers
             ViewData["CanUpdate"] = User.HasAnyPermission("UpdateVoucher", "UpdateVoucherAll");
             ViewData["CanDelete"] = User.HasAnyPermission("DeleteVoucher", "DeleteVoucherAll");
             ViewData["CanView"] = canViewAll || canViewOwn;
-            ViewData["CanDownloadTemplates"] = User.HasAnyPermission(
-                "CreateVoucher",
-                "CreateVoucherAll",
-                "UpdateVoucher",
-                "UpdateVoucherAll");
 
             return View();
         }

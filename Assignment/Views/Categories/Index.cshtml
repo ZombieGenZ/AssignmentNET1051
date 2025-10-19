@@ -20,7 +20,6 @@
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-tags me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Quản lý danh mục sản phẩm với các thao tác CRUD ngay trên một trang duy nhất.</p>
                 </div>
                 @if (canCreate)
                 {
@@ -111,6 +110,23 @@
     </div>
 </div>
 
+<div class="modal fade" id="categoryDetailModal" tabindex="-1" aria-labelledby="categoryDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="categoryDetailModalLabel">Chi tiết danh mục</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="categoryDetailBody" class="d-flex flex-column gap-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         (() => {
@@ -147,6 +163,10 @@
             const deleteConfirmBtn = document.getElementById('confirmDeleteBtn');
             const deleteCategoryName = document.getElementById('deleteCategoryName');
 
+            const detailModalEl = document.getElementById('categoryDetailModal');
+            const detailModal = new bootstrap.Modal(detailModalEl);
+            const detailBody = document.getElementById('categoryDetailBody');
+
             let editingCategoryId = null;
             let deleteCategoryId = null;
 
@@ -160,6 +180,19 @@
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#39;');
+            }
+
+            function formatDateTime(value) {
+                if (!value) {
+                    return '—';
+                }
+
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return value;
+                }
+
+                return date.toLocaleString('vi-VN');
             }
 
             function showAlert(message, type = 'success') {
@@ -226,6 +259,16 @@
                     const actionsWrapper = document.createElement('div');
                     actionsWrapper.className = 'd-flex justify-content-center gap-2';
 
+                    if (canView) {
+                        const detailButton = document.createElement('button');
+                        detailButton.type = 'button';
+                        detailButton.className = 'btn btn-sm btn-outline-info';
+                        detailButton.dataset.action = 'detail';
+                        detailButton.dataset.id = category.id;
+                        detailButton.innerHTML = '<i class="fas fa-eye"></i>';
+                        actionsWrapper.appendChild(detailButton);
+                    }
+
                     if (canUpdate) {
                         const editButton = document.createElement('button');
                         editButton.type = 'button';
@@ -286,6 +329,55 @@
                     if (showError) {
                         showAlert('Không thể tải danh sách danh mục. Vui lòng thử lại sau.', 'danger');
                     }
+                }
+            }
+
+            async function openDetailModal(categoryId) {
+                if (!detailBody) {
+                    return;
+                }
+
+                detailBody.innerHTML = `
+                    <div class="py-4 text-center text-muted">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>`;
+                detailModal.show();
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${categoryId}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Danh mục không tồn tại hoặc đã bị xóa.</div>';
+                        } else if (response.status === 403) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Bạn không có quyền xem danh mục này.</div>';
+                        } else {
+                            throw new Error('Failed to load category detail');
+                        }
+                        return;
+                    }
+
+                    const category = await response.json();
+                    detailBody.innerHTML = `
+                        <div>
+                            <h5 class="mb-3 text-primary">${escapeHtml(category.name ?? 'Danh mục')}</h5>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Thứ tự hiển thị</dt>
+                                <dd class="col-sm-8">${escapeHtml(String(category.index ?? '—'))}</dd>
+                                <dt class="col-sm-4">Ngày tạo</dt>
+                                <dd class="col-sm-8">${formatDateTime(category.createdAt)}</dd>
+                                <dt class="col-sm-4">Cập nhật lần cuối</dt>
+                                <dd class="col-sm-8">${category.updatedAt ? formatDateTime(category.updatedAt) : '—'}</dd>
+                                <dt class="col-sm-4">Người tạo</dt>
+                                <dd class="col-sm-8">${escapeHtml(category.createdBy ?? '—')}</dd>
+                            </dl>
+                        </div>`;
+                } catch (error) {
+                    detailBody.innerHTML = '<div class="alert alert-danger mb-0">Không thể tải chi tiết danh mục.</div>';
                 }
             }
 
@@ -483,7 +575,9 @@
                 const categoryId = Number(button.dataset.id);
                 const categoryName = button.dataset.name || '';
 
-                if (action === 'edit' && canUpdate) {
+                if (action === 'detail' && canView) {
+                    openDetailModal(categoryId);
+                } else if (action === 'edit' && canUpdate) {
                     openEditModal(categoryId);
                 } else if (action === 'delete' && canDelete) {
                     openDeleteModal(categoryId, categoryName);

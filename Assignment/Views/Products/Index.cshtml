@@ -1,12 +1,13 @@
 @using System.Collections.Generic
 @using Assignment.Enums
-@{ 
+@{
     ViewData["Title"] = "Quản lý sản phẩm";
     Layout = "_AdminLayout";
 
     var canCreate = ViewData["CanCreate"] as bool? ?? false;
     var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
     var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
 
     var discountLabels = new Dictionary<DiscountType, string>
     {
@@ -46,14 +47,14 @@
     <div class="card shadow-sm" id="product-app"
          data-can-create="@(canCreate ? "true" : "false")"
          data-can-update="@(canUpdate ? "true" : "false")"
-         data-can-delete="@(canDelete ? "true" : "false")">
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
         <div class="card-header bg-light">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-box-open me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Quản lý danh sách sản phẩm và thao tác CRUD ngay trên một trang duy nhất.</p>
                 </div>
                 @if (canCreate)
                 {
@@ -66,7 +67,7 @@
         <div class="card-body">
             <div id="alertPlaceholder"></div>
             <div class="d-flex justify-content-between align-items-center flex-column flex-md-row gap-3 mb-3">
-                <div class="text-muted small" id="tableStatus">Đang tải dữ liệu sản phẩm...</div>
+                <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu sản phẩm..." : "Bạn không có quyền xem danh sách sản phẩm.")</div>
                 <div>
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductsBtn">
                         <i class="fas fa-rotate-right me-1"></i>Tải lại
@@ -87,7 +88,7 @@
                     </thead>
                     <tbody id="productsTableBody">
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
+                            <td colspan="6" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -210,6 +211,23 @@
     </div>
 </div>
 
+<div class="modal fade" id="productDetailModal" tabindex="-1" aria-labelledby="productDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productDetailModalLabel">Chi tiết sản phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="productDetailBody" class="d-flex flex-column gap-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         (() => {
@@ -218,6 +236,7 @@
                 return;
             }
 
+            const canView = app.dataset.canView === 'true';
             const canUpdate = app.dataset.canUpdate === 'true';
             const canDelete = app.dataset.canDelete === 'true';
             const API_BASE_URL = '/api/products';
@@ -241,6 +260,10 @@
             const deleteConfirmBtn = document.getElementById('confirmDeleteBtn');
             const deleteProductName = document.getElementById('deleteProductName');
 
+            const detailModalEl = document.getElementById('productDetailModal');
+            const detailModal = new bootstrap.Modal(detailModalEl);
+            const detailBody = document.getElementById('productDetailBody');
+
             const nameInput = document.getElementById('productName');
             const descriptionInput = document.getElementById('productDescription');
             const priceInput = document.getElementById('productPrice');
@@ -262,6 +285,11 @@
             let cachedCategories = [];
 
             const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+            const discountLabelMap = {
+                0: 'Không áp dụng',
+                1: 'Giảm theo %',
+                2: 'Giảm giá cố định'
+            };
 
             function showAlert(message, type = 'success') {
                 if (!alertPlaceholder) {
@@ -307,6 +335,23 @@
                     .replace(/>/g, '&gt;')
                     .replace(/"/g, '&quot;')
                     .replace(/'/g, '&#39;');
+            }
+
+            function formatDateTime(value) {
+                if (!value) {
+                    return '—';
+                }
+
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return value;
+                }
+
+                return date.toLocaleString('vi-VN');
+            }
+
+            function formatBoolean(value) {
+                return value ? 'Có' : 'Không';
             }
 
             function toggleDiscountField() {
@@ -417,6 +462,16 @@
                     const actionsWrapper = document.createElement('div');
                     actionsWrapper.className = 'd-flex justify-content-center gap-2';
 
+                    if (canView) {
+                        const viewButton = document.createElement('button');
+                        viewButton.type = 'button';
+                        viewButton.className = 'btn btn-sm btn-outline-info';
+                        viewButton.dataset.action = 'detail';
+                        viewButton.dataset.id = product.id;
+                        viewButton.innerHTML = '<i class="fas fa-eye"></i>';
+                        actionsWrapper.appendChild(viewButton);
+                    }
+
                     if (canUpdate) {
                         const editButton = document.createElement('button');
                         editButton.type = 'button';
@@ -475,6 +530,12 @@
             }
 
             async function loadProducts() {
+                if (!canView) {
+                    setTableStatus('Bạn không có quyền xem danh sách sản phẩm.');
+                    setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
+                    return;
+                }
+
                 setTableLoading();
                 try {
                     const response = await fetch(API_BASE_URL);
@@ -493,6 +554,121 @@
                     setTableStatus('Không thể tải danh sách sản phẩm.');
                     setTableLoading('Có lỗi xảy ra khi tải dữ liệu.');
                     showAlert('Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.', 'danger');
+                }
+            }
+
+            async function openDetailModal(productId) {
+                if (!detailBody) {
+                    return;
+                }
+
+                detailBody.innerHTML = `
+                    <div class="py-4 text-center text-muted">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>`;
+                detailModal.show();
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${productId}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Sản phẩm không tồn tại hoặc đã bị xóa.</div>';
+                        } else if (response.status === 403) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Bạn không có quyền xem sản phẩm này.</div>';
+                        } else {
+                            throw new Error('Failed to load product detail');
+                        }
+                        return;
+                    }
+
+                    const product = await response.json();
+                    const discountType = Number(product.discountType ?? 0);
+                    let discountText = discountLabelMap[discountType] ?? 'Không xác định';
+                    if (discountType === 1 && product.discount) {
+                        discountText += ` (${Number(product.discount).toLocaleString('vi-VN')}%)`;
+                    } else if (discountType === 2 && product.discount) {
+                        discountText += ` (${currencyFormatter.format(Number(product.discount))})`;
+                    }
+
+                    const imageUrl = escapeHtml(product.productImageUrl || '/images/no-image.jpg');
+                    const productName = escapeHtml(product.name ?? 'Sản phẩm');
+                    const categoryName = escapeHtml(product.categoryName ?? 'Không có danh mục');
+                    const statusBadge = product.isPublish
+                        ? '<span class="badge bg-success">Đã xuất bản</span>'
+                        : '<span class="badge bg-secondary">Bản nháp</span>';
+
+                    detailBody.innerHTML = `
+                        <div class="d-flex align-items-start gap-3">
+                            <img src="${imageUrl}" alt="${productName}" class="rounded" style="width: 96px; height: 96px; object-fit: cover;" />
+                            <div>
+                                <h5 class="mb-1">${productName}</h5>
+                                <div class="text-muted mb-2">${categoryName}</div>
+                                ${statusBadge}
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-4">
+                                <div class="small text-muted">Giá bán</div>
+                                <div class="fw-semibold">${currencyFormatter.format(Number(product.price ?? 0))}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Tồn kho</div>
+                                <div>${Number(product.stock ?? 0).toLocaleString('vi-VN')}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Đã bán</div>
+                                <div>${Number(product.sold ?? 0).toLocaleString('vi-VN')}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Giảm giá</div>
+                                <div>${escapeHtml(discountText)}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Thời gian chuẩn bị</div>
+                                <div>${Number(product.preparationTime ?? 0).toLocaleString('vi-VN')} phút</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Calories</div>
+                                <div>${Number(product.calories ?? 0).toLocaleString('vi-VN')}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Món cay</div>
+                                <div>${formatBoolean(product.isSpicy)}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Đồ chay</div>
+                                <div>${formatBoolean(product.isVegetarian)}</div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="small text-muted">Xuất bản</div>
+                                <div>${formatBoolean(product.isPublish)}</div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h6 class="mb-2">Mô tả</h6>
+                            <p class="mb-0">${escapeHtml(product.description ?? '—')}</p>
+                        </div>
+                        <div class="mt-3">
+                            <h6 class="mb-2">Thành phần</h6>
+                            <p class="mb-0">${escapeHtml(product.ingredients ?? '—')}</p>
+                        </div>
+                        <div class="mt-3 row g-3">
+                            <div class="col-md-6">
+                                <div class="small text-muted">Ngày tạo</div>
+                                <div>${formatDateTime(product.createdAt)}</div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="small text-muted">Cập nhật lần cuối</div>
+                                <div>${product.updatedAt ? formatDateTime(product.updatedAt) : '—'}</div>
+                            </div>
+                        </div>`;
+                } catch (error) {
+                    detailBody.innerHTML = '<div class="alert alert-danger mb-0">Không thể tải chi tiết sản phẩm.</div>';
                 }
             }
 
@@ -721,7 +897,9 @@
                 const productId = Number(target.dataset.id);
                 const productName = target.dataset.name || '';
 
-                if (action === 'edit' && canUpdate) {
+                if (action === 'detail' && canView) {
+                    openDetailModal(productId);
+                } else if (action === 'edit' && canUpdate) {
                     openEditModal(productId);
                 } else if (action === 'delete' && canDelete) {
                     openDeleteModal(productId, productName);
