@@ -1,250 +1,718 @@
+@using System.Collections.Generic
 @using Assignment.Enums
-@using Assignment.Models
-@using Microsoft.AspNetCore.Identity
-@using System.Linq
-@model Assignment.ViewModels.PagedResult<Assignment.Models.Product>
-@inject UserManager<ApplicationUser> UserManager
-
 @{
-    ViewData["Title"] = "Danh sách sản phẩm";
+    ViewData["Title"] = "Quản lý sản phẩm";
     Layout = "_AdminLayout";
-    var pageSize = Model?.PageSize ?? 25;
-    var page = Model?.CurrentPage ?? 1;
-    var totalPages = Model?.TotalPages ?? 0;
-    var totalItems = Model?.TotalItems ?? 0;
-    var startItem = Model?.StartItem ?? 0;
-    var endItem = Model?.EndItem ?? 0;
-    var products = Model?.Items ?? Enumerable.Empty<Product>();
-    var hasData = products.Any();
-    var pageSizeOptions = (Model?.PageSizeOptions != null && Model.PageSizeOptions.Count > 0)
-        ? Model.PageSizeOptions
-        : new[] { 25, 50, 75, 100 };
-    var hasPagination = totalPages > 1;
-    var startPage = 1;
-    var endPage = totalPages;
 
-    if (totalPages > 0)
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+
+    var discountLabels = new Dictionary<DiscountType, string>
     {
-        startPage = Math.Max(1, page - 2);
-        endPage = Math.Min(totalPages, page + 2);
-
-        if (endPage - startPage < 4)
-        {
-            if (startPage == 1)
-            {
-                endPage = Math.Min(totalPages, startPage + 4);
-            }
-            else if (endPage == totalPages)
-            {
-                startPage = Math.Max(1, endPage - 4);
-            }
-        }
-    }
+        [DiscountType.None] = "Không áp dụng",
+        [DiscountType.Percent] = "Giảm theo %",
+        [DiscountType.FixedAmount] = "Giảm giá cố định"
+    };
 }
 
-<head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-</head>
-
 <div class="container-fluid pt-4 px-4">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm" id="product-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")">
         <div class="card-header bg-light">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-box-open me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Kiểm soát danh sách sản phẩm, giá bán và tình trạng tồn kho.</p>
+                    <p class="text-muted mb-0">Quản lý danh sách sản phẩm và thao tác CRUD ngay trên một trang duy nhất.</p>
                 </div>
-                @if (User.HasPermission("CreateProduct"))
+                @if (canCreate)
                 {
-                    <a class="btn btn-primary" asp-action="Create">
-                        <i class="fas fa-plus me-2"></i>Tạo mới
-                    </a>
+                    <button type="button" class="btn btn-primary" id="createProductBtn">
+                        <i class="fas fa-plus me-2"></i>Thêm mới sản phẩm
+                    </button>
                 }
             </div>
         </div>
         <div class="card-body">
-            @if (TempData["Success"] is string successMessage)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="fas fa-check-circle me-2"></i>@successMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div id="alertPlaceholder"></div>
+            <div class="d-flex justify-content-between align-items-center flex-column flex-md-row gap-3 mb-3">
+                <div class="text-muted small" id="tableStatus">Đang tải dữ liệu sản phẩm...</div>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductsBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
                 </div>
-            }
-            @if (TempData["Error"] is string errorMessage)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>@errorMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["Info"] is string infoMessage)
-            {
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
-                    <i class="fas fa-info-circle me-2"></i>@infoMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
-                <div class="text-muted small">
-                    @if (hasData)
-                    {
-                        <span>Hiển thị <strong>@startItem</strong> - <strong>@endItem</strong> trong tổng số <strong>@totalItems</strong> sản phẩm.</span>
-                    }
-                    else
-                    {
-                        <span>Không có sản phẩm nào để hiển thị.</span>
-                    }
-                </div>
-                <form method="get" asp-action="Index" class="d-flex align-items-center gap-2">
-                    <input type="hidden" name="page" value="1" />
-                    <label class="form-label mb-0" for="pageSizeSelect">Hiển thị</label>
-                    <select id="pageSizeSelect" name="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                        @foreach (var option in pageSizeOptions)
-                        {
-                            <option value="@option" selected="@(option == pageSize ? "selected" : null)">@option</option>
-                        }
-                    </select>
-                    <span class="text-muted small">bản ghi/trang</span>
-                </form>
             </div>
-
-            @if (hasData)
-            {
-                <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một sản phẩm để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} sản phẩm đã chọn?">
-                    <form asp-action="BulkDelete" method="post" data-confirm="Bạn có chắc chắn muốn xóa {count} sản phẩm đã chọn? Hành động này không thể hoàn tác.">
-                        @Html.AntiForgeryToken()
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>
-                                <span class="text-muted small">Đã chọn <span data-bulk-count>0</span> sản phẩm</span>
-                                <button type="submit" class="btn btn-sm btn-danger" data-bulk-enable data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} sản phẩm đã chọn? Hành động này không thể hoàn tác.">
-                                    <i class="fas fa-trash-alt me-1"></i>Xóa tất cả
-                                </button>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50px;">
-                                            <div class="form-check d-flex justify-content-center mb-0">
-                                                <input class="form-check-input" type="checkbox" data-bulk-select-all />
-                                            </div>
-                                        </th>
-                                        <th scope="col" style="width: 80px;">Hình ảnh</th>
-                                        <th scope="col">@Html.DisplayNameFor(model => model.Items.First().Name)</th>
-                                        <th scope="col">Giá bán</th>
-                                        <th scope="col">@Html.DisplayNameFor(model => model.Items.First().Stock)</th>
-                                        <th scope="col">Danh mục</th>
-                                        <th scope="col" style="width: 15%;">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var product in products)
-                                    {
-                                        var hasDiscount = product.DiscountType != DiscountType.None;
-                                        var discountedPrice = product.DiscountType switch
-                                        {
-                                            DiscountType.Percent when product.Discount.HasValue => product.Price - (product.Price / 100 * product.Discount.Value),
-                                            DiscountType.FixedAmount when product.Discount.HasValue => product.Discount.Value,
-                                            _ => product.Price
-                                        };
-                                        <tr>
-                                            <td>
-                                                <div class="form-check d-flex justify-content-center mb-0">
-                                                    <input class="form-check-input" type="checkbox" name="selectedIds" value="@product.Id" data-bulk-item />
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <img style="width: 56px; height: 56px; object-fit: cover;" src="@product.ProductImageUrl" alt="@product.Name" class="rounded" />
-                                            </td>
-                                            <td class="fw-semibold text-start">@product.Name</td>
-                                            <td>
-                                                @if (!hasDiscount)
-                                                {
-                                                    <span class="fw-semibold">@product.Price.ToString("C0")</span>
-                                                }
-                                                else if (product.DiscountType == DiscountType.Percent)
-                                                {
-                                                    <div class="d-flex flex-column">
-                                                        <del class="text-muted small">@product.Price.ToString("C0")</del>
-                                                        <span class="fw-semibold text-danger">@discountedPrice.ToString("C0")</span>
-                                                        <span class="small text-muted">Giảm @(product.Discount?.ToString() ?? "0")%</span>
-                                                    </div>
-                                                }
-                                                else if (product.DiscountType == DiscountType.FixedAmount)
-                                                {
-                                                    <div class="d-flex flex-column">
-                                                        <del class="text-muted small">@product.Price.ToString("C0")</del>
-                                                        <span class="fw-semibold text-danger">@discountedPrice.ToString("C0")</span>
-                                                        <span class="small text-muted">Giá sau ưu đãi</span>
-                                                    </div>
-                                                }
-                                            </td>
-                                            <td>@product.Stock</td>
-                                            <td>@product.Category?.Name</td>
-                                            <td>
-                                                <div class="d-flex justify-content-center gap-2">
-                                                    @if (User.HasAnyPermission("UpdateProduct", "UpdateProductAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@product.Id" title="Chỉnh sửa">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("GetProduct", "GetProductAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@product.Id" title="Chi tiết">
-                                                            <i class="fas fa-info-circle"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("DeleteProduct", "DeleteProductAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@product.Id" title="Xóa">
-                                                            <i class="fas fa-trash-alt"></i>
-                                                        </a>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </form>
-                </div>
-
-                @if (hasPagination)
-                {
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
-                        <div class="text-muted small">Trang <strong>@(page)</strong> / <strong>@totalPages</strong></div>
-                        <nav aria-label="Điều hướng trang sản phẩm">
-                            <ul class="pagination justify-content-md-end mb-0">
-                                <li class="page-item @(page == 1 ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(page - 1)" asp-route-pageSize="@(pageSize)">&laquo;</a>
-                                </li>
-                                @for (var p = startPage; p <= endPage; p++)
-                                {
-                                    <li class="page-item @(p == page ? "active" : string.Empty)">
-                                        <a class="page-link" asp-action="Index" asp-route-page="@p" asp-route-pageSize="@(pageSize)">@p</a>
-                                    </li>
-                                }
-                                <li class="page-item @(page == totalPages ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(page + 1)" asp-route-pageSize="@(pageSize)">&raquo;</a>
-                                </li>
-                            </ul>
-                        </nav>
-                    </div>
-                }
-            }
-            else
-            {
-                <div class="text-center py-5">
-                    <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                    <p class="text-muted mb-0">Chưa có sản phẩm nào được tạo.</p>
-                </div>
-            }
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tên sản phẩm</th>
+                            <th>Giá bán</th>
+                            <th>Tồn kho</th>
+                            <th>Danh mục</th>
+                            <th>Trạng thái</th>
+                            <th style="width: 120px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productsTableBody">
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<form id="antiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="productModal" tabindex="-1" aria-labelledby="productModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productModalLabel">Thêm mới sản phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="productForm" novalidate>
+                <div class="modal-body">
+                    <div id="productFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="productName" class="form-label">Tên sản phẩm<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="productName" maxlength="500" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="productCategory" class="form-label">Danh mục<span class="text-danger">*</span></label>
+                            <select id="productCategory" class="form-select" required>
+                                <option value="">-- Chọn danh mục --</option>
+                            </select>
+                        </div>
+                        <div class="col-12">
+                            <label for="productDescription" class="form-label">Mô tả<span class="text-danger">*</span></label>
+                            <textarea id="productDescription" class="form-control" rows="3" maxlength="10000" required></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productPrice" class="form-label">Giá bán (VND)<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="productPrice" min="0" step="0.01" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productStock" class="form-label">Tồn kho<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="productStock" min="0" step="1" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productDiscountType" class="form-label">Loại giảm giá</label>
+                            <select id="productDiscountType" class="form-select">
+                                @foreach (var discount in discountLabels)
+                                {
+                                    <option value="@((int)discount.Key)">@discount.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productDiscount" class="form-label">Giá trị giảm</label>
+                            <input type="number" class="form-control" id="productDiscount" min="0" step="1" />
+                            <small class="text-muted">Bỏ trống nếu không áp dụng.</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productImageUrl" class="form-label">Ảnh đại diện (URL)<span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="productImageUrl" maxlength="1000" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productPreparationTime" class="form-label">Thời gian chuẩn bị (phút)</label>
+                            <input type="number" class="form-control" id="productPreparationTime" min="0" step="1" />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productCalories" class="form-label">Calories</label>
+                            <input type="number" class="form-control" id="productCalories" min="0" step="1" />
+                        </div>
+                        <div class="col-12">
+                            <label for="productIngredients" class="form-label">Thành phần<span class="text-danger">*</span></label>
+                            <textarea id="productIngredients" class="form-control" rows="2" maxlength="1000" required></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productIsPublish" />
+                                <label class="form-check-label" for="productIsPublish">Xuất bản ngay</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productIsSpicy" />
+                                <label class="form-check-label" for="productIsSpicy">Món cay</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productIsVegetarian" />
+                                <label class="form-check-label" for="productIsVegetarian">Đồ chay</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="productSubmitBtn">Thêm mới</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Xóa sản phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa sản phẩm <strong id="deleteProductName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('product-app');
+            if (!app) {
+                return;
+            }
+
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+
+            const tableBody = document.getElementById('productsTableBody');
+            const tableStatus = document.getElementById('tableStatus');
+            const alertPlaceholder = document.getElementById('alertPlaceholder');
+            const refreshBtn = document.getElementById('refreshProductsBtn');
+            const createBtn = document.getElementById('createProductBtn');
+            const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
+
+            const productModalEl = document.getElementById('productModal');
+            const productModal = new bootstrap.Modal(productModalEl);
+            const productForm = document.getElementById('productForm');
+            const productModalTitle = document.getElementById('productModalLabel');
+            const productFormErrors = document.getElementById('productFormErrors');
+            const deleteModalEl = document.getElementById('deleteModal');
+            const deleteModal = new bootstrap.Modal(deleteModalEl);
+            const deleteConfirmBtn = document.getElementById('confirmDeleteBtn');
+            const deleteProductName = document.getElementById('deleteProductName');
+
+            const nameInput = document.getElementById('productName');
+            const descriptionInput = document.getElementById('productDescription');
+            const priceInput = document.getElementById('productPrice');
+            const stockInput = document.getElementById('productStock');
+            const discountTypeSelect = document.getElementById('productDiscountType');
+            const discountInput = document.getElementById('productDiscount');
+            const publishCheckbox = document.getElementById('productIsPublish');
+            const imageInput = document.getElementById('productImageUrl');
+            const prepInput = document.getElementById('productPreparationTime');
+            const caloriesInput = document.getElementById('productCalories');
+            const ingredientsInput = document.getElementById('productIngredients');
+            const spicyCheckbox = document.getElementById('productIsSpicy');
+            const vegetarianCheckbox = document.getElementById('productIsVegetarian');
+            const categorySelect = document.getElementById('productCategory');
+            const submitButton = document.getElementById('productSubmitBtn');
+
+            let editingProductId = null;
+            let deleteProductId = null;
+            let cachedCategories = [];
+
+            const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+
+            function showAlert(message, type = 'success') {
+                if (!alertPlaceholder) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    <div>${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+                alertPlaceholder.appendChild(wrapper);
+
+                setTimeout(() => {
+                    wrapper.classList.remove('show');
+                    wrapper.classList.add('fade');
+                    setTimeout(() => wrapper.remove(), 150);
+                }, 5000);
+            }
+
+            function setTableLoading(message = 'Đang tải dữ liệu...') {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-muted">${message}</td>
+                    </tr>`;
+            }
+
+            function setTableStatus(message) {
+                if (tableStatus) {
+                    tableStatus.textContent = message;
+                }
+            }
+
+            function escapeHtml(value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+                return value
+                    .toString()
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function toggleDiscountField() {
+                const discountType = Number(discountTypeSelect.value);
+                const isNone = discountType === 0;
+                discountInput.disabled = isNone;
+                if (isNone) {
+                    discountInput.value = '';
+                }
+            }
+
+            function populateCategories() {
+                if (!categorySelect) {
+                    return;
+                }
+
+                const previousValue = categorySelect.value;
+                categorySelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
+                cachedCategories.forEach(category => {
+                    const option = document.createElement('option');
+                    option.value = category.id;
+                    option.textContent = category.name;
+                    categorySelect.appendChild(option);
+                });
+
+                if (previousValue) {
+                    categorySelect.value = previousValue;
+                }
+            }
+
+            function ensureCategoryOption(categoryId, categoryName) {
+                if (!categoryId || !categorySelect) {
+                    return;
+                }
+
+                const exists = cachedCategories.some(cat => Number(cat.id) === Number(categoryId));
+                if (!exists && categoryName) {
+                    cachedCategories.push({ id: categoryId, name: categoryName });
+                    cachedCategories.sort((a, b) => a.name.localeCompare(b.name));
+                    populateCategories();
+                }
+            }
+
+            function renderProducts(products) {
+                tableBody.innerHTML = '';
+
+                if (!Array.isArray(products) || products.length === 0) {
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">Chưa có sản phẩm nào.</td>
+                        </tr>`;
+                    setTableStatus('Không có sản phẩm nào để hiển thị.');
+                    return;
+                }
+
+                setTableStatus(`Đang hiển thị ${products.length} sản phẩm.`);
+
+                products.forEach(product => {
+                    const tr = document.createElement('tr');
+
+                    const nameCell = document.createElement('td');
+                    nameCell.innerHTML = `
+                        <div class="fw-semibold">${escapeHtml(product.name)}</div>
+                        <div class="text-muted small">${escapeHtml(product.description)}</div>`;
+                    tr.appendChild(nameCell);
+
+                    const priceCell = document.createElement('td');
+                    const discountType = Number(product.discountType ?? 0);
+                    const basePrice = Number(product.price ?? 0);
+                    const discountValue = product.discount;
+
+                    if (discountType === 1 && discountValue !== null && discountValue !== undefined) {
+                        const discountedPrice = Math.max(basePrice - (basePrice * discountValue / 100), 0);
+                        priceCell.innerHTML = `
+                            <div class="d-flex flex-column">
+                                <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
+                                <span class="fw-semibold text-danger">${currencyFormatter.format(discountedPrice)}</span>
+                                <span class="small text-muted">Giảm ${discountValue}%</span>
+                            </div>`;
+                    } else if (discountType === 2 && discountValue !== null && discountValue !== undefined) {
+                        priceCell.innerHTML = `
+                            <div class="d-flex flex-column">
+                                <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
+                                <span class="fw-semibold text-danger">${currencyFormatter.format(discountValue)}</span>
+                                <span class="small text-muted">Giá ưu đãi</span>
+                            </div>`;
+                    } else {
+                        priceCell.innerHTML = `<span class="fw-semibold">${currencyFormatter.format(basePrice)}</span>`;
+                    }
+                    tr.appendChild(priceCell);
+
+                    const stockCell = document.createElement('td');
+                    stockCell.textContent = Number(product.stock ?? 0).toLocaleString('vi-VN');
+                    tr.appendChild(stockCell);
+
+                    const categoryCell = document.createElement('td');
+                    categoryCell.textContent = product.categoryName ? product.categoryName : '—';
+                    tr.appendChild(categoryCell);
+
+                    const statusCell = document.createElement('td');
+                    statusCell.innerHTML = product.isPublish
+                        ? '<span class="badge bg-success-subtle border border-success text-success px-3 py-2">Đã xuất bản</span>'
+                        : '<span class="badge bg-secondary-subtle border border-secondary text-secondary px-3 py-2">Bản nháp</span>';
+                    tr.appendChild(statusCell);
+
+                    const actionsCell = document.createElement('td');
+                    actionsCell.classList.add('text-center');
+                    const actionsWrapper = document.createElement('div');
+                    actionsWrapper.className = 'd-flex justify-content-center gap-2';
+
+                    if (canUpdate) {
+                        const editButton = document.createElement('button');
+                        editButton.type = 'button';
+                        editButton.className = 'btn btn-sm btn-outline-primary';
+                        editButton.dataset.action = 'edit';
+                        editButton.dataset.id = product.id;
+                        editButton.innerHTML = '<i class="fas fa-edit"></i>';
+                        actionsWrapper.appendChild(editButton);
+                    }
+
+                    if (canDelete) {
+                        const deleteButton = document.createElement('button');
+                        deleteButton.type = 'button';
+                        deleteButton.className = 'btn btn-sm btn-outline-danger';
+                        deleteButton.dataset.action = 'delete';
+                        deleteButton.dataset.id = product.id;
+                        deleteButton.dataset.name = product.name ?? '';
+                        deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                        actionsWrapper.appendChild(deleteButton);
+                    }
+
+                    if (actionsWrapper.children.length === 0) {
+                        actionsWrapper.innerHTML = '<span class="text-muted small">—</span>';
+                    }
+
+                    actionsCell.appendChild(actionsWrapper);
+                    tr.appendChild(actionsCell);
+
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            async function loadCategories(showError = true) {
+                try {
+                    const response = await fetch('/api/products/categories');
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            if (showError) {
+                                showAlert('Bạn không có quyền truy cập danh mục sản phẩm.', 'warning');
+                            }
+                            cachedCategories = [];
+                        } else {
+                            throw new Error('Failed to load categories');
+                        }
+                    } else {
+                        cachedCategories = await response.json();
+                    }
+                } catch (error) {
+                    if (showError) {
+                        showAlert('Không thể tải danh mục sản phẩm. Vui lòng thử lại sau.', 'danger');
+                    }
+                    cachedCategories = [];
+                }
+
+                populateCategories();
+            }
+
+            async function loadProducts() {
+                setTableLoading();
+                try {
+                    const response = await fetch('/api/products');
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            setTableStatus('Bạn không có quyền xem danh sách sản phẩm.');
+                            setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
+                            return;
+                        }
+                        throw new Error('Failed to load products');
+                    }
+
+                    const products = await response.json();
+                    renderProducts(products);
+                } catch (error) {
+                    setTableStatus('Không thể tải danh sách sản phẩm.');
+                    setTableLoading('Có lỗi xảy ra khi tải dữ liệu.');
+                    showAlert('Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.', 'danger');
+                }
+            }
+
+            function resetForm() {
+                productForm.reset();
+                productFormErrors.classList.add('d-none');
+                productFormErrors.innerHTML = '';
+                editingProductId = null;
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Thêm mới';
+                toggleDiscountField();
+            }
+
+            function fillForm(product) {
+                nameInput.value = product.name ?? '';
+                descriptionInput.value = product.description ?? '';
+                priceInput.value = product.price ?? 0;
+                stockInput.value = product.stock ?? 0;
+                discountTypeSelect.value = product.discountType ?? 0;
+                discountInput.value = product.discount ?? '';
+                publishCheckbox.checked = Boolean(product.isPublish);
+                imageInput.value = product.productImageUrl ?? '';
+                prepInput.value = product.preparationTime ?? 0;
+                caloriesInput.value = product.calories ?? 0;
+                ingredientsInput.value = product.ingredients ?? '';
+                spicyCheckbox.checked = Boolean(product.isSpicy);
+                vegetarianCheckbox.checked = Boolean(product.isVegetarian);
+                categorySelect.value = product.categoryId ?? '';
+                toggleDiscountField();
+            }
+
+            function handleValidationErrors(problemDetails) {
+                if (!productFormErrors) {
+                    return;
+                }
+
+                const errors = [];
+                if (problemDetails && problemDetails.errors) {
+                    Object.values(problemDetails.errors).forEach(messages => {
+                        if (Array.isArray(messages)) {
+                            messages.forEach(message => errors.push(message));
+                        }
+                    });
+                } else if (problemDetails && problemDetails.title) {
+                    errors.push(problemDetails.title);
+                }
+
+                if (errors.length === 0) {
+                    errors.push('Vui lòng kiểm tra lại thông tin đã nhập.');
+                }
+
+                productFormErrors.innerHTML = `<ul class="mb-0">${errors.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
+                productFormErrors.classList.remove('d-none');
+            }
+
+            async function openCreateModal() {
+                await loadCategories(false);
+                resetForm();
+                productModalTitle.textContent = 'Thêm mới sản phẩm';
+                submitButton.innerHTML = 'Thêm mới';
+                productModal.show();
+            }
+
+            async function openEditModal(productId) {
+                productFormErrors.classList.add('d-none');
+                productFormErrors.innerHTML = '';
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Lưu thay đổi';
+
+                try {
+                    const response = await fetch(`/api/products/${productId}`);
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            showAlert('Không tìm thấy sản phẩm.', 'warning');
+                        } else if (response.status === 403) {
+                            showAlert('Bạn không có quyền chỉnh sửa sản phẩm này.', 'warning');
+                        } else {
+                            throw new Error('Failed to load product');
+                        }
+                        return;
+                    }
+
+                    const product = await response.json();
+                    await loadCategories(false);
+                    ensureCategoryOption(product.categoryId, product.categoryName);
+                    editingProductId = product.id;
+                    productModalTitle.textContent = 'Chỉnh sửa sản phẩm';
+                    submitButton.innerHTML = 'Lưu thay đổi';
+                    fillForm(product);
+                    productModal.show();
+                } catch (error) {
+                    showAlert('Không thể tải thông tin sản phẩm. Vui lòng thử lại sau.', 'danger');
+                }
+            }
+
+            function openDeleteModal(productId, productNameValue) {
+                deleteProductId = productId;
+                deleteProductName.textContent = productNameValue || '';
+                deleteConfirmBtn.disabled = false;
+                deleteConfirmBtn.innerHTML = 'Xóa';
+                deleteModal.show();
+            }
+
+            async function submitProduct(event) {
+                event.preventDefault();
+                productFormErrors.classList.add('d-none');
+                productFormErrors.innerHTML = '';
+
+                const payload = {
+                    name: nameInput.value.trim(),
+                    description: descriptionInput.value.trim(),
+                    price: Number(priceInput.value || 0),
+                    stock: Number(stockInput.value || 0),
+                    discountType: Number(discountTypeSelect.value || 0),
+                    discount: discountInput.value ? Number(discountInput.value) : null,
+                    isPublish: publishCheckbox.checked,
+                    productImageUrl: imageInput.value.trim(),
+                    preparationTime: Number(prepInput.value || 0),
+                    calories: Number(caloriesInput.value || 0),
+                    ingredients: ingredientsInput.value.trim(),
+                    isSpicy: spicyCheckbox.checked,
+                    isVegetarian: vegetarianCheckbox.checked,
+                    categoryId: Number(categorySelect.value || 0)
+                };
+
+                if (payload.discountType === 0) {
+                    payload.discount = null;
+                }
+
+                const isEdit = Boolean(editingProductId);
+                const url = isEdit ? `/api/products/${editingProductId}` : '/api/products';
+                const method = isEdit ? 'PUT' : 'POST';
+
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang xử lý...';
+
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 400) {
+                            const problemDetails = await response.json();
+                            handleValidationErrors(problemDetails);
+                        } else if (response.status === 403) {
+                            showAlert('Bạn không có quyền thực hiện thao tác này.', 'warning');
+                        } else {
+                            const problemDetails = await response.json().catch(() => null);
+                            handleValidationErrors(problemDetails);
+                        }
+                        return;
+                    }
+
+                    await loadProducts();
+                    productModal.hide();
+                    showAlert(isEdit ? 'Đã cập nhật sản phẩm thành công.' : 'Đã thêm sản phẩm mới thành công.');
+                } catch (error) {
+                    showAlert('Không thể lưu sản phẩm. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = isEdit ? 'Lưu thay đổi' : 'Thêm mới';
+                }
+            }
+
+            async function confirmDelete() {
+                if (!deleteProductId) {
+                    return;
+                }
+
+                deleteConfirmBtn.disabled = true;
+                deleteConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang xóa...';
+
+                try {
+                    const response = await fetch(`/api/products/${deleteProductId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            showAlert('Bạn không có quyền xóa sản phẩm này.', 'warning');
+                        } else if (response.status === 404) {
+                            showAlert('Sản phẩm đã bị xóa hoặc không tồn tại.', 'warning');
+                        } else {
+                            throw new Error('Failed to delete product');
+                        }
+                        return;
+                    }
+
+                    deleteModal.hide();
+                    await loadProducts();
+                    showAlert('Đã xóa sản phẩm thành công.');
+                } catch (error) {
+                    showAlert('Không thể xóa sản phẩm. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    deleteConfirmBtn.disabled = false;
+                    deleteConfirmBtn.innerHTML = 'Xóa';
+                }
+            }
+
+            tableBody.addEventListener('click', (event) => {
+                const target = event.target.closest('button[data-action]');
+                if (!target) {
+                    return;
+                }
+
+                const action = target.dataset.action;
+                const productId = Number(target.dataset.id);
+                const productName = target.dataset.name || '';
+
+                if (action === 'edit' && canUpdate) {
+                    openEditModal(productId);
+                } else if (action === 'delete' && canDelete) {
+                    openDeleteModal(productId, productName);
+                }
+            });
+
+            if (discountTypeSelect) {
+                discountTypeSelect.addEventListener('change', toggleDiscountField);
+                toggleDiscountField();
+            }
+
+            if (productForm) {
+                productForm.addEventListener('submit', submitProduct);
+            }
+
+            if (deleteConfirmBtn) {
+                deleteConfirmBtn.addEventListener('click', confirmDelete);
+            }
+
+            if (createBtn) {
+                createBtn.addEventListener('click', () => openCreateModal());
+            }
+
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => loadProducts());
+            }
+
+            loadCategories(false);
+            loadProducts();
+        })();
+    </script>
+}
