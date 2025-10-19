@@ -7,7 +7,6 @@
     var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
     var canDelete = ViewData["CanDelete"] as bool? ?? false;
     var canView = ViewData["CanView"] as bool? ?? false;
-    var canDownloadTemplates = ViewData["CanDownloadTemplates"] as bool? ?? false;
 }
 
 <div class="container-fluid pt-4 px-4">
@@ -22,18 +21,8 @@
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-ticket-alt me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Theo dõi hiệu lực, phạm vi áp dụng và thao tác CRUD với các voucher.</p>
                 </div>
                 <div class="d-flex flex-wrap gap-2 justify-content-end">
-                    @if (canDownloadTemplates)
-                    {
-                        <a class="btn btn-outline-secondary" href="/api/vouchers/user-template">
-                            <i class="fas fa-file-download me-2"></i>Mẫu người dùng
-                        </a>
-                        <a class="btn btn-outline-secondary" href="/api/vouchers/product-template">
-                            <i class="fas fa-file-download me-2"></i>Mẫu sản phẩm
-                        </a>
-                    }
                     @if (canCreate)
                     {
                         <button type="button" class="btn btn-primary" id="createVoucherBtn">
