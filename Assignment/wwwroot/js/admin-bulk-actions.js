@@ -82,8 +82,19 @@
                 return;
             }
 
-            if (confirmTemplate) {
-                const message = confirmTemplate.replace('{count}', count.toString());
+            const submitter = event.submitter;
+            let messageTemplate = confirmTemplate;
+
+            if (submitter && submitter.dataset && submitter.dataset.bulkConfirm) {
+                messageTemplate = submitter.dataset.bulkConfirm;
+            }
+
+            if (!messageTemplate && container.dataset.bulkConfirm) {
+                messageTemplate = container.dataset.bulkConfirm;
+            }
+
+            if (messageTemplate) {
+                const message = messageTemplate.replace('{count}', count.toString());
                 if (!window.confirm(message)) {
                     event.preventDefault();
                     return;
