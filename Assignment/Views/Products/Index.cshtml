@@ -1,6 +1,6 @@
 @using System.Collections.Generic
 @using Assignment.Enums
-@{
+@{ 
     ViewData["Title"] = "Quản lý sản phẩm";
     Layout = "_AdminLayout";
 
@@ -14,6 +14,25 @@
         [DiscountType.Percent] = "Giảm theo %",
         [DiscountType.FixedAmount] = "Giảm giá cố định"
     };
+}
+
+@section Styles {
+    <style>
+        #productModal form {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - var(--bs-modal-margin) * 2);
+        }
+
+        #productModal .modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+        }
+
+        #productModal .modal-footer {
+            flex-shrink: 0;
+        }
+    </style>
 }
 
 <div class="container-fluid pt-4 px-4">
