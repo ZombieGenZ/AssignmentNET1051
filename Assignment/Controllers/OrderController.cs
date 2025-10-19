@@ -13,6 +13,8 @@ using System;
 using System.Linq;
 using Assignment.Services.Payments;
 using Microsoft.Extensions.Logging;
+using Assignment.Options;
+using Assignment.ViewModels;
 
 namespace Assignment.Controllers
 {
@@ -23,7 +25,6 @@ namespace Assignment.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IPayOsService _payOsService;
         private readonly ILogger<OrderController> _logger;
-
         public OrderController(ApplicationDbContext context, UserManager<ApplicationUser> userManager, IPayOsService payOsService, ILogger<OrderController> logger)
         {
             _context = context;
@@ -437,12 +438,15 @@ namespace Assignment.Controllers
             return View(orders);
         }
 
-        public async Task<IActionResult> Manage(OrderStatus? status, string? search)
+        public async Task<IActionResult> Manage(OrderStatus? status, string? search, int page = 1, int pageSize = PaginationDefaults.DefaultPageSize)
         {
             if (!CanManageOrders())
             {
                 return Forbid();
             }
+
+            page = PaginationDefaults.NormalizePage(page);
+            pageSize = PaginationDefaults.NormalizePageSize(pageSize);
 
             var ordersQuery = _context.Orders
                 .Where(o => !o.IsDeleted)
@@ -469,15 +473,35 @@ namespace Assignment.Controllers
                     (hasId && o.Id == orderId));
             }
 
+            var totalItems = await ordersQuery.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+            if (totalPages > 0 && page > totalPages)
+            {
+                page = totalPages;
+            }
+
             var orders = await ordersQuery
                 .OrderByDescending(o => o.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
+
+            var viewModel = new PagedResult<Order>
+            {
+                CurrentPage = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                PageSizeOptions = PaginationDefaults.PageSizeOptions
+            };
+
+            viewModel.SetItems(orders);
 
             ViewBag.StatusFilter = status;
             ViewBag.SearchTerm = search;
             ViewBag.CanUpdateStatus = CanManageOrders();
 
-            return View(orders);
+            return View(viewModel.EnsureValidPage());
         }
 
         public async Task<IActionResult> Details(long id)
@@ -505,7 +529,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> UpdateStatus(long id, OrderStatus status, OrderStatus? statusFilter, string? search)
+        public async Task<IActionResult> UpdateStatus(long id, OrderStatus status, OrderStatus? statusFilter, string? search, int page = 1, int pageSize = 25)
         {
             if (!CanManageOrders())
             {
@@ -516,13 +540,13 @@ namespace Assignment.Controllers
             if (order == null)
             {
                 TempData["Error"] = "Không tìm thấy đơn hàng.";
-                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search, page, pageSize });
             }
 
             if (order.Status == status)
             {
                 TempData["Info"] = "Đơn hàng đã ở trạng thái này.";
-                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search, page, pageSize });
             }
 
             order.Status = status;
@@ -531,12 +555,12 @@ namespace Assignment.Controllers
             await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Cập nhật trạng thái đơn hàng #{order.Id} thành công.";
-            return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+            return RedirectToAction(nameof(Manage), new { status = statusFilter, search, page, pageSize });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> BulkUpdateStatus([FromForm] List<long> selectedIds, OrderStatus status, OrderStatus? statusFilter, string? search)
+        public async Task<IActionResult> BulkUpdateStatus([FromForm] List<long> selectedIds, OrderStatus status, OrderStatus? statusFilter, string? search, int page = 1, int pageSize = 25)
         {
             if (!CanManageOrders())
             {
@@ -546,7 +570,7 @@ namespace Assignment.Controllers
             if (selectedIds == null || selectedIds.Count == 0)
             {
                 TempData["Info"] = "Vui lòng chọn ít nhất một đơn hàng để cập nhật.";
-                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search, page, pageSize });
             }
 
             var orders = await _context.Orders
@@ -556,7 +580,7 @@ namespace Assignment.Controllers
             if (!orders.Any())
             {
                 TempData["Info"] = "Không tìm thấy đơn hàng hợp lệ để cập nhật.";
-                return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+                return RedirectToAction(nameof(Manage), new { status = statusFilter, search, page, pageSize });
             }
 
             var now = DateTime.Now;
@@ -595,7 +619,7 @@ namespace Assignment.Controllers
                     : $"{existingInfo} {message}";
             }
 
-            return RedirectToAction(nameof(Manage), new { status = statusFilter, search });
+            return RedirectToAction(nameof(Manage), new { status = statusFilter, search, page, pageSize });
         }
 
         [HttpGet]
