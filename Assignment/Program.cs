@@ -255,6 +255,7 @@ using (var scope = app.Services.CreateScope())
             new Claim("DeleteVoucherAll", "true"),
             new Claim("GetOrderAll", "true"),
             new Claim("ViewStatistics", "true"),
+            new Claim("DeleteEvaluate", "true"),
         };
 
         foreach (var claim in claims)

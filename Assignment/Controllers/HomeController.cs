@@ -3,12 +3,16 @@ using Assignment.Enums;
 using Assignment.Models;
 using Assignment.Services;
 using Assignment.ViewModels;
+using Assignment.ViewModels.Combos;
+using Assignment.ViewModels.Products;
+using Assignment.ViewModels.Ratings;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Security.Claims;
 
 namespace Assignment.Controllers
 {
@@ -164,7 +168,55 @@ namespace Assignment.Controllers
             if (product == null)
                 return NotFound();
 
-            return View(product);
+            var viewModel = new ProductDetailViewModel
+            {
+                Product = product,
+                CanDeleteRating = User.HasClaim("DeleteEvaluate", "true")
+            };
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var completedItems = await _context.OrderItems
+                    .Include(oi => oi.Order)
+                    .Where(oi => !oi.IsDeleted && oi.ProductId == product.Id &&
+                        oi.Order != null && !oi.Order.IsDeleted &&
+                        oi.Order.UserId == userId && oi.Order.Status == OrderStatus.Completed)
+                    .OrderByDescending(oi => oi.Order!.CreatedAt)
+                    .ToListAsync();
+
+                if (completedItems.Any())
+                {
+                    viewModel.CanRate = true;
+
+                    var existingRating = await _context.Ratings
+                        .AsNoTracking()
+                        .Where(r => !r.IsDeleted && r.UserId == userId && r.ProductId == product.Id)
+                        .OrderByDescending(r => r.UpdatedAt ?? r.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (existingRating != null)
+                    {
+                        viewModel.OrderItemIdForRating = existingRating.OrderItemId;
+                        viewModel.UserRating = new RatingDisplayViewModel
+                        {
+                            Id = existingRating.Id,
+                            Score = existingRating.Score,
+                            Comment = existingRating.Comment,
+                            CreatedAt = existingRating.CreatedAt,
+                            UpdatedAt = existingRating.UpdatedAt,
+                            OrderItemId = existingRating.OrderItemId,
+                            UserName = existingRating.UserId
+                        };
+                    }
+                    else
+                    {
+                        viewModel.OrderItemIdForRating = completedItems.First().Id;
+                    }
+                }
+            }
+
+            return View(viewModel);
         }
 
         public async Task<IActionResult> ComboDetail(long id)
@@ -177,7 +229,55 @@ namespace Assignment.Controllers
             if (combo == null)
                 return NotFound();
 
-            return View(combo);
+            var viewModel = new ComboDetailViewModel
+            {
+                Combo = combo,
+                CanDeleteRating = User.HasClaim("DeleteEvaluate", "true")
+            };
+
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!string.IsNullOrEmpty(userId))
+            {
+                var completedItems = await _context.OrderItems
+                    .Include(oi => oi.Order)
+                    .Where(oi => !oi.IsDeleted && oi.ComboId == combo.Id &&
+                        oi.Order != null && !oi.Order.IsDeleted &&
+                        oi.Order.UserId == userId && oi.Order.Status == OrderStatus.Completed)
+                    .OrderByDescending(oi => oi.Order!.CreatedAt)
+                    .ToListAsync();
+
+                if (completedItems.Any())
+                {
+                    viewModel.CanRate = true;
+
+                    var existingRating = await _context.Ratings
+                        .AsNoTracking()
+                        .Where(r => !r.IsDeleted && r.UserId == userId && r.ComboId == combo.Id)
+                        .OrderByDescending(r => r.UpdatedAt ?? r.CreatedAt)
+                        .FirstOrDefaultAsync();
+
+                    if (existingRating != null)
+                    {
+                        viewModel.OrderItemIdForRating = existingRating.OrderItemId;
+                        viewModel.UserRating = new RatingDisplayViewModel
+                        {
+                            Id = existingRating.Id,
+                            Score = existingRating.Score,
+                            Comment = existingRating.Comment,
+                            CreatedAt = existingRating.CreatedAt,
+                            UpdatedAt = existingRating.UpdatedAt,
+                            OrderItemId = existingRating.OrderItemId,
+                            UserName = existingRating.UserId
+                        };
+                    }
+                    else
+                    {
+                        viewModel.OrderItemIdForRating = completedItems.First().Id;
+                    }
+                }
+            }
+
+            return View(viewModel);
         }
 
         public IActionResult Privacy()

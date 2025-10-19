@@ -13,5 +13,7 @@ namespace Assignment.ViewModels.Ratings
 
         [StringLength(2000)]
         public string? Comment { get; set; }
+
+        public string? ReturnUrl { get; set; }
     }
 }

@@ -1,7 +1,9 @@
-﻿@model Assignment.Models.Product
+@model Assignment.ViewModels.Products.ProductDetailViewModel
 
 @{
-    ViewData["Title"] = Model.Name;
+    var product = Model.Product;
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    ViewData["Title"] = product.Name;
 }
 
 <style>
@@ -361,35 +363,51 @@
 
 <div class="product-detail-wrapper">
     <div class="container">
+        @if (TempData["Success"] != null)
+        {
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+                @TempData["Success"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
+        @if (TempData["Error"] != null)
+        {
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                @TempData["Error"]
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        }
+
         <div class="detail-container">
             @Html.AntiForgeryToken()
             <div class="row g-lg-5 align-items-start">
                 <div class="col-lg-6 mb-4 mb-lg-0">
                     <div class="product-media">
-                        <img src="@Model.ProductImageUrl" class="product-detail-image" alt="@Model.Name" />
-                        @if (Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue)
+                        <img src="@product.ProductImageUrl" class="product-detail-image" alt="@product.Name" />
+                        @if (product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue)
                         {
-                            <span class="discount-chip">-@Model.Discount%</span>
+                            <span class="discount-chip">-@product.Discount%</span>
                         }
                     </div>
                 </div>
                 <div class="col-lg-6">
                     <div class="product-content">
-                        @if (Model.Category != null)
+                        @if (product.Category != null)
                         {
-                            <span class="category-chip">@Model.Category.Name</span>
+                            <span class="category-chip">@product.Category.Name</span>
                         }
 
-                        <h1 class="product-title">@Model.Name</h1>
+                        <h1 class="product-title">@product.Name</h1>
 
                         <div class="rating-large">
                             @for (int i = 1; i <= 5; i++)
                             {
-                                if (i <= Math.Floor(Model.AverageEvaluate))
+                                if (i <= Math.Floor(product.AverageEvaluate))
                                 {
                                     <i class="fas fa-star"></i>
                                 }
-                                else if (i - 0.5 <= Model.AverageEvaluate)
+                                else if (i - 0.5 <= product.AverageEvaluate)
                                 {
                                     <i class="fas fa-star-half-alt"></i>
                                 }
@@ -398,47 +416,104 @@
                                     <i class="far fa-star"></i>
                                 }
                             }
-                            <span>@Model.AverageEvaluate.ToString("0.0") (@Model.TotalEvaluate đánh giá)</span>
+                            <span>@product.AverageEvaluate.ToString("0.0") (@product.TotalEvaluate đánh giá)</span>
                         </div>
 
+                        @if (Model.UserRating != null)
+                        {
+                            <div class="card shadow-sm border-0 mb-4">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <h6 class="mb-0"><i class="fas fa-comment-dots me-2 text-primary"></i>Đánh giá của bạn</h6>
+                                        @if (Model.UserRating.IsEdited)
+                                        {
+                                            <span class="badge bg-warning text-dark">Đã chỉnh sửa</span>
+                                        }
+                                    </div>
+                                    <div class="text-warning mb-2">
+                                        @for (int i = 1; i <= 5; i++)
+                                        {
+                                            if (i <= Model.UserRating.Score)
+                                            {
+                                                <i class="fas fa-star"></i>
+                                            }
+                                            else
+                                            {
+                                                <i class="far fa-star"></i>
+                                            }
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrWhiteSpace(Model.UserRating.Comment))
+                                    {
+                                        <p class="mb-2">@Model.UserRating.Comment</p>
+                                    }
+                                    <small class="text-muted d-block">Gửi ngày @Model.UserRating.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
+                                    <div class="d-flex flex-wrap gap-2 mt-3">
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#productRatingModal">
+                                            <i class="fas fa-edit me-1"></i>Chỉnh sửa đánh giá
+                                        </button>
+                                        @if (Model.CanDeleteRating)
+                                        {
+                                            <form asp-controller="Ratings" asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xóa đánh giá này?');">
+                                                @Html.AntiForgeryToken()
+                                                <input type="hidden" name="id" value="@Model.UserRating.Id" />
+                                                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                                <button type="submit" class="btn btn-outline-danger btn-sm">
+                                                    <i class="fas fa-trash-alt me-1"></i>Xóa đánh giá
+                                                </button>
+                                            </form>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                        else if (Model.CanRate && Model.OrderItemIdForRating.HasValue)
+                        {
+                            <div class="mb-4">
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#productRatingModal">
+                                    <i class="fas fa-star me-2"></i>Đánh giá sản phẩm
+                                </button>
+                            </div>
+                        }
+
                         <div class="detail-tags">
-                            @if (Model.IsSpicy)
+                            @if (product.IsSpicy)
                             {
                                 <span class="detail-tag detail-tag-hot">🌶️ Cay</span>
                             }
-                            @if (Model.IsVegetarian)
+                            @if (product.IsVegetarian)
                             {
                                 <span class="detail-tag detail-tag-vegan">🥗 Chay</span>
                             }
                         </div>
 
                         @{
-                            var hasPercentDiscount = Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue;
-                            var hasFixedDiscount = Model.DiscountType == Assignment.Enums.DiscountType.FixedAmount && Model.Discount.HasValue;
-                            double finalPrice = Model.Price;
+                            var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
+                            var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
+                            double finalPrice = product.Price;
                             if (hasPercentDiscount)
                             {
-                                finalPrice = Math.Max(Model.Price - (Model.Price * Model.Discount.Value / 100.0), 0);
+                                finalPrice = Math.Max(product.Price - (product.Price * product.Discount.Value / 100.0), 0);
                             }
                             else if (hasFixedDiscount)
                             {
-                                finalPrice = Model.Discount.Value;
+                                finalPrice = product.Discount.Value;
                             }
-                            var savings = Math.Max(Model.Price - finalPrice, 0);
+                            var savings = Math.Max(product.Price - finalPrice, 0);
                         }
 
                         <div class="price-section">
-                            @if (Model.DiscountType == Assignment.Enums.DiscountType.None || (!Model.Discount.HasValue && Model.DiscountType != Assignment.Enums.DiscountType.None))
+                            @if (product.DiscountType == Assignment.Enums.DiscountType.None || (!product.Discount.HasValue && product.DiscountType != Assignment.Enums.DiscountType.None))
                             {
-                                <div class="final-price">@Model.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@product.Price.ToString("N0") ₫</div>
                             }
-                            else if (Model.DiscountType == Assignment.Enums.DiscountType.Percent && Model.Discount.HasValue)
+                            else if (product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue)
                             {
                                 <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge-large">-@Model.Discount%</span>
+                                    <span class="badge-large">-@product.Discount%</span>
                                     <span class="text-muted small">Ưu đãi theo %</span>
                                 </div>
-                                <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
+                                <div class="original-price mb-2">@product.Price.ToString("N0") ₫</div>
                                 <div class="final-price">@finalPrice.ToString("N0") ₫</div>
                                 @if (savings > 0)
                                 {
@@ -447,13 +522,13 @@
                                     </div>
                                 }
                             }
-                            else if (Model.DiscountType == Assignment.Enums.DiscountType.FixedAmount && Model.Discount.HasValue)
+                            else if (product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue)
                             {
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <span class="badge-large">Giá đặc biệt</span>
                                     <span class="text-muted small">Ưu đãi độc quyền</span>
                                 </div>
-                                <div class="original-price mb-2">@Model.Price.ToString("N0") ₫</div>
+                                <div class="original-price mb-2">@product.Price.ToString("N0") ₫</div>
                                 <div class="final-price">@finalPrice.ToString("N0") ₫</div>
                                 @if (savings > 0)
                                 {
@@ -464,7 +539,7 @@
                             }
                             else
                             {
-                                <div class="final-price">@Model.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@product.Price.ToString("N0") ₫</div>
                             }
                         </div>
 
@@ -473,23 +548,23 @@
                                 <i class="fas fa-clock"></i>
                                 <div>
                                     <strong>Thời gian chuẩn bị</strong>
-                                    <span class="info-text">@Model.PreparationTime phút</span>
+                                    <span class="info-text">@product.PreparationTime phút</span>
                                 </div>
                             </div>
                             <div class="info-item">
                                 <i class="fas fa-fire"></i>
                                 <div>
                                     <strong>Calories</strong>
-                                    <span class="info-text">@Model.Calories kcal</span>
+                                    <span class="info-text">@product.Calories kcal</span>
                                 </div>
                             </div>
                             <div class="info-item">
                                 <i class="fas fa-box"></i>
                                 <div>
                                     <strong>Tình trạng</strong>
-                                    @if (Model.Stock > 0)
+                                    @if (product.Stock > 0)
                                     {
-                                        <span class="status-positive">Còn hàng (@Model.Stock sản phẩm)</span>
+                                        <span class="status-positive">Còn hàng (@product.Stock sản phẩm)</span>
                                     }
                                     else
                                     {
@@ -501,7 +576,7 @@
                                 <i class="fas fa-chart-line"></i>
                                 <div>
                                     <strong>Đã bán</strong>
-                                    <span class="info-text">@Model.Sold sản phẩm</span>
+                                    <span class="info-text">@product.Sold sản phẩm</span>
                                 </div>
                             </div>
                         </div>
@@ -509,15 +584,15 @@
                         <div class="detail-actions">
                             <div class="quantity-selector">
                                 <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
-                                <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@Model.Stock" />
+                                <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@product.Stock" />
                                 <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
                             </div>
 
-                            <button type="button" class="btn-add-large" onclick="addToCartWithQuantity()" @(Model.Stock <= 0 ? "disabled" : "")>
+                            <button type="button" class="btn-add-large" onclick="addToCartWithQuantity()" @(product.Stock <= 0 ? "disabled" : "")>
                                 <i class="fas fa-shopping-cart me-2"></i>
                                 Thêm vào giỏ hàng
                             </button>
-                            <button type="button" class="btn-buy-now" onclick="buyNow()" @(Model.Stock <= 0 ? "disabled" : "")>
+                            <button type="button" class="btn-buy-now" onclick="buyNow()" @(product.Stock <= 0 ? "disabled" : "")>
                                 <i class="fas fa-bolt me-2"></i>Mua ngay
                             </button>
                         </div>
@@ -529,13 +604,13 @@
                 <div class="col-lg-6">
                     <div class="description-section h-100">
                         <h3><i class="fas fa-align-left me-2"></i>Mô tả sản phẩm</h3>
-                        <p>@Model.Description</p>
+                        <p>@product.Description</p>
                     </div>
                 </div>
                 <div class="col-lg-6">
                     <div class="description-section h-100">
                         <h3><i class="fas fa-list-ul me-2"></i>Thành phần</h3>
-                        <p>@Model.Ingredients</p>
+                        <p>@product.Ingredients</p>
                     </div>
                 </div>
             </div>
@@ -543,9 +618,49 @@
     </div>
 </div>
 
+@if (Model.CanRate && Model.OrderItemIdForRating.HasValue)
+{
+    <div class="modal fade" id="productRatingModal" tabindex="-1" aria-labelledby="productRatingModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <form asp-controller="Ratings" asp-action="Submit" method="post">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="OrderItemId" value="@Model.OrderItemIdForRating" />
+                    <input type="hidden" name="ReturnUrl" value="@returnUrl" />
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="productRatingModalLabel">@((Model.UserRating != null) ? "Cập nhật đánh giá" : "Đánh giá sản phẩm")</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="rating-score" class="form-label">Điểm đánh giá</label>
+                            <select class="form-select" id="rating-score" name="Score" required>
+                                @for (var score = 1; score <= 5; score++)
+                                {
+                                    var isSelected = Model.UserRating?.Score == score;
+                                    <option value="@score" selected="@(isSelected ? "selected" : null)">@score sao</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="rating-comment" class="form-label">Nhận xét</label>
+                            <textarea class="form-control" id="rating-comment" name="Comment" rows="3" maxlength="2000" placeholder="Chia sẻ cảm nhận của bạn...">@Model.UserRating?.Comment</textarea>
+                            <div class="form-text">Tối đa 2000 ký tự.</div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                        <button type="submit" class="btn btn-primary">@((Model.UserRating != null) ? "Cập nhật" : "Gửi đánh giá")</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+
 @section Scripts {
     <script>
-        const maxStock = @Model.Stock;
+        const maxStock = @product.Stock;
         const loginUrl = '@Url.Page("/Account/Login", new { area = "Identity" })';
 
         function increaseQuantity() {
@@ -573,7 +688,7 @@
                 type: 'POST',
                 data: {
                     __RequestVerificationToken: token,
-                    productId: @Model.Id,
+                    productId: @product.Id,
                     quantity: quantity
                 },
                 success: function() {
@@ -597,7 +712,7 @@
                 type: 'POST',
                 data: {
                     __RequestVerificationToken: token,
-                    productId: @Model.Id,
+                    productId: @product.Id,
                     quantity: quantity
                 },
                 success: function (response) {
