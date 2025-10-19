@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -26,71 +25,6 @@ namespace Assignment.Controllers
             _userManager = userManager;
         }
 
-        public async Task<IActionResult> Index()
-        {
-            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userId))
-            {
-                return RedirectToAction("Login", "Account", new { area = "Identity" });
-            }
-
-            var completedItems = await _context.OrderItems
-                .AsNoTracking()
-                .Include(oi => oi.Order)
-                .Include(oi => oi.Product)
-                .Include(oi => oi.Combo)
-                .Where(oi => !oi.IsDeleted && oi.Order != null && !oi.Order.IsDeleted &&
-                    oi.Order.UserId == userId && oi.Order.Status == OrderStatus.Completed)
-                .OrderByDescending(oi => oi.Order!.CreatedAt)
-                .ToListAsync();
-
-            var orderItemIds = completedItems.Select(oi => oi.Id).ToList();
-
-            var ratings = await _context.Ratings
-                .AsNoTracking()
-                .Where(r => !r.IsDeleted && r.UserId == userId && orderItemIds.Contains(r.OrderItemId))
-                .ToListAsync();
-
-            var ratingLookup = ratings.ToDictionary(r => r.OrderItemId);
-            var items = new List<RatingItemViewModel>();
-
-            foreach (var item in completedItems)
-            {
-                ratingLookup.TryGetValue(item.Id, out var existingRating);
-
-                var isProductAvailable = item.Product != null && !item.Product.IsDeleted && item.Product.IsPublish;
-                var isComboAvailable = item.Combo != null && !item.Combo.IsDeleted && item.Combo.IsPublish;
-                var itemName = item.Product?.Name ?? item.Combo?.Name ?? "Sản phẩm";
-                var itemType = item.Product != null ? "Sản phẩm" : item.Combo != null ? "Combo" : "Khác";
-                var imageUrl = item.Product?.ProductImageUrl ?? item.Combo?.ImageUrl;
-
-                items.Add(new RatingItemViewModel
-                {
-                    OrderItemId = item.Id,
-                    OrderId = item.OrderId,
-                    OrderCreatedAt = item.Order?.CreatedAt ?? item.CreatedAt,
-                    ItemName = itemName,
-                    ItemType = itemType,
-                    ImageUrl = imageUrl,
-                    Quantity = item.Quantity,
-                    Price = item.Price,
-                    IsAvailable = isProductAvailable || isComboAvailable,
-                    Score = existingRating?.Score,
-                    Comment = existingRating?.Comment,
-                    CanRate = true,
-                    ProductId = item.ProductId,
-                    ComboId = item.ComboId
-                });
-            }
-
-            var viewModel = new RatingIndexViewModel
-            {
-                Items = items
-            };
-
-            return View(viewModel);
-        }
-
         [HttpPost]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Submit(RatingInputModel input)
@@ -98,7 +32,7 @@ namespace Assignment.Controllers
             if (!ModelState.IsValid)
             {
                 TempData["Error"] = "Vui lòng kiểm tra thông tin đánh giá.";
-                return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction(nameof(Index));
+                return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction("Index", "Home");
             }
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -116,13 +50,13 @@ namespace Assignment.Controllers
             if (orderItem == null || orderItem.Order == null || orderItem.Order.IsDeleted || orderItem.Order.UserId != userId)
             {
                 TempData["Error"] = "Bạn không thể đánh giá mục này.";
-                return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction(nameof(Index));
+                return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction("Index", "Home");
             }
 
             if (orderItem.Order.Status != OrderStatus.Completed)
             {
                 TempData["Error"] = "Chỉ có thể đánh giá sản phẩm thuộc đơn hàng đã hoàn tất.";
-                return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction(nameof(Index));
+                return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction("Index", "Home");
             }
 
             var rating = await _context.Ratings
@@ -169,7 +103,7 @@ namespace Assignment.Controllers
             await _context.SaveChangesAsync();
             TempData["Success"] = "Cảm ơn bạn đã gửi đánh giá!";
 
-            return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction(nameof(Index));
+            return RedirectToLocal(input.ReturnUrl) ?? RedirectToAction("Index", "Home");
         }
 
         [HttpPost]
@@ -187,7 +121,7 @@ namespace Assignment.Controllers
             if (rating == null)
             {
                 TempData["Error"] = "Không tìm thấy đánh giá.";
-                return RedirectToLocal(returnUrl) ?? RedirectToAction(nameof(Index));
+                return RedirectToLocal(returnUrl) ?? RedirectToAction("Index", "Home");
             }
 
             if (!rating.IsDeleted)
@@ -207,7 +141,7 @@ namespace Assignment.Controllers
                 TempData["Success"] = "Đánh giá đã được xóa.";
             }
 
-            return RedirectToLocal(returnUrl) ?? RedirectToAction(nameof(Index));
+            return RedirectToLocal(returnUrl) ?? RedirectToAction("Index", "Home");
         }
 
         private IActionResult? RedirectToLocal(string? returnUrl)
