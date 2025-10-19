@@ -164,6 +164,7 @@
 }
 
 .rating-stars {
+<<<<<<< HEAD
     --star-size: 2.4rem;
     --star-gap: 0.6rem;
     --star-inactive: rgba(255, 255, 255, 0.45);
@@ -237,12 +238,41 @@
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.2s ease, transform 0.2s ease;
+=======
+    display: inline-flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 0.65rem;
 }
 
-.rating-stars > input:checked ~ label > svg {
-    fill: #ffa723;
+.rating-stars input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
 }
 
+.rating-stars label {
+    font-size: 1.9rem;
+    line-height: 1;
+    color: #d3cfe0;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease, text-shadow 0.2s ease;
+}
+
+.rating-stars label::before {
+    content: "★";
+    display: block;
+>>>>>>> parent of 34be735 (Improve rating star selection UI)
+}
+
+.rating-stars input:checked ~ label,
+.rating-stars label:hover,
+.rating-stars label:hover ~ label {
+    color: #ffb545;
+    text-shadow: 0 8px 16px rgba(255, 181, 69, 0.35);
+}
+
+<<<<<<< HEAD
 .rating-stars > label:hover::before,
 .rating-stars > input:checked + label::before {
     opacity: 1;
@@ -289,6 +319,24 @@
 
 .rating-stars:focus-within {
     box-shadow: 0 0 0 4px rgba(255, 180, 0, 0.18), 0 12px 28px rgba(15, 23, 42, 0.14);
+=======
+.rating-stars label:hover {
+    transform: translateY(-3px);
+}
+
+.rating-stars label:hover ~ label {
+    transform: translateY(-1px);
+}
+
+.rating-stars input:checked + label {
+    transform: translateY(-2px);
+}
+
+.rating-stars input:focus-visible + label {
+    outline: 2px solid #ffb545;
+    outline-offset: 4px;
+    border-radius: 6px;
+>>>>>>> parent of 34be735 (Improve rating star selection UI)
 }
 
 .detail-card__description {
