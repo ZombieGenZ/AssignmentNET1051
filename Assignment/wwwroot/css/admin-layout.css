@@ -337,3 +337,17 @@ body {
     .overlay.active {
         display: block;
     }
+
+#voucherModal .modal-body {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+}
+
+#voucherModal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: #ffffff;
+    border-top: 1px solid #dee2e6;
+    z-index: 1;
+}
+
