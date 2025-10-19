@@ -51,10 +51,9 @@ namespace Assignment.Controllers.Api
             var products = await query
                 .OrderByDescending(p => p.CreatedAt)
                 .ThenBy(p => p.Name)
-                .Select(p => MapToResponse(p))
                 .ToListAsync();
 
-            return Ok(products);
+            return Ok(products.Select(MapToResponse));
         }
 
         [HttpGet("{id:long}")]
@@ -90,29 +89,17 @@ namespace Assignment.Controllers.Api
 
             var product = new Product
             {
-                Name = request.Name.Trim(),
-                Description = request.Description.Trim(),
-                Price = request.Price,
-                Stock = request.Stock,
                 Sold = 0,
-                DiscountType = request.DiscountType,
-                Discount = NormalizeDiscount(request.DiscountType, request.Discount),
-                IsPublish = request.IsPublish,
-                ProductImageUrl = request.ProductImageUrl.Trim(),
-                PreparationTime = request.PreparationTime,
-                Calories = request.Calories,
-                Ingredients = request.Ingredients.Trim(),
-                IsSpicy = request.IsSpicy,
-                IsVegetarian = request.IsVegetarian,
                 TotalEvaluate = 0,
                 AverageEvaluate = 0,
-                CategoryId = request.CategoryId,
                 CreateBy = CurrentUserId,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = null,
                 DeletedAt = null,
                 IsDeleted = false
             };
+
+            ApplyRequestToProduct(product, request);
 
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
@@ -144,20 +131,7 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            product.Name = request.Name.Trim();
-            product.Description = request.Description.Trim();
-            product.Price = request.Price;
-            product.Stock = request.Stock;
-            product.DiscountType = request.DiscountType;
-            product.Discount = NormalizeDiscount(request.DiscountType, request.Discount);
-            product.IsPublish = request.IsPublish;
-            product.ProductImageUrl = request.ProductImageUrl.Trim();
-            product.PreparationTime = request.PreparationTime;
-            product.Calories = request.Calories;
-            product.Ingredients = request.Ingredients.Trim();
-            product.IsSpicy = request.IsSpicy;
-            product.IsVegetarian = request.IsVegetarian;
-            product.CategoryId = request.CategoryId;
+            ApplyRequestToProduct(product, request);
             product.UpdatedAt = DateTime.Now;
 
             try
@@ -222,6 +196,24 @@ namespace Assignment.Controllers.Api
             return Ok(result);
         }
 
+        private static void ApplyRequestToProduct(Product product, ProductRequest request)
+        {
+            product.Name = request.Name.Trim();
+            product.Description = request.Description.Trim();
+            product.Price = request.Price;
+            product.Stock = request.Stock;
+            product.DiscountType = request.DiscountType;
+            product.Discount = NormalizeDiscount(request.DiscountType, request.Discount);
+            product.IsPublish = request.IsPublish;
+            product.ProductImageUrl = request.ProductImageUrl.Trim();
+            product.PreparationTime = request.PreparationTime;
+            product.Calories = request.Calories;
+            product.Ingredients = request.Ingredients.Trim();
+            product.IsSpicy = request.IsSpicy;
+            product.IsVegetarian = request.IsVegetarian;
+            product.CategoryId = request.CategoryId;
+        }
+
         private static long? NormalizeDiscount(DiscountType type, long? value)
         {
             if (type == DiscountType.None)
@@ -257,31 +249,31 @@ namespace Assignment.Controllers.Api
             return await _context.Products.AnyAsync(p => p.Id == id && !p.IsDeleted);
         }
 
-        private object MapToResponse(Product product)
+        private static ProductResponse MapToResponse(Product product)
         {
-            return new
+            return new ProductResponse
             {
-                product.Id,
-                product.Name,
-                product.Description,
-                product.Price,
-                product.Stock,
-                product.Sold,
-                product.DiscountType,
-                product.Discount,
-                product.IsPublish,
-                product.ProductImageUrl,
-                product.PreparationTime,
-                product.Calories,
-                product.Ingredients,
-                product.IsSpicy,
-                product.IsVegetarian,
-                product.TotalEvaluate,
-                product.AverageEvaluate,
-                product.CategoryId,
+                Id = product.Id,
+                Name = product.Name,
+                Description = product.Description,
+                Price = product.Price,
+                Stock = product.Stock,
+                Sold = product.Sold,
+                DiscountType = product.DiscountType,
+                Discount = product.Discount,
+                IsPublish = product.IsPublish,
+                ProductImageUrl = product.ProductImageUrl,
+                PreparationTime = product.PreparationTime,
+                Calories = product.Calories,
+                Ingredients = product.Ingredients,
+                IsSpicy = product.IsSpicy,
+                IsVegetarian = product.IsVegetarian,
+                TotalEvaluate = product.TotalEvaluate,
+                AverageEvaluate = product.AverageEvaluate,
+                CategoryId = product.CategoryId,
                 CategoryName = product.Category?.Name,
-                product.CreatedAt,
-                product.UpdatedAt
+                CreatedAt = product.CreatedAt,
+                UpdatedAt = product.UpdatedAt
             };
         }
 
@@ -368,6 +360,31 @@ namespace Assignment.Controllers.Api
 
             [Range(1, long.MaxValue)]
             public long CategoryId { get; set; }
+        }
+
+        public class ProductResponse
+        {
+            public long Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public string Description { get; set; } = string.Empty;
+            public double Price { get; set; }
+            public long Stock { get; set; }
+            public long Sold { get; set; }
+            public DiscountType DiscountType { get; set; }
+            public long? Discount { get; set; }
+            public bool IsPublish { get; set; }
+            public string ProductImageUrl { get; set; } = string.Empty;
+            public long PreparationTime { get; set; }
+            public long Calories { get; set; }
+            public string Ingredients { get; set; } = string.Empty;
+            public bool IsSpicy { get; set; }
+            public bool IsVegetarian { get; set; }
+            public long TotalEvaluate { get; set; }
+            public double AverageEvaluate { get; set; }
+            public long CategoryId { get; set; }
+            public string? CategoryName { get; set; }
+            public DateTime CreatedAt { get; set; }
+            public DateTime? UpdatedAt { get; set; }
         }
     }
 }

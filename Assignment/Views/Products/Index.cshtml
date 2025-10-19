@@ -194,6 +194,7 @@
 
             const canUpdate = app.dataset.canUpdate === 'true';
             const canDelete = app.dataset.canDelete === 'true';
+            const API_BASE_URL = '/api/products';
 
             const tableBody = document.getElementById('productsTableBody');
             const tableStatus = document.getElementById('tableStatus');
@@ -423,7 +424,7 @@
 
             async function loadCategories(showError = true) {
                 try {
-                    const response = await fetch('/api/products/categories');
+                    const response = await fetch(`${API_BASE_URL}/categories`);
                     if (!response.ok) {
                         if (response.status === 403) {
                             if (showError) {
@@ -449,7 +450,7 @@
             async function loadProducts() {
                 setTableLoading();
                 try {
-                    const response = await fetch('/api/products');
+                    const response = await fetch(API_BASE_URL);
                     if (!response.ok) {
                         if (response.status === 403) {
                             setTableStatus('Bạn không có quyền xem danh sách sản phẩm.');
@@ -535,7 +536,7 @@
                 submitButton.innerHTML = 'Lưu thay đổi';
 
                 try {
-                    const response = await fetch(`/api/products/${productId}`);
+                    const response = await fetch(`${API_BASE_URL}/${productId}`);
                     if (!response.ok) {
                         if (response.status === 404) {
                             showAlert('Không tìm thấy sản phẩm.', 'warning');
@@ -595,7 +596,7 @@
                 }
 
                 const isEdit = Boolean(editingProductId);
-                const url = isEdit ? `/api/products/${editingProductId}` : '/api/products';
+                const url = isEdit ? `${API_BASE_URL}/${editingProductId}` : API_BASE_URL;
                 const method = isEdit ? 'PUT' : 'POST';
 
                 submitButton.disabled = true;
@@ -644,7 +645,7 @@
                 deleteConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang xóa...';
 
                 try {
-                    const response = await fetch(`/api/products/${deleteProductId}`, {
+                    const response = await fetch(`${API_BASE_URL}/${deleteProductId}`, {
                         method: 'DELETE',
                         headers: {
                             ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
