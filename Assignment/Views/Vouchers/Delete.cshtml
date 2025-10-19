@@ -43,6 +43,39 @@
                                 <span class="badge bg-info">Riêng tư</span>
                             }
                         </dd>
+
+                        <dt class="col-sm-4">@Html.DisplayNameFor(model => model.ProductScope)</dt>
+                        <dd class="col-sm-8">
+                            @if (Model.ProductScope == VoucherProductScope.AllProducts)
+                            {
+                                <span class="badge bg-success">Tất cả sản phẩm</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-primary">Một số sản phẩm</span>
+                            }
+                        </dd>
+
+                        @if (Model.ProductScope == VoucherProductScope.SelectedProducts)
+                        {
+                            var voucherProducts = ViewData["VoucherProductNames"] as System.Collections.Generic.List<string> ?? new System.Collections.Generic.List<string>();
+                            <dt class="col-sm-4">Sản phẩm áp dụng</dt>
+                            <dd class="col-sm-8">
+                                @if (voucherProducts.Any())
+                                {
+                                    <ul class="list-unstyled mb-0">
+                                        @foreach (var productName in voucherProducts)
+                                        {
+                                            <li><i class="fas fa-bread-slice me-2 text-primary"></i>@productName</li>
+                                        }
+                                    </ul>
+                                }
+                                else
+                                {
+                                    <span class="text-muted">Chưa chọn sản phẩm nào.</span>
+                                }
+                            </dd>
+                        }
                         @if (Model.Type == VoucherType.Private)
                         {
                             var voucherUsers = ViewData["VoucherUserDisplayNames"] as System.Collections.Generic.List<string> ?? new System.Collections.Generic.List<string>();

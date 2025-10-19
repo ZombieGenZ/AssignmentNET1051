@@ -15,12 +15,23 @@
     var selectedUserIds = ViewData["SelectedUserIds"] as List<string> ?? new List<string>();
     var users = (IEnumerable<SelectListItem>?)ViewBag.Users ?? Enumerable.Empty<SelectListItem>();
 
+    var selectedProductIds = (ViewData["SelectedProductIds"] as IEnumerable<long>)?.Select(id => id.ToString()).ToList()
+        ?? (ViewData["SelectedProductIds"] as IEnumerable<string>)?.ToList()
+        ?? new List<string>();
+    var products = (IEnumerable<SelectListItem>?)ViewBag.Products ?? Enumerable.Empty<SelectListItem>();
+
     if (!selectedUserIds.Any())
     {
         selectedUserIds.Add(string.Empty);
     }
 
+    if (!selectedProductIds.Any())
+    {
+        selectedProductIds.Add(string.Empty);
+    }
+
     var userOptionsJson = JsonSerializer.Serialize(users.Select(u => new { value = u.Value, text = u.Text }));
+    var productOptionsJson = JsonSerializer.Serialize(products.Select(p => new { value = p.Value, text = p.Text }));
 }
 
 <!-- Thêm link Font Awesome để sử dụng icons -->
@@ -66,6 +77,46 @@
                                 <select asp-for="Type" class="form-select" id="VoucherType" asp-items="Html.GetEnumSelectList<VoucherType>()"></select>
                                 <span asp-validation-for="Type" class="text-danger"></span>
                             </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label asp-for="ProductScope" class="form-label"></label>
+                                <select asp-for="ProductScope" class="form-select" id="ProductScope" asp-items="Html.GetEnumSelectList<VoucherProductScope>()"></select>
+                                <span asp-validation-for="ProductScope" class="text-danger"></span>
+                            </div>
+                        </div>
+
+                        <div class="mb-3" id="ProductSelectionSection" style="display: none;">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                <h5 class="mb-0">Sản phẩm áp dụng</h5>
+                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllVoucherProducts()">
+                                    <i class="fas fa-trash me-1"></i>Xóa toàn bộ
+                                </button>
+                            </div>
+                            <div id="voucherProductsContainer" class="mt-2">
+                                @for (var index = 0; index < selectedProductIds.Count; index++)
+                                {
+                                    var productId = selectedProductIds[index];
+                                    <div class="voucher-product-row row g-2 mb-2 align-items-end">
+                                        <div class="col-md-10">
+                                            <label class="form-label">Sản phẩm</label>
+                                            <select name="ProductIds" class="form-select voucher-product-select" required>
+                                                <option value="">-- Chọn sản phẩm --</option>
+                                                @foreach (var product in products)
+                                                {
+                                                    var isSelected = string.Equals(product.Value, productId, StringComparison.Ordinal);
+                                                    <option value="@product.Value" selected="@(isSelected ? "selected" : null)">@product.Text</option>
+                                                }
+                                            </select>
+                                        </div>
+                                        <div class="col-md-2">
+                                            <button type="button" class="btn btn-danger w-100" onclick="removeVoucherProduct(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                            <button type="button" class="btn btn-success btn-sm mt-2" onclick="addVoucherProduct()"><i class="fas fa-plus"></i> Thêm sản phẩm</button>
                         </div>
 
                         <div class="mb-3" id="PrivateUserSection" style="display: none;">
@@ -192,6 +243,21 @@
     <partial name="_XlsxScriptPartial" />
     <script>
         const allUsers = @Html.Raw(userOptionsJson);
+        const allProducts = @Html.Raw(productOptionsJson);
+
+        function toggleProductScopeField() {
+            const scope = document.getElementById('ProductScope').value;
+            const productSection = document.getElementById('ProductSelectionSection');
+            const selects = document.querySelectorAll('.voucher-product-select');
+
+            if (scope === '1') {
+                productSection.style.display = 'block';
+                selects.forEach(select => select.setAttribute('required', 'required'));
+            } else {
+                productSection.style.display = 'none';
+                selects.forEach(select => select.removeAttribute('required'));
+            }
+        }
 
         function toggleVoucherTypeField() {
             const voucherType = document.getElementById('VoucherType').value;
@@ -338,6 +404,100 @@
             }
         }
 
+        function getSelectedVoucherProductIds(excludeElement) {
+            const ids = new Set();
+            document.querySelectorAll('.voucher-product-select').forEach(select => {
+                if (select !== excludeElement && select.value) {
+                    ids.add(select.value);
+                }
+            });
+            return ids;
+        }
+
+        function updateVoucherProductDropdowns() {
+            document.querySelectorAll('.voucher-product-select').forEach(select => {
+                const currentValue = select.value;
+                const selectedIds = getSelectedVoucherProductIds(select);
+                select.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+
+                allProducts.forEach(product => {
+                    const option = document.createElement('option');
+                    option.value = product.value ?? '';
+                    option.textContent = product.text ?? '';
+                    if (currentValue === product.value) {
+                        option.selected = true;
+                    } else if (selectedIds.has(product.value)) {
+                        option.disabled = true;
+                    }
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        function addVoucherProduct(productId = '') {
+            const container = document.getElementById('voucherProductsContainer');
+            const row = document.createElement('div');
+            row.className = 'voucher-product-row row g-2 mb-2 align-items-end';
+
+            row.innerHTML = `
+                <div class="col-md-10">
+                    <label class="form-label">Sản phẩm</label>
+                    <select name="ProductIds" class="form-select voucher-product-select" required></select>
+                </div>
+                <div class="col-md-2">
+                    <button type="button" class="btn btn-danger w-100" onclick="removeVoucherProduct(this)"><i class="fas fa-trash-alt"></i> Xóa</button>
+                </div>`;
+
+            container.appendChild(row);
+            const select = row.querySelector('.voucher-product-select');
+            updateVoucherProductDropdowns();
+            if (productId) {
+                select.value = productId;
+            }
+            updateVoucherProductDropdowns();
+            toggleProductScopeField();
+        }
+
+        function removeVoucherProduct(button) {
+            const container = document.getElementById('voucherProductsContainer');
+            if (!container) {
+                return;
+            }
+
+            const rows = container.getElementsByClassName('voucher-product-row');
+            const row = button.closest('.voucher-product-row');
+            if (!row) {
+                return;
+            }
+
+            if (rows.length > 1) {
+                row.remove();
+            } else {
+                const select = row.querySelector('.voucher-product-select');
+                if (select) {
+                    select.value = '';
+                }
+            }
+
+            updateVoucherProductDropdowns();
+            toggleProductScopeField();
+        }
+
+        function clearAllVoucherProducts(addDefault = true) {
+            const container = document.getElementById('voucherProductsContainer');
+            if (!container) {
+                return;
+            }
+
+            container.innerHTML = '';
+            if (addDefault) {
+                addVoucherProduct();
+            } else {
+                updateVoucherProductDropdowns();
+            }
+            toggleProductScopeField();
+        }
+
         function triggerVoucherImport() {
             const input = document.getElementById('voucherImportInput');
             if (input) {
@@ -462,9 +622,13 @@
             if (event.target.classList.contains('voucher-user-select')) {
                 updateVoucherUserDropdowns();
             }
+            if (event.target.classList.contains('voucher-product-select')) {
+                updateVoucherProductDropdowns();
+            }
         });
 
         document.getElementById('VoucherType').addEventListener('change', toggleVoucherTypeField);
+        document.getElementById('ProductScope').addEventListener('change', toggleProductScopeField);
         document.getElementById('IsLifeTime').addEventListener('change', toggleEndTimeField);
         document.getElementById('DiscountType').addEventListener('change', updatePercentDiscountVisibility);
         document.getElementById('UnlimitedPercentageDiscount').addEventListener('change', updatePercentDiscountVisibility);
@@ -472,9 +636,11 @@
 
         document.addEventListener('DOMContentLoaded', () => {
             toggleVoucherTypeField();
+            toggleProductScopeField();
             toggleEndTimeField();
             updatePercentDiscountVisibility();
             updateVoucherUserDropdowns();
+            updateVoucherProductDropdowns();
         });
     </script>
 }

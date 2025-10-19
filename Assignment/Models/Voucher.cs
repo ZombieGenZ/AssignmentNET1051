@@ -19,6 +19,9 @@ namespace Assignment.Models
         public string Description { get; set; }
         [Required]
         public VoucherType Type { get; set; }
+        [Required]
+        [DisplayName("Phạm vi sản phẩm")]
+        public VoucherProductScope ProductScope { get; set; } = VoucherProductScope.AllProducts;
         public string? UserId { get; set; }
         [Required]
         [Range(0, double.MaxValue)]
@@ -48,5 +51,6 @@ namespace Assignment.Models
         [Range(0, double.MaxValue)]
         public double? MaximumPercentageReduction { get; set; }
         public virtual ICollection<VoucherUser>? VoucherUsers { get; set; }
+        public virtual ICollection<VoucherProduct>? VoucherProducts { get; set; }
     }
 }

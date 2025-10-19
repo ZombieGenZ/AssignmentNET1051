@@ -11,7 +11,6 @@ using Microsoft.AspNetCore.Identity;
 using Assignment.Extensions;
 using System;
 using System.Linq;
-using System.Collections.Generic;
 using Assignment.Services.Payments;
 using Microsoft.Extensions.Logging;
 
@@ -150,6 +149,7 @@ namespace Assignment.Controllers
                 {
                     var voucher = await _context.Vouchers
                         .Include(v => v.VoucherUsers)
+                        .Include(v => v.VoucherProducts)
                         .FirstOrDefaultAsync(v => v.Id == voucherId.Value);
                     var now = DateTime.Now;
 
@@ -174,24 +174,49 @@ namespace Assignment.Controllers
                             isPrivateVoucherAllowed &&
                             order.TotalPrice >= voucher.MinimumRequirements)
                         {
-                            double discountAmount = 0;
-                            if (voucher.DiscountType == VoucherDiscountType.Money)
+                            double discountBase = order.TotalPrice;
+                            var hasEligibleProducts = true;
+
+                            if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
                             {
-                                discountAmount = voucher.Discount;
+                                var allowedProductIds = voucher.VoucherProducts?
+                                    .Where(vp => !vp.IsDeleted)
+                                    .Select(vp => vp.ProductId)
+                                    .ToHashSet() ?? new HashSet<long>();
+
+                                discountBase = orderItems
+                                    .Where(oi => oi.ProductId.HasValue && allowedProductIds.Contains(oi.ProductId.Value))
+                                    .Sum(oi => oi.Price * oi.Quantity);
+
+                                hasEligibleProducts = discountBase > 0;
+                            }
+
+                            if (!hasEligibleProducts)
+                            {
+                                order.VoucherId = null;
                             }
                             else
                             {
-                                discountAmount = order.TotalPrice * (voucher.Discount / 100);
-                                if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
+                                double discountAmount;
+                                if (voucher.DiscountType == VoucherDiscountType.Money)
                                 {
-                                    discountAmount = voucher.MaximumPercentageReduction.Value;
+                                    discountAmount = voucher.Discount;
                                 }
-                            }
-                            order.Discount = Math.Min(discountAmount, order.TotalPrice);
-                            order.VoucherId = voucher.Id.ToString();
+                                else
+                                {
+                                    discountAmount = discountBase * (voucher.Discount / 100);
+                                    if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
+                                    {
+                                        discountAmount = voucher.MaximumPercentageReduction.Value;
+                                    }
+                                }
 
-                            voucher.Used += 1;
-                            _context.Vouchers.Update(voucher);
+                                order.Discount = Math.Min(discountAmount, discountBase);
+                                order.VoucherId = voucher.Id.ToString();
+
+                                voucher.Used += 1;
+                                _context.Vouchers.Update(voucher);
+                            }
                         }
                         else
                         {
@@ -253,6 +278,7 @@ namespace Assignment.Controllers
 
             var voucher = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
                 .FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper());
             var now = DateTime.Now;
 
@@ -278,6 +304,25 @@ namespace Assignment.Controllers
             }
 
             var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            double discountBase = subtotal;
+
+            if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
+            {
+                var allowedProductIds = voucher.VoucherProducts?
+                    .Where(vp => !vp.IsDeleted)
+                    .Select(vp => vp.ProductId)
+                    .ToHashSet() ?? new HashSet<long>();
+
+                discountBase = filteredItems
+                    .Where(item => item.Product != null && allowedProductIds.Contains(item.Product.Id))
+                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+
+                if (discountBase <= 0)
+                {
+                    return Json(new { success = false, error = "Voucher không áp dụng cho sản phẩm đã chọn." });
+                }
+            }
+
             if (subtotal < voucher.MinimumRequirements) return Json(new { success = false, error = $"Đơn hàng tối thiểu phải là {voucher.MinimumRequirements:N0}đ." });
 
             double discountAmount = 0;
@@ -287,14 +332,14 @@ namespace Assignment.Controllers
             }
             else
             {
-                discountAmount = subtotal * (voucher.Discount / 100);
+                discountAmount = discountBase * (voucher.Discount / 100);
                 if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
                 {
                     discountAmount = voucher.MaximumPercentageReduction.Value;
                 }
             }
 
-            discountAmount = Math.Min(discountAmount, subtotal);
+            discountAmount = Math.Min(discountAmount, discountBase);
 
             double priceAfterDiscount = subtotal - discountAmount;
             double vatAmount = priceAfterDiscount * 0.15;
