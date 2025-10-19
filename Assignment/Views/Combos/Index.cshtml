@@ -9,6 +9,35 @@
     var canView = ViewData["CanView"] as bool? ?? false;
 }
 
+@section Styles {
+    <style>
+        #comboModal .modal-content,
+        #detailModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - var(--bs-modal-margin) * 2);
+        }
+
+        #comboModal form {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        #comboModal .modal-body,
+        #detailModal .modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+        }
+
+        #comboModal .modal-footer,
+        #detailModal .modal-footer {
+            flex-shrink: 0;
+        }
+    </style>
+}
+
 <div class="container-fluid pt-4 px-4">
     <div class="card shadow-sm" id="combo-app"
          data-can-create="@(canCreate ? "true" : "false")"
