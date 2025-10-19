@@ -903,7 +903,7 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Điểm đánh giá</label>
-                            <div class="rating-stars" role="radiogroup" aria-label="Điểm đánh giá">
+                            <div class="rating-stars" id="productRatingStars" role="radiogroup" aria-label="Điểm đánh giá">
                                 @for (var score = 5; score >= 1; score--)
                                 {
                                     var id = $"product-rating-star{score}";
@@ -926,7 +926,7 @@
                                     </label>
                                 }
                             </div>
-                            <div class="form-text">Chọn số sao tương ứng với trải nghiệm của bạn.</div>
+                            <div class="form-text rating-hint" id="productRatingHint" aria-live="polite">Chọn số sao tương ứng với trải nghiệm của bạn.</div>
                         </div>
                         <div class="mb-3">
                             <label for="rating-comment" class="form-label">Nhận xét</label>
@@ -1047,5 +1047,77 @@
 
             setTimeout(() => notification.fadeOut(() => notification.remove()), 3000);
         }
+
+        function setupRatingStars(containerId, hintId) {
+            const container = document.getElementById(containerId);
+            const hint = document.getElementById(hintId);
+
+            if (!container || !hint) {
+                return;
+            }
+
+            const scoreMessages = {
+                1: 'Không hài lòng – cần cải thiện.',
+                2: 'Tạm ổn – còn nhiều điểm chưa tốt.',
+                3: 'Tốt – đáp ứng kỳ vọng cơ bản.',
+                4: 'Rất tốt – trải nghiệm hài lòng.',
+                5: 'Tuyệt vời – vượt mong đợi của bạn!'
+            };
+
+            const defaultHint = hint.textContent.trim();
+            let lockedScore = null;
+
+            const applyScore = (score) => {
+                const message = scoreMessages[score] ?? `${score} sao`;
+                hint.textContent = message;
+                container.dataset.currentScore = String(score);
+            };
+
+            const resetScore = () => {
+                if (lockedScore) {
+                    applyScore(lockedScore);
+                    hint.classList.add('is-active');
+                } else {
+                    hint.textContent = defaultHint;
+                    container.dataset.currentScore = '';
+                    hint.classList.remove('is-active');
+                }
+            };
+
+            const inputs = container.querySelectorAll('input[type="radio"]');
+
+            inputs.forEach((input) => {
+                const score = parseInt(input.value, 10);
+
+                if (input.checked) {
+                    lockedScore = score;
+                }
+
+                input.addEventListener('change', () => {
+                    lockedScore = score;
+                    applyScore(score);
+                    hint.classList.add('is-active');
+                });
+
+                input.addEventListener('focus', () => applyScore(score));
+
+                const label = container.querySelector(`label[for="${input.id}"]`);
+                if (label) {
+                    label.addEventListener('mouseenter', () => applyScore(score));
+                    label.addEventListener('mouseleave', resetScore);
+                }
+            });
+
+            container.addEventListener('mouseleave', resetScore);
+            container.addEventListener('focusout', (event) => {
+                if (!container.contains(event.relatedTarget)) {
+                    resetScore();
+                }
+            });
+
+            resetScore();
+        }
+
+        setupRatingStars('productRatingStars', 'productRatingHint');
     </script>
 }
