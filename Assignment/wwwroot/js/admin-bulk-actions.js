@@ -21,7 +21,7 @@
         const countEl = container.querySelector('[data-bulk-count]');
         const enableTargets = getElements(container, '[data-bulk-enable]');
         const emptyMessage = container.dataset.bulkEmptyMessage || 'Vui lòng chọn ít nhất một mục.';
-        const confirmTemplate = container.dataset.bulkConfirm || '';
+        const confirmTemplate = form.dataset.confirm || container.dataset.bulkConfirm || '';
 
         function selectedItems() {
             return getElements(container, '[data-bulk-item]:checked');

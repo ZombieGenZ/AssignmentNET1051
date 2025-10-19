@@ -166,17 +166,35 @@
             <div class="header-right">
                 @if (SignInManager.IsSignedIn(User))
                 {
-                    var userName = User.Identity?.Name ?? "User";
-                    var initials = string.IsNullOrWhiteSpace(userName)
-                    ? "?"
-                    : string.Concat(userName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                    .Where(s => s.Length > 0)
-                    .Select(s => s[0]));
+                    var appUser = await UserManager.GetUserAsync(User);
+                    var userDisplayName = appUser?.FullName;
+
+                    if (string.IsNullOrWhiteSpace(userDisplayName))
+                    {
+                        userDisplayName = appUser?.UserName;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(userDisplayName))
+                    {
+                        userDisplayName = appUser?.Email;
+                    }
+
+                    userDisplayName ??= "Người dùng";
+
+                    var initials = string.Concat(userDisplayName
+                        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                        .Where(s => s.Length > 0)
+                        .Select(s => char.ToUpperInvariant(s[0])));
+
+                    if (string.IsNullOrWhiteSpace(initials))
+                    {
+                        initials = "?";
+                    }
 
                     <div class="user-profile-container">
                         <div class="user-profile" id="userProfileToggle">
                             <div class="user-avatar">@initials</div>
-                            <span class="user-name">@userName</span>
+                            <span class="user-name">@userDisplayName</span>
                             <i class="fas fa-chevron-down" style="font-size: 0.7rem; color: #858796; margin-left: 5px;"></i>
                         </div>
                         <div class="dropdown-menu-user" id="userDropdown">
