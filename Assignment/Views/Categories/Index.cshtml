@@ -1,213 +1,512 @@
-@using Assignment.Models
-@using Microsoft.AspNetCore.Identity
-@using System.Linq
-@model Assignment.ViewModels.PagedResult<Assignment.Models.Category>
-@inject UserManager<ApplicationUser> UserManager
-
 @{
-    ViewData["Title"] = "Danh sách danh mục";
+    ViewData["Title"] = "Quản lý danh mục";
     Layout = "_AdminLayout";
-    var currentPageSize = Model?.PageSize ?? 25;
-    var currentPage = Model?.CurrentPage ?? 1;
-    var totalPages = Model?.TotalPages ?? 0;
-    var totalItems = Model?.TotalItems ?? 0;
-    var startItem = Model?.StartItem ?? 0;
-    var endItem = Model?.EndItem ?? 0;
-    var categories = Model?.Items ?? Enumerable.Empty<Category>();
-    var hasData = categories.Any();
-    var pageSizeOptions = (Model?.PageSizeOptions != null && Model.PageSizeOptions.Count > 0)
-        ? Model.PageSizeOptions
-        : new[] { 25, 50, 75, 100 };
-    var hasPagination = totalPages > 1;
-    var startPage = 1;
-    var endPage = totalPages;
 
-    if (totalPages > 0)
-    {
-        startPage = Math.Max(1, currentPage - 2);
-        endPage = Math.Min(totalPages, currentPage + 2);
-
-        if (endPage - startPage < 4)
-        {
-            if (startPage == 1)
-            {
-                endPage = Math.Min(totalPages, startPage + 4);
-            }
-            else if (endPage == totalPages)
-            {
-                startPage = Math.Max(1, endPage - 4);
-            }
-        }
-    }
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
 }
 
-<head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-</head>
-
 <div class="container-fluid pt-4 px-4">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm" id="category-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
         <div class="card-header bg-light">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-tags me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Quản lý danh mục sản phẩm và thứ tự hiển thị.</p>
+                    <p class="text-muted mb-0">Quản lý danh mục sản phẩm với các thao tác CRUD ngay trên một trang duy nhất.</p>
                 </div>
-                @if (User.HasPermission("CreateCategory"))
+                @if (canCreate)
                 {
-                    <a class="btn btn-primary" asp-action="Create">
-                        <i class="fas fa-plus me-2"></i>Tạo mới
-                    </a>
+                    <button type="button" class="btn btn-primary" id="createCategoryBtn">
+                        <i class="fas fa-plus me-2"></i>Thêm mới danh mục
+                    </button>
                 }
             </div>
         </div>
         <div class="card-body">
-            @if (TempData["Success"] is string successMessage)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="fas fa-check-circle me-2"></i>@successMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            <div id="alertPlaceholder"></div>
+            <div class="d-flex justify-content-between align-items-center flex-column flex-md-row gap-3 mb-3">
+                <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu danh mục..." : "Bạn không có quyền xem danh sách danh mục.")</div>
+                <div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshCategoriesBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
                 </div>
-            }
-            @if (TempData["Error"] is string errorMessage)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>@errorMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["Info"] is string infoMessage)
-            {
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
-                    <i class="fas fa-info-circle me-2"></i>@infoMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
-                <div class="text-muted small">
-                    @if (hasData)
-                    {
-                        <span>Hiển thị <strong>@startItem</strong> - <strong>@endItem</strong> trong tổng số <strong>@totalItems</strong> danh mục.</span>
-                    }
-                    else
-                    {
-                        <span>Không có danh mục nào để hiển thị.</span>
-                    }
-                </div>
-                <form method="get" asp-action="Index" class="d-flex align-items-center gap-2">
-                    <input type="hidden" name="page" value="1" />
-                    <label class="form-label mb-0" for="pageSizeSelect">Hiển thị</label>
-                    <select id="pageSizeSelect" name="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                        @foreach (var option in pageSizeOptions)
-                        {
-                            <option value="@option" selected="@(option == currentPageSize ? "selected" : null)">@option</option>
-                        }
-                    </select>
-                    <span class="text-muted small">bản ghi/trang</span>
-                </form>
             </div>
-
-            @if (hasData)
-            {
-                <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một danh mục để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} danh mục đã chọn?">
-                    <form asp-action="BulkDelete" method="post" data-confirm="Bạn có chắc chắn muốn xóa {count} danh mục đã chọn? Hành động này không thể hoàn tác.">
-                        @Html.AntiForgeryToken()
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>
-                                <span class="text-muted small">Đã chọn <span data-bulk-count>0</span> danh mục</span>
-                                <button type="submit" class="btn btn-sm btn-danger" data-bulk-enable data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} danh mục đã chọn? Hành động này không thể hoàn tác.">
-                                    <i class="fas fa-trash-alt me-1"></i>Xóa tất cả
-                                </button>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-bordered text-center">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50px;">
-                                            <div class="form-check d-flex justify-content-center mb-0">
-                                                <input class="form-check-input" type="checkbox" data-bulk-select-all />
-                                            </div>
-                                        </th>
-                                        <th scope="col">@Html.DisplayNameFor(model => model.Items.First().Name)</th>
-                                        <th scope="col">@Html.DisplayNameFor(model => model.Items.First().Index)</th>
-                                        <th scope="col" style="width: 20%;">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var item in categories)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <div class="form-check d-flex justify-content-center mb-0">
-                                                    <input class="form-check-input" type="checkbox" name="selectedIds" value="@item.Id" data-bulk-item />
-                                                </div>
-                                            </td>
-                                            <td class="text-start fw-semibold">@item.Name</td>
-                                            <td>@item.Index</td>
-                                            <td>
-                                                <div class="d-flex justify-content-center gap-2">
-                                                    @if (User.HasAnyPermission("UpdateCategory", "UpdateCategoryAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("GetCategory", "GetCategoryAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
-                                                            <i class="fas fa-info-circle"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("DeleteCategory", "DeleteCategoryAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
-                                                            <i class="fas fa-trash-alt"></i>
-                                                        </a>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </form>
-                </div>
-
-                @if (hasPagination)
-                {
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
-                        <div class="text-muted small">Trang <strong>@currentPage</strong> / <strong>@totalPages</strong></div>
-                        <nav aria-label="Điều hướng trang danh mục">
-                            <ul class="pagination justify-content-md-end mb-0">
-                                <li class="page-item @(currentPage == 1 ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage - 1)" asp-route-pageSize="@currentPageSize">&laquo;</a>
-                                </li>
-                                @for (var p = startPage; p <= endPage; p++)
-                                {
-                                    <li class="page-item @(p == currentPage ? "active" : string.Empty)">
-                                        <a class="page-link" asp-action="Index" asp-route-page="@p" asp-route-pageSize="@currentPageSize">@p</a>
-                                    </li>
-                                }
-                                <li class="page-item @(currentPage == totalPages ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage + 1)" asp-route-pageSize="@currentPageSize">&raquo;</a>
-                                </li>
-                            </ul>
-                        </nav>
-                    </div>
-                }
-            }
-            else
-            {
-                <div class="text-center py-5">
-                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
-                    <p class="text-muted mb-0">Chưa có danh mục nào được tạo.</p>
-                </div>
-            }
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tên danh mục</th>
+                            <th>Thứ tự hiển thị</th>
+                            <th style="width: 120px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="categoriesTableBody">
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<form id="antiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="categoryModalLabel">Thêm mới danh mục</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="categoryForm" novalidate>
+                <div class="modal-body">
+                    <div id="categoryFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="categoryName" class="form-label">Tên danh mục<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="categoryName" maxlength="100" required />
+                    </div>
+                    <div class="mb-0">
+                        <label for="categoryIndex" class="form-label">Thứ tự hiển thị<span class="text-danger">*</span></label>
+                        <input type="number" class="form-control" id="categoryIndex" min="0" step="1" required />
+                        <small class="text-muted">Số nhỏ hơn sẽ được ưu tiên hiển thị trước.</small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="categorySubmitBtn">Thêm mới</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Xóa danh mục</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa danh mục <strong id="deleteCategoryName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('category-app');
+            if (!app) {
+                return;
+            }
+
+            const canCreate = app.dataset.canCreate === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+            const canView = app.dataset.canView === 'true';
+            const API_BASE_URL = '/api/categories';
+
+            const tableBody = document.getElementById('categoriesTableBody');
+            const tableStatus = document.getElementById('tableStatus');
+            const alertPlaceholder = document.getElementById('alertPlaceholder');
+            const refreshBtn = document.getElementById('refreshCategoriesBtn');
+            const createBtn = document.getElementById('createCategoryBtn');
+            const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
+
+            const categoryModalEl = document.getElementById('categoryModal');
+            const categoryModal = new bootstrap.Modal(categoryModalEl);
+            const categoryForm = document.getElementById('categoryForm');
+            const categoryModalTitle = document.getElementById('categoryModalLabel');
+            const categoryFormErrors = document.getElementById('categoryFormErrors');
+            const nameInput = document.getElementById('categoryName');
+            const indexInput = document.getElementById('categoryIndex');
+            const submitButton = document.getElementById('categorySubmitBtn');
+
+            const deleteModalEl = document.getElementById('deleteModal');
+            const deleteModal = new bootstrap.Modal(deleteModalEl);
+            const deleteConfirmBtn = document.getElementById('confirmDeleteBtn');
+            const deleteCategoryName = document.getElementById('deleteCategoryName');
+
+            let editingCategoryId = null;
+            let deleteCategoryId = null;
+
+            function escapeHtml(value) {
+                if (!value) {
+                    return '';
+                }
+                return value
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function showAlert(message, type = 'success') {
+                if (!alertPlaceholder || !message) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    ${escapeHtml(message)}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+
+                alertPlaceholder.appendChild(wrapper);
+                setTimeout(() => {
+                    const alert = bootstrap.Alert.getOrCreateInstance(wrapper);
+                    alert.close();
+                }, 5000);
+            }
+
+            function setTableStatus(message) {
+                if (tableStatus) {
+                    tableStatus.textContent = message;
+                }
+            }
+
+            function setTableLoading(message = 'Đang tải dữ liệu...') {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-muted">${escapeHtml(message)}</td>
+                    </tr>`;
+            }
+
+            function renderCategories(categories) {
+                tableBody.innerHTML = '';
+
+                if (!categories || categories.length === 0) {
+                    setTableStatus('Không có danh mục nào để hiển thị.');
+                    tableBody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">Không có dữ liệu để hiển thị.</td>
+                        </tr>`;
+                    return;
+                }
+
+                setTableStatus(`Đang hiển thị ${categories.length} danh mục.`);
+
+                categories.forEach(category => {
+                    const tr = document.createElement('tr');
+
+                    const nameCell = document.createElement('td');
+                    nameCell.className = 'fw-semibold';
+                    nameCell.textContent = category.name ?? '';
+                    tr.appendChild(nameCell);
+
+                    const indexCell = document.createElement('td');
+                    indexCell.textContent = category.index ?? '';
+                    tr.appendChild(indexCell);
+
+                    const actionsCell = document.createElement('td');
+                    actionsCell.className = 'text-center';
+                    const actionsWrapper = document.createElement('div');
+                    actionsWrapper.className = 'd-flex justify-content-center gap-2';
+
+                    if (canUpdate) {
+                        const editButton = document.createElement('button');
+                        editButton.type = 'button';
+                        editButton.className = 'btn btn-sm btn-outline-warning';
+                        editButton.dataset.action = 'edit';
+                        editButton.dataset.id = category.id;
+                        editButton.innerHTML = '<i class="fas fa-edit"></i>';
+                        actionsWrapper.appendChild(editButton);
+                    }
+
+                    if (canDelete) {
+                        const deleteButton = document.createElement('button');
+                        deleteButton.type = 'button';
+                        deleteButton.className = 'btn btn-sm btn-outline-danger';
+                        deleteButton.dataset.action = 'delete';
+                        deleteButton.dataset.id = category.id;
+                        deleteButton.dataset.name = category.name ?? '';
+                        deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                        actionsWrapper.appendChild(deleteButton);
+                    }
+
+                    if (actionsWrapper.children.length === 0) {
+                        actionsWrapper.innerHTML = '<span class="text-muted small">—</span>';
+                    }
+
+                    actionsCell.appendChild(actionsWrapper);
+                    tr.appendChild(actionsCell);
+
+                    tableBody.appendChild(tr);
+                });
+            }
+
+            async function loadCategories(showError = true) {
+                if (!canView) {
+                    setTableStatus('Bạn không có quyền xem danh sách danh mục.');
+                    setTableLoading('Không có dữ liệu để hiển thị.');
+                    return;
+                }
+
+                setTableLoading();
+
+                try {
+                    const response = await fetch(API_BASE_URL);
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            setTableStatus('Bạn không có quyền xem danh sách danh mục.');
+                            setTableLoading('Bạn không có quyền xem danh sách danh mục.');
+                            return;
+                        }
+                        throw new Error('Failed to load categories');
+                    }
+
+                    const categories = await response.json();
+                    renderCategories(categories);
+                } catch (error) {
+                    setTableStatus('Không thể tải danh sách danh mục.');
+                    setTableLoading('Có lỗi xảy ra khi tải dữ liệu.');
+                    if (showError) {
+                        showAlert('Không thể tải danh sách danh mục. Vui lòng thử lại sau.', 'danger');
+                    }
+                }
+            }
+
+            function resetForm() {
+                categoryForm.reset();
+                categoryFormErrors.classList.add('d-none');
+                categoryFormErrors.innerHTML = '';
+                editingCategoryId = null;
+                submitButton.disabled = false;
+                submitButton.innerHTML = 'Thêm mới';
+            }
+
+            function fillForm(category) {
+                nameInput.value = category.name ?? '';
+                indexInput.value = category.index ?? 0;
+            }
+
+            function handleValidationErrors(problemDetails) {
+                if (!categoryFormErrors) {
+                    return;
+                }
+
+                const errors = [];
+                if (problemDetails && problemDetails.errors) {
+                    Object.values(problemDetails.errors).forEach(messages => {
+                        if (Array.isArray(messages)) {
+                            messages.forEach(message => errors.push(message));
+                        }
+                    });
+                } else if (problemDetails && problemDetails.title) {
+                    errors.push(problemDetails.title);
+                }
+
+                if (errors.length === 0) {
+                    errors.push('Vui lòng kiểm tra lại thông tin đã nhập.');
+                }
+
+                categoryFormErrors.innerHTML = `<ul class="mb-0">${errors.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
+                categoryFormErrors.classList.remove('d-none');
+            }
+
+            function openCreateModal() {
+                resetForm();
+                categoryModalTitle.textContent = 'Thêm mới danh mục';
+                submitButton.textContent = 'Thêm mới';
+                categoryModal.show();
+            }
+
+            async function openEditModal(categoryId) {
+                resetForm();
+                submitButton.disabled = true;
+                submitButton.textContent = 'Đang tải...';
+                categoryModalTitle.textContent = 'Chỉnh sửa danh mục';
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${categoryId}`);
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            showAlert('Danh mục không tồn tại hoặc đã bị xóa.', 'warning');
+                        } else if (response.status === 403) {
+                            showAlert('Bạn không có quyền chỉnh sửa danh mục này.', 'warning');
+                        } else {
+                            throw new Error('Failed to load category');
+                        }
+                        return;
+                    }
+
+                    const category = await response.json();
+                    editingCategoryId = categoryId;
+                    fillForm(category);
+                    submitButton.textContent = 'Lưu thay đổi';
+                    categoryModal.show();
+                } catch (error) {
+                    showAlert('Không thể tải thông tin danh mục. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    submitButton.disabled = false;
+                    if (!editingCategoryId) {
+                        submitButton.textContent = 'Thêm mới';
+                    }
+                }
+            }
+
+            function openDeleteModal(categoryId, categoryName) {
+                deleteCategoryId = categoryId;
+                deleteCategoryName.textContent = categoryName || '';
+                deleteModal.show();
+            }
+
+            async function submitCategory(event) {
+                event.preventDefault();
+                categoryFormErrors.classList.add('d-none');
+                categoryFormErrors.innerHTML = '';
+
+                const payload = {
+                    name: nameInput.value ? nameInput.value.trim() : '',
+                    index: Number(indexInput.value || 0)
+                };
+
+                if (!payload.name) {
+                    handleValidationErrors({ title: 'Tên danh mục không được để trống.' });
+                    return;
+                }
+
+                const isEdit = Boolean(editingCategoryId);
+                const url = isEdit ? `${API_BASE_URL}/${editingCategoryId}` : API_BASE_URL;
+                const method = isEdit ? 'PUT' : 'POST';
+
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang xử lý...';
+
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 400) {
+                            const problemDetails = await response.json().catch(() => null);
+                            handleValidationErrors(problemDetails);
+                        } else if (response.status === 403) {
+                            showAlert('Bạn không có quyền thực hiện thao tác này.', 'warning');
+                        } else {
+                            const problemDetails = await response.json().catch(() => null);
+                            handleValidationErrors(problemDetails);
+                        }
+                        return;
+                    }
+
+                    await loadCategories(false);
+                    categoryModal.hide();
+                    showAlert(isEdit ? 'Đã cập nhật danh mục thành công.' : 'Đã tạo danh mục mới thành công.');
+                } catch (error) {
+                    showAlert('Không thể lưu danh mục. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.innerHTML = isEdit ? 'Lưu thay đổi' : 'Thêm mới';
+                }
+            }
+
+            async function confirmDelete() {
+                if (!deleteCategoryId) {
+                    return;
+                }
+
+                deleteConfirmBtn.disabled = true;
+                deleteConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang xóa...';
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${deleteCategoryId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        }
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            showAlert('Bạn không có quyền xóa danh mục này.', 'warning');
+                        } else if (response.status === 404) {
+                            showAlert('Danh mục đã bị xóa hoặc không tồn tại.', 'warning');
+                        } else if (response.status === 400) {
+                            const result = await response.json().catch(() => null);
+                            const message = result && result.message ? result.message : 'Không thể xóa danh mục này.';
+                            showAlert(message, 'warning');
+                        } else {
+                            throw new Error('Failed to delete category');
+                        }
+                        return;
+                    }
+
+                    deleteModal.hide();
+                    await loadCategories(false);
+                    showAlert('Đã xóa danh mục thành công.');
+                } catch (error) {
+                    showAlert('Không thể xóa danh mục. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    deleteConfirmBtn.disabled = false;
+                    deleteConfirmBtn.innerHTML = 'Xóa';
+                    deleteCategoryId = null;
+                }
+            }
+
+            tableBody.addEventListener('click', event => {
+                const button = event.target.closest('button[data-action]');
+                if (!button) {
+                    return;
+                }
+
+                const action = button.dataset.action;
+                const categoryId = Number(button.dataset.id);
+                const categoryName = button.dataset.name || '';
+
+                if (action === 'edit' && canUpdate) {
+                    openEditModal(categoryId);
+                } else if (action === 'delete' && canDelete) {
+                    openDeleteModal(categoryId, categoryName);
+                }
+            });
+
+            if (categoryForm) {
+                categoryForm.addEventListener('submit', submitCategory);
+            }
+
+            if (deleteConfirmBtn) {
+                deleteConfirmBtn.addEventListener('click', confirmDelete);
+            }
+
+            if (createBtn) {
+                createBtn.addEventListener('click', () => openCreateModal());
+            }
+
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => loadCategories());
+            }
+
+            loadCategories(false);
+        })();
+    </script>
+}
