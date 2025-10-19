@@ -263,7 +263,7 @@
             const vatAmountEl = $('#vat-amount');
             const totalBillEl = $('#total-bill');
             const initialAppliedVouchers = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialAppliedVouchers ?? new List<object>()));
-            const initialTotalsData = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialVoucherTotals ?? new { totalDiscount = 0.0, vatAmount = initialSubtotal * 0.15, totalBill = initialSubtotal + (initialSubtotal * 0.15) }));
+            const initialTotalsData = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialVoucherTotals ?? new { totalDiscount = 0.0, vatAmount = totalPrice * 0.15, totalBill = totalPrice + (totalPrice * 0.15) }));
 
             let appliedVouchers = [];
 
