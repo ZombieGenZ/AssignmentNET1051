@@ -1,267 +1,919 @@
-@using Assignment.Models
-@using Microsoft.AspNetCore.Identity
-@using System.Linq
-@model Assignment.ViewModels.PagedResult<Assignment.Models.Combo>
-@inject UserManager<ApplicationUser> UserManager
-
+@using Assignment.Enums
 @{
-    ViewData["Title"] = "Danh sách Combo";
+    ViewData["Title"] = "Quản lý combo";
     Layout = "_AdminLayout";
-    var currentPageSize = Model?.PageSize ?? 25;
-    var currentPage = Model?.CurrentPage ?? 1;
-    var totalPages = Model?.TotalPages ?? 0;
-    var totalItems = Model?.TotalItems ?? 0;
-    var startItem = Model?.StartItem ?? 0;
-    var endItem = Model?.EndItem ?? 0;
-    var combos = Model?.Items ?? Enumerable.Empty<Combo>();
-    var hasData = combos.Any();
-    var pageSizeOptions = (Model?.PageSizeOptions != null && Model.PageSizeOptions.Count > 0)
-        ? Model.PageSizeOptions
-        : new[] { 25, 50, 75, 100 };
-    var hasPagination = totalPages > 1;
-    var startPage = 1;
-    var endPage = totalPages;
 
-    if (totalPages > 0)
-    {
-        startPage = Math.Max(1, currentPage - 2);
-        endPage = Math.Min(totalPages, currentPage + 2);
-
-        if (endPage - startPage < 4)
-        {
-            if (startPage == 1)
-            {
-                endPage = Math.Min(totalPages, startPage + 4);
-            }
-            else if (endPage == totalPages)
-            {
-                startPage = Math.Max(1, endPage - 4);
-            }
-        }
-    }
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
 }
 
-<head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-</head>
-
 <div class="container-fluid pt-4 px-4">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm" id="combo-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
         <div class="card-header bg-light">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-layer-group me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Quản lý các gói combo và danh sách sản phẩm đi kèm.</p>
+                    <p class="text-muted mb-0">Quản lý các gói combo với thao tác CRUD tập trung trên một trang.</p>
                 </div>
-                @if (User.HasPermission("CreateCombo"))
-                {
-                    <a class="btn btn-primary" asp-action="Create">
-                        <i class="fas fa-plus me-2"></i>Tạo mới
+                <div class="d-flex flex-wrap gap-2">
+                    <a class="btn btn-outline-secondary" href="/api/combos/template">
+                        <i class="fas fa-file-download me-2"></i>Tải file mẫu
                     </a>
-                }
+                    @if (canCreate)
+                    {
+                        <button type="button" class="btn btn-primary" id="createComboBtn">
+                            <i class="fas fa-plus me-2"></i>Thêm combo
+                        </button>
+                    }
+                </div>
             </div>
         </div>
         <div class="card-body">
-            @if (TempData["Success"] is string successMessage)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="fas fa-check-circle me-2"></i>@successMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["Error"] is string errorMessage)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>@errorMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["Info"] is string infoMessage)
-            {
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
-                    <i class="fas fa-info-circle me-2"></i>@infoMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-
+            <div id="alertPlaceholder"></div>
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
-                <div class="text-muted small">
-                    @if (hasData)
-                    {
-                        <span>Hiển thị <strong>@startItem</strong> - <strong>@endItem</strong> trong tổng số <strong>@totalItems</strong> combo.</span>
-                    }
-                    else
-                    {
-                        <span>Không có combo nào để hiển thị.</span>
-                    }
-                </div>
-                <form method="get" asp-action="Index" class="d-flex align-items-center gap-2">
-                    <input type="hidden" name="page" value="1" />
-                    <label class="form-label mb-0" for="pageSizeSelect">Hiển thị</label>
-                    <select id="pageSizeSelect" name="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                        @foreach (var option in pageSizeOptions)
-                        {
-                            <option value="@option" selected="@(option == currentPageSize ? "selected" : null)">@option</option>
-                        }
-                    </select>
-                    <span class="text-muted small">bản ghi/trang</span>
-                </form>
-            </div>
-
-            @if (hasData)
-            {
-                <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một combo để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} combo đã chọn?">
-                    <form asp-action="BulkDelete" method="post" data-confirm="Bạn có chắc chắn muốn xóa {count} combo đã chọn? Hành động này không thể hoàn tác.">
-                        @Html.AntiForgeryToken()
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>
-                                <span class="text-muted small">Đã chọn <span data-bulk-count>0</span> combo</span>
-                                <button type="submit" class="btn btn-sm btn-danger" data-bulk-enable data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} combo đã chọn? Hành động này không thể hoàn tác.">
-                                    <i class="fas fa-trash-alt me-1"></i>Xóa tất cả
-                                </button>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50px;">
-                                            <div class="form-check d-flex justify-content-center mb-0">
-                                                <input class="form-check-input" type="checkbox" data-bulk-select-all />
-                                            </div>
-                                        </th>
-                                        <th style="width: 80px;">Ảnh</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Name)</th>
-                                        <th>Giá bán</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Stock)</th>
-                                        <th>Sản phẩm trong combo</th>
-                                        <th style="width: 15%;">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var combo in combos)
-                                    {
-                                        var finalPrice = PriceCalculator.GetComboFinalPrice(combo);
-                                        <tr>
-                                            <td>
-                                                <div class="form-check d-flex justify-content-center mb-0">
-                                                    <input class="form-check-input" type="checkbox" name="selectedIds" value="@combo.Id" data-bulk-item />
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <img style="width: 56px; height: 56px; object-fit: cover;" src="@combo.ImageUrl" alt="@combo.Name" class="rounded" />
-                                            </td>
-                                            <td class="fw-semibold text-start">@combo.Name</td>
-                                            <td>
-                                                @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue)
-                                                {
-                                                    <div class="d-flex flex-column">
-                                                        <del class="text-muted small">@combo.Price.ToString("C0")</del>
-                                                        <span class="fw-semibold text-danger">@finalPrice.ToString("C0")</span>
-                                                        <span class="small text-muted">Giảm @(combo.Discount?.ToString() ?? "0")%</span>
-                                                    </div>
-                                                }
-                                                else
-                                                {
-                                                    <span class="fw-semibold">@finalPrice.ToString("C0")</span>
-                                                }
-                                            </td>
-                                            <td>@combo.Stock</td>
-                                            <td class="text-start">
-                                                @if (combo.ComboItems.Any())
-                                                {
-                                                    <ul class="list-unstyled mb-0">
-                                                        @foreach (var comboItem in combo.ComboItems)
-                                                        {
-                                                            var isProduct = comboItem.Product != null;
-                                                            var badgeText = isProduct ? "Sản phẩm" : "Combo";
-                                                            var badgeClass = isProduct ? "bg-success" : "bg-info";
-                                                            var displayName = isProduct
-                                                                ? comboItem.Product?.Name ?? $"Sản phẩm #{comboItem.ProductId}"
-                                                                : $"Combo #{comboItem.ProductId}";
-                                                            var imageUrl = isProduct && !string.IsNullOrWhiteSpace(comboItem.Product?.ProductImageUrl)
-                                                                ? comboItem.Product.ProductImageUrl
-                                                                : "/images/no-image.jpg";
-                                                            <li class="d-flex align-items-center gap-2 mb-2">
-                                                                <img style="width: 40px; height: 40px; object-fit: cover;" src="@imageUrl" alt="@displayName" class="rounded" />
-                                                                <div class="d-flex flex-column">
-                                                                    <div class="d-flex align-items-center gap-2">
-                                                                        <span class="badge @badgeClass">@badgeText</span>
-                                                                        <span class="fw-semibold">@displayName</span>
-                                                                    </div>
-                                                                    <span class="text-muted small">Số lượng: @comboItem.Quantity</span>
-                                                                </div>
-                                                            </li>
-                                                        }
-                                                    </ul>
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">Chưa có sản phẩm.</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                <div class="d-flex justify-content-center gap-2">
-                                                    @if (User.HasAnyPermission("UpdateCombo", "UpdateComboAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@combo.Id" title="Chỉnh sửa">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("GetCombo", "GetComboAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@combo.Id" title="Chi tiết">
-                                                            <i class="fas fa-info-circle"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("DeleteCombo", "DeleteComboAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@combo.Id" title="Xóa">
-                                                            <i class="fas fa-trash-alt"></i>
-                                                        </a>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </form>
-                </div>
-
-                @if (hasPagination)
-                {
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
-                        <div class="text-muted small">Trang <strong>@currentPage</strong> / <strong>@totalPages</strong></div>
-                        <nav aria-label="Điều hướng trang combo">
-                            <ul class="pagination justify-content-md-end mb-0">
-                                <li class="page-item @(currentPage == 1 ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage - 1)" asp-route-pageSize="@currentPageSize">&laquo;</a>
-                                </li>
-                                @for (var p = startPage; p <= endPage; p++)
-                                {
-                                    <li class="page-item @(p == currentPage ? "active" : string.Empty)">
-                                        <a class="page-link" asp-action="Index" asp-route-page="@p" asp-route-pageSize="@currentPageSize">@p</a>
-                                    </li>
-                                }
-                                <li class="page-item @(currentPage == totalPages ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage + 1)" asp-route-pageSize="@currentPageSize">&raquo;</a>
-                                </li>
-                            </ul>
-                        </nav>
+                <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu combo..." : "Bạn không có quyền xem danh sách combo.")</div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshCombosBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
+                    <div class="d-none" id="bulkActions">
+                        <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                            <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
+                        </button>
                     </div>
-                }
-            }
-            else
-            {
-                <div class="text-center py-5">
-                    <i class="fas fa-layer-group fa-3x text-muted mb-3"></i>
-                    <p class="text-muted mb-0">Chưa có combo nào được tạo.</p>
                 </div>
-            }
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 50px;" class="text-center">
+                                <input type="checkbox" id="selectAllCombos" class="form-check-input" />
+                            </th>
+                            <th>Tên combo</th>
+                            <th class="text-end">Giá gốc</th>
+                            <th class="text-end">Giá sau giảm</th>
+                            <th class="text-center">Tồn kho</th>
+                            <th class="text-center">Trạng thái</th>
+                            <th style="width: 140px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="combosTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<form id="antiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="comboModal" tabindex="-1" aria-labelledby="comboModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="comboModalLabel">Thêm combo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="comboForm" novalidate>
+                <div class="modal-body">
+                    <div id="comboFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="comboName" class="form-label">Tên combo<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="comboName" maxlength="500" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="comboImageUrl" class="form-label">Ảnh đại diện (URL)<span class="text-danger">*</span></label>
+                            <input type="url" class="form-control" id="comboImageUrl" maxlength="1000" required />
+                        </div>
+                        <div class="col-12">
+                            <label for="comboDescription" class="form-label">Mô tả<span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="comboDescription" rows="3" maxlength="10000" required></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="comboStock" class="form-label">Tồn kho<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="comboStock" min="0" step="1" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="comboIndex" class="form-label">Thứ tự hiển thị<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="comboIndex" min="0" step="1" required />
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" id="comboIsPublish" />
+                                <label class="form-check-label" for="comboIsPublish">Xuất bản</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="comboDiscountType" class="form-label">Loại giảm giá</label>
+                            <select id="comboDiscountType" class="form-select">
+                                <option value="@( (int)DiscountType.None )">Không áp dụng</option>
+                                <option value="@( (int)DiscountType.Percent )">Giảm theo %</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6" id="comboDiscountWrapper" style="display: none;">
+                            <label for="comboDiscount" class="form-label">Giá trị giảm (%)</label>
+                            <input type="number" class="form-control" id="comboDiscount" min="0" max="100" step="1" />
+                        </div>
+                    </div>
+                    <hr class="my-4" />
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="mb-0">Sản phẩm trong combo</h5>
+                        <button type="button" class="btn btn-outline-success btn-sm" id="addComboItemBtn">
+                            <i class="fas fa-plus me-1"></i>Thêm sản phẩm
+                        </button>
+                    </div>
+                    <div id="comboItemsContainer" class="d-flex flex-column gap-3"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="comboSubmitBtn">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Xóa combo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa combo <strong id="deleteComboName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailModalLabel">Chi tiết combo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="d-flex flex-column gap-3" id="comboDetailContent"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('combo-app');
+            if (!app) {
+                return;
+            }
+
+            const API_BASE_URL = '/api/combos';
+            const canCreate = app.dataset.canCreate === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+            const canView = app.dataset.canView === 'true';
+
+            const tableBody = document.getElementById('combosTableBody');
+            const tableStatus = document.getElementById('tableStatus');
+            const alertPlaceholder = document.getElementById('alertPlaceholder');
+            const refreshBtn = document.getElementById('refreshCombosBtn');
+            const selectAllCheckbox = document.getElementById('selectAllCombos');
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const createBtn = document.getElementById('createComboBtn');
+
+            const comboModalEl = document.getElementById('comboModal');
+            const comboModal = new bootstrap.Modal(comboModalEl);
+            const comboForm = document.getElementById('comboForm');
+            const comboModalLabel = document.getElementById('comboModalLabel');
+            const comboFormErrors = document.getElementById('comboFormErrors');
+            const comboSubmitBtn = document.getElementById('comboSubmitBtn');
+
+            const nameInput = document.getElementById('comboName');
+            const descriptionInput = document.getElementById('comboDescription');
+            const imageUrlInput = document.getElementById('comboImageUrl');
+            const stockInput = document.getElementById('comboStock');
+            const indexInput = document.getElementById('comboIndex');
+            const isPublishInput = document.getElementById('comboIsPublish');
+            const discountTypeSelect = document.getElementById('comboDiscountType');
+            const discountWrapper = document.getElementById('comboDiscountWrapper');
+            const discountInput = document.getElementById('comboDiscount');
+            const itemsContainer = document.getElementById('comboItemsContainer');
+            const addItemBtn = document.getElementById('addComboItemBtn');
+
+            const deleteModalEl = document.getElementById('deleteModal');
+            const deleteModal = new bootstrap.Modal(deleteModalEl);
+            const deleteComboName = document.getElementById('deleteComboName');
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+            const detailModalEl = document.getElementById('detailModal');
+            const detailModal = new bootstrap.Modal(detailModalEl);
+            const detailContent = document.getElementById('comboDetailContent');
+
+            const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
+
+            const discountLabels = {
+                @( (int)DiscountType.None ): 'Không áp dụng',
+                @( (int)DiscountType.Percent ): 'Giảm theo %'
+            };
+
+            let combos = [];
+            let productsCache = null;
+            let editingComboId = null;
+            let deleteComboId = null;
+            const selectedComboIds = new Set();
+
+            function showAlert(type, message) {
+                if (!alertPlaceholder) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.setAttribute('role', 'alert');
+                wrapper.innerHTML = `
+                    <span>${message}</span>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+
+                alertPlaceholder.appendChild(wrapper);
+            }
+
+            function clearAlerts() {
+                if (alertPlaceholder) {
+                    alertPlaceholder.innerHTML = '';
+                }
+            }
+
+            function formatCurrency(value) {
+                const number = Number(value || 0);
+                return number.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
+            }
+
+            function toggleDiscountField() {
+                const selectedValue = Number(discountTypeSelect.value);
+                discountWrapper.style.display = selectedValue === @( (int)DiscountType.Percent ) ? 'block' : 'none';
+            }
+
+            async function fetchProductsIfNeeded() {
+                if (productsCache) {
+                    return productsCache;
+                }
+
+                const response = await fetch(`${API_BASE_URL}/products`, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('Không thể tải danh sách sản phẩm.');
+                }
+
+                productsCache = await response.json();
+                return productsCache;
+            }
+
+            function createItemRow(item = { productId: '', quantity: 1 }) {
+                const row = document.createElement('div');
+                row.className = 'row g-3 align-items-end';
+
+                const productCol = document.createElement('div');
+                productCol.className = 'col-md-8';
+                const productLabel = document.createElement('label');
+                productLabel.className = 'form-label';
+                productLabel.textContent = 'Sản phẩm';
+                const productSelect = document.createElement('select');
+                productSelect.className = 'form-select combo-product-select';
+                productSelect.required = true;
+                productSelect.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+
+                if (productsCache) {
+                    productsCache.forEach(product => {
+                        const option = document.createElement('option');
+                        option.value = product.id;
+                        option.textContent = `${product.name} (${formatCurrency(product.finalPrice)})`;
+                        if (String(item.productId) === String(product.id)) {
+                            option.selected = true;
+                        }
+                        productSelect.appendChild(option);
+                    });
+                }
+
+                productCol.appendChild(productLabel);
+                productCol.appendChild(productSelect);
+
+                const quantityCol = document.createElement('div');
+                quantityCol.className = 'col-md-3';
+                const quantityLabel = document.createElement('label');
+                quantityLabel.className = 'form-label';
+                quantityLabel.textContent = 'Số lượng';
+                const quantityInput = document.createElement('input');
+                quantityInput.type = 'number';
+                quantityInput.className = 'form-control combo-quantity-input';
+                quantityInput.min = '1';
+                quantityInput.step = '1';
+                quantityInput.value = item.quantity ?? 1;
+                quantityInput.required = true;
+                quantityCol.appendChild(quantityLabel);
+                quantityCol.appendChild(quantityInput);
+
+                const actionCol = document.createElement('div');
+                actionCol.className = 'col-md-1 d-flex justify-content-end';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-outline-danger';
+                removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                removeBtn.addEventListener('click', () => {
+                    itemsContainer.removeChild(row);
+                });
+                actionCol.appendChild(removeBtn);
+
+                row.appendChild(productCol);
+                row.appendChild(quantityCol);
+                row.appendChild(actionCol);
+
+                itemsContainer.appendChild(row);
+            }
+
+            function resetComboForm() {
+                comboForm.reset();
+                comboFormErrors.classList.add('d-none');
+                comboFormErrors.innerHTML = '';
+                itemsContainer.innerHTML = '';
+                discountInput.value = '';
+                toggleDiscountField();
+            }
+
+            function populateComboForm(combo) {
+                nameInput.value = combo.name;
+                descriptionInput.value = combo.description;
+                imageUrlInput.value = combo.imageUrl;
+                stockInput.value = combo.stock;
+                indexInput.value = combo.index;
+                isPublishInput.checked = combo.isPublish;
+                discountTypeSelect.value = combo.discountType;
+                discountInput.value = combo.discount ?? '';
+                toggleDiscountField();
+            }
+
+            function renderCombos() {
+                if (!canView) {
+                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách combo.</td></tr>';
+                    tableStatus.textContent = 'Không thể tải dữ liệu combo.';
+                    return;
+                }
+
+                if (!combos || combos.length === 0) {
+                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Chưa có combo nào.</td></tr>';
+                    tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
+                    return;
+                }
+
+                const rows = combos.map(combo => {
+                    const row = document.createElement('tr');
+
+                    const checkboxCell = document.createElement('td');
+                    checkboxCell.className = 'text-center';
+                    const checkbox = document.createElement('input');
+                    checkbox.type = 'checkbox';
+                    checkbox.className = 'form-check-input combo-select';
+                    checkbox.dataset.id = combo.id;
+                    checkbox.checked = selectedComboIds.has(combo.id);
+                    checkbox.addEventListener('change', () => {
+                        if (checkbox.checked) {
+                            selectedComboIds.add(combo.id);
+                        } else {
+                            selectedComboIds.delete(combo.id);
+                        }
+                        updateBulkActions();
+                    });
+                    checkboxCell.appendChild(checkbox);
+                    row.appendChild(checkboxCell);
+
+                    const nameCell = document.createElement('td');
+                    nameCell.innerHTML = `
+                        <div class="d-flex align-items-center gap-3">
+                            <img src="${combo.imageUrl}" alt="${combo.name}" class="rounded" style="width: 48px; height: 48px; object-fit: cover;" />
+                            <div>
+                                <div class="fw-semibold">${combo.name}</div>
+                                <div class="text-muted small">${combo.items.length} sản phẩm</div>
+                            </div>
+                        </div>`;
+                    row.appendChild(nameCell);
+
+                    const priceCell = document.createElement('td');
+                    priceCell.className = 'text-end';
+                    priceCell.textContent = formatCurrency(combo.price);
+                    row.appendChild(priceCell);
+
+                    const finalPriceCell = document.createElement('td');
+                    finalPriceCell.className = 'text-end';
+                    if (combo.discountType === @( (int)DiscountType.Percent ) && combo.discount) {
+                        finalPriceCell.innerHTML = `
+                            <div class="d-flex flex-column align-items-end">
+                                <del class="text-muted small">${formatCurrency(combo.price)}</del>
+                                <span class="fw-semibold text-danger">${formatCurrency(combo.finalPrice)}</span>
+                                <span class="small text-muted">Giảm ${combo.discount}%</span>
+                            </div>`;
+                    } else {
+                        finalPriceCell.innerHTML = `<span class="fw-semibold">${formatCurrency(combo.finalPrice)}</span>`;
+                    }
+                    row.appendChild(finalPriceCell);
+
+                    const stockCell = document.createElement('td');
+                    stockCell.className = 'text-center';
+                    stockCell.textContent = combo.stock;
+                    row.appendChild(stockCell);
+
+                    const statusCell = document.createElement('td');
+                    statusCell.className = 'text-center';
+                    statusCell.innerHTML = combo.isPublish
+                        ? '<span class="badge bg-success">Đã xuất bản</span>'
+                        : '<span class="badge bg-secondary">Nháp</span>';
+                    row.appendChild(statusCell);
+
+                    const actionsCell = document.createElement('td');
+                    actionsCell.className = 'text-center';
+                    const actionsWrapper = document.createElement('div');
+                    actionsWrapper.className = 'd-flex justify-content-center gap-2';
+
+                    const viewBtn = document.createElement('button');
+                    viewBtn.type = 'button';
+                    viewBtn.className = 'btn btn-sm btn-outline-info';
+                    viewBtn.innerHTML = '<i class="fas fa-eye"></i>';
+                    viewBtn.title = 'Xem chi tiết';
+                    viewBtn.addEventListener('click', () => openDetailModal(combo.id));
+                    actionsWrapper.appendChild(viewBtn);
+
+                    if (canUpdate) {
+                        const editBtn = document.createElement('button');
+                        editBtn.type = 'button';
+                        editBtn.className = 'btn btn-sm btn-outline-warning';
+                        editBtn.innerHTML = '<i class="fas fa-edit"></i>';
+                        editBtn.title = 'Chỉnh sửa';
+                        editBtn.addEventListener('click', () => openEditModal(combo.id));
+                        actionsWrapper.appendChild(editBtn);
+                    }
+
+                    if (canDelete) {
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.type = 'button';
+                        deleteBtn.className = 'btn btn-sm btn-outline-danger';
+                        deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                        deleteBtn.title = 'Xóa';
+                        deleteBtn.addEventListener('click', () => openDeleteModal(combo.id));
+                        actionsWrapper.appendChild(deleteBtn);
+                    }
+
+                    actionsCell.appendChild(actionsWrapper);
+                    row.appendChild(actionsCell);
+
+                    return row;
+                });
+
+                tableBody.innerHTML = '';
+                rows.forEach(row => tableBody.appendChild(row));
+                tableStatus.textContent = `Hiển thị ${combos.length} combo.`;
+                updateBulkActions();
+            }
+
+            async function fetchCombos() {
+                if (!canView) {
+                    return;
+                }
+
+                tableStatus.textContent = 'Đang tải dữ liệu combo...';
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>';
+
+                try {
+                    const response = await fetch(API_BASE_URL, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách combo.');
+                    }
+
+                    combos = await response.json();
+                    combos = Array.isArray(combos) ? combos : [];
+                } catch (error) {
+                    combos = [];
+                    showAlert('danger', error.message || 'Có lỗi xảy ra khi tải dữ liệu combo.');
+                }
+
+                selectedComboIds.clear();
+                selectAllCheckbox.checked = false;
+                renderCombos();
+            }
+
+            function gatherComboFormData() {
+                const items = Array.from(itemsContainer.querySelectorAll('.row')).map(row => {
+                    const productSelect = row.querySelector('.combo-product-select');
+                    const quantityInput = row.querySelector('.combo-quantity-input');
+                    return {
+                        productId: productSelect ? Number(productSelect.value) : null,
+                        quantity: quantityInput ? Number(quantityInput.value) : 0
+                    };
+                }).filter(item => item.productId);
+
+                return {
+                    name: nameInput.value.trim(),
+                    description: descriptionInput.value.trim(),
+                    imageUrl: imageUrlInput.value.trim(),
+                    stock: Number(stockInput.value || 0),
+                    index: Number(indexInput.value || 0),
+                    isPublish: isPublishInput.checked,
+                    discountType: Number(discountTypeSelect.value),
+                    discount: discountInput.value === '' ? null : Number(discountInput.value),
+                    items
+                };
+            }
+
+            function displayFormErrors(errors) {
+                comboFormErrors.innerHTML = '';
+                if (!errors || errors.length === 0) {
+                    comboFormErrors.classList.add('d-none');
+                    return;
+                }
+
+                const list = document.createElement('ul');
+                list.className = 'mb-0';
+                errors.forEach(error => {
+                    const item = document.createElement('li');
+                    item.textContent = error;
+                    list.appendChild(item);
+                });
+
+                comboFormErrors.appendChild(list);
+                comboFormErrors.classList.remove('d-none');
+            }
+
+            async function submitComboForm(event) {
+                event.preventDefault();
+
+                const payload = gatherComboFormData();
+                const validationErrors = [];
+
+                if (!payload.name) {
+                    validationErrors.push('Tên combo không được để trống.');
+                }
+
+                if (!payload.description) {
+                    validationErrors.push('Mô tả combo không được để trống.');
+                }
+
+                if (!payload.imageUrl) {
+                    validationErrors.push('Ảnh đại diện không được để trống.');
+                }
+
+                if (!payload.items || payload.items.length === 0) {
+                    validationErrors.push('Combo phải có ít nhất một sản phẩm.');
+                }
+
+                if (payload.discountType === @( (int)DiscountType.Percent ) && payload.discount !== null) {
+                    if (payload.discount < 0 || payload.discount > 100) {
+                        validationErrors.push('Giá trị giảm phải nằm trong khoảng 0 - 100%.');
+                    }
+                }
+
+                if (validationErrors.length > 0) {
+                    displayFormErrors(validationErrors);
+                    return;
+                }
+
+                displayFormErrors([]);
+
+                const method = editingComboId ? 'PUT' : 'POST';
+                const url = editingComboId ? `${API_BASE_URL}/${editingComboId}` : API_BASE_URL;
+
+                comboSubmitBtn.disabled = true;
+                comboSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang lưu...';
+
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 400) {
+                        const problem = await response.json();
+                        const serverErrors = Object.values(problem.errors || {}).flat();
+                        displayFormErrors(serverErrors);
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể lưu combo.');
+                    }
+
+                    const message = editingComboId ? 'Đã cập nhật combo thành công.' : 'Đã tạo combo mới thành công.';
+                    comboModal.hide();
+                    showAlert('success', message);
+                    await fetchCombos();
+                } catch (error) {
+                    displayFormErrors([error.message || 'Có lỗi xảy ra khi lưu combo.']);
+                } finally {
+                    comboSubmitBtn.disabled = false;
+                    comboSubmitBtn.textContent = editingComboId ? 'Cập nhật' : 'Thêm mới';
+                }
+            }
+
+            async function openEditModal(id) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải dữ liệu combo.');
+                    }
+
+                    const combo = await response.json();
+                    editingComboId = combo.id;
+                    comboModalLabel.textContent = 'Chỉnh sửa combo';
+                    comboSubmitBtn.textContent = 'Cập nhật';
+                    comboFormErrors.classList.add('d-none');
+                    await fetchProductsIfNeeded();
+                    populateComboForm(combo);
+                    itemsContainer.innerHTML = '';
+                    if (combo.items && combo.items.length > 0) {
+                        combo.items.forEach(item => createItemRow({ productId: item.productId, quantity: item.quantity }));
+                    } else {
+                        createItemRow();
+                    }
+                    comboModal.show();
+                } catch (error) {
+                    showAlert('danger', error.message || 'Có lỗi xảy ra khi tải dữ liệu combo.');
+                }
+            }
+
+            async function openDetailModal(id) {
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải chi tiết combo.');
+                    }
+
+                    const combo = await response.json();
+                    detailContent.innerHTML = `
+                        <div class="d-flex align-items-center gap-3">
+                            <img src="${combo.imageUrl}" alt="${combo.name}" class="rounded" style="width: 80px; height: 80px; object-fit: cover;" />
+                            <div>
+                                <h5 class="mb-1">${combo.name}</h5>
+                                <div class="text-muted">${combo.description}</div>
+                            </div>
+                        </div>
+                        <div class="row g-3 mt-2">
+                            <div class="col-md-3">
+                                <div class="small text-muted">Giá gốc</div>
+                                <div class="fw-semibold">${formatCurrency(combo.price)}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="small text-muted">Giá sau giảm</div>
+                                <div class="fw-semibold">${formatCurrency(combo.finalPrice)}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="small text-muted">Giảm giá</div>
+                                <div>${discountLabels[combo.discountType] || 'Không áp dụng'}${combo.discount ? ` (${combo.discount}%)` : ''}</div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="small text-muted">Tồn kho</div>
+                                <div>${combo.stock}</div>
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <h6 class="mb-2">Sản phẩm</h6>
+                            ${combo.items && combo.items.length > 0
+                                ? `<div class="list-group">
+                                    ${combo.items.map(item => `
+                                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div class="d-flex align-items-center gap-3">
+                                                <img src="${item.productImageUrl || '/images/no-image.jpg'}" alt="${item.productName}" style="width: 40px; height: 40px; object-fit: cover;" class="rounded" />
+                                                <div>
+                                                    <div class="fw-semibold">${item.productName}</div>
+                                                    <div class="text-muted small">Giá: ${formatCurrency(item.productFinalPrice)}</div>
+                                                </div>
+                                            </div>
+                                            <span class="badge bg-primary">Số lượng: ${item.quantity}</span>
+                                        </div>`).join('')}
+                                  </div>`
+                                : '<div class="text-muted">Combo chưa có sản phẩm.</div>'}
+                        </div>`;
+
+                    detailModal.show();
+                } catch (error) {
+                    showAlert('danger', error.message || 'Có lỗi xảy ra khi tải chi tiết combo.');
+                }
+            }
+
+            function openDeleteModal(id) {
+                const combo = combos.find(c => c.id === id);
+                if (!combo) {
+                    showAlert('danger', 'Không tìm thấy combo để xóa.');
+                    return;
+                }
+
+                deleteComboId = id;
+                deleteComboName.textContent = combo.name;
+                deleteModal.show();
+            }
+
+            async function deleteCombo(id) {
+                if (!canDelete) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        }
+                    });
+
+                    if (response.status === 404) {
+                        showAlert('warning', 'Combo đã bị xóa hoặc không tồn tại.');
+                        return;
+                    }
+
+                    if (!response.ok && response.status !== 204) {
+                        throw new Error('Không thể xóa combo.');
+                    }
+
+                    showAlert('success', 'Đã xóa combo thành công.');
+                    await fetchCombos();
+                } catch (error) {
+                    showAlert('danger', error.message || 'Có lỗi xảy ra khi xóa combo.');
+                }
+            }
+
+            async function bulkDeleteCombos() {
+                if (!canDelete || selectedComboIds.size === 0) {
+                    return;
+                }
+
+                if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedComboIds.size} combo đã chọn?`)) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-delete`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify({ ids: Array.from(selectedComboIds) })
+                    });
+
+                    if (response.status === 400) {
+                        const problem = await response.json();
+                        const serverErrors = Object.values(problem.errors || {}).flat();
+                        showAlert('danger', serverErrors.join('\n'));
+                        return;
+                    }
+
+                    if (response.status === 403) {
+                        showAlert('danger', 'Bạn không có quyền xóa các combo đã chọn.');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể xóa các combo đã chọn.');
+                    }
+
+                    const result = await response.json();
+                    const deleted = result.deleted || 0;
+                    const unauthorized = result.unauthorized || 0;
+                    if (deleted > 0) {
+                        showAlert('success', `Đã xóa ${deleted} combo.`);
+                    }
+                    if (unauthorized > 0) {
+                        showAlert('warning', `${unauthorized} combo không đủ quyền xóa.`);
+                    }
+
+                    selectedComboIds.clear();
+                    selectAllCheckbox.checked = false;
+                    await fetchCombos();
+                } catch (error) {
+                    showAlert('danger', error.message || 'Có lỗi xảy ra khi xóa combo.');
+                }
+            }
+
+            function updateBulkActions() {
+                if (!canDelete) {
+                    bulkActions.classList.add('d-none');
+                    return;
+                }
+
+                if (selectedComboIds.size > 0) {
+                    bulkActions.classList.remove('d-none');
+                } else {
+                    bulkActions.classList.add('d-none');
+                }
+            }
+
+            function handleSelectAllChange() {
+                const checkboxes = tableBody.querySelectorAll('.combo-select');
+                const isChecked = selectAllCheckbox.checked;
+                checkboxes.forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                    const id = Number(checkbox.dataset.id);
+                    if (isChecked) {
+                        selectedComboIds.add(id);
+                    } else {
+                        selectedComboIds.delete(id);
+                    }
+                });
+                updateBulkActions();
+            }
+
+            refreshBtn?.addEventListener('click', async () => {
+                clearAlerts();
+                await fetchCombos();
+            });
+
+            createBtn?.addEventListener('click', async () => {
+                try {
+                    await fetchProductsIfNeeded();
+                    resetComboForm();
+                    comboModalLabel.textContent = 'Thêm combo';
+                    comboSubmitBtn.textContent = 'Thêm mới';
+                    createItemRow();
+                    comboModal.show();
+                } catch (error) {
+                    showAlert('danger', error.message || 'Không thể chuẩn bị biểu mẫu tạo combo.');
+                }
+            });
+
+            discountTypeSelect.addEventListener('change', toggleDiscountField);
+            addItemBtn.addEventListener('click', () => {
+                createItemRow();
+            });
+
+            comboForm.addEventListener('submit', submitComboForm);
+            confirmDeleteBtn.addEventListener('click', async () => {
+                if (deleteComboId) {
+                    await deleteCombo(deleteComboId);
+                }
+                deleteModal.hide();
+            });
+
+            bulkDeleteBtn?.addEventListener('click', bulkDeleteCombos);
+            selectAllCheckbox.addEventListener('change', handleSelectAllChange);
+
+            comboModalEl.addEventListener('hidden.bs.modal', () => {
+                editingComboId = null;
+                comboSubmitBtn.textContent = 'Thêm mới';
+                comboSubmitBtn.disabled = false;
+                resetComboForm();
+            });
+
+            if (canView) {
+                fetchCombos();
+            }
+        })();
+    </script>
+}
