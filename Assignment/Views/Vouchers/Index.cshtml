@@ -119,13 +119,12 @@
 </form>
 <div class="modal fade" id="voucherModal" tabindex="-1" aria-labelledby="voucherModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
+        <form id="voucherForm" class="modal-content" novalidate>
             <div class="modal-header">
                 <h5 class="modal-title" id="voucherModalLabel">Thêm voucher</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="voucherForm" novalidate>
-                <div class="modal-body">
+            <div class="modal-body">
                     <div id="voucherFormErrors" class="alert alert-danger d-none" role="alert"></div>
                     <div class="row g-3">
                         <div class="col-md-4">
@@ -263,12 +262,11 @@
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-                    <button type="submit" class="btn btn-primary" id="voucherSubmitBtn">Lưu</button>
-                </div>
-            </form>
-        </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary" id="voucherSubmitBtn">Lưu</button>
+            </div>
+        </form>
     </div>
 </div>
 
