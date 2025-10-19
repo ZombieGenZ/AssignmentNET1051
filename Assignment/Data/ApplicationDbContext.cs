@@ -18,6 +18,7 @@ namespace Assignment.Data
         public DbSet<CartItem> CartItems { get; set; }
         public DbSet<Voucher> Vouchers { get; set; }
         public DbSet<VoucherUser> VoucherUsers { get; set; }
+        public DbSet<VoucherProduct> VoucherProducts { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
     }

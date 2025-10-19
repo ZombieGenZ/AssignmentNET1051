@@ -3,6 +3,7 @@ using Assignment.Enums;
 using Assignment.Models;
 using Assignment.Services;
 using Assignment.ViewModels;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
@@ -182,6 +183,26 @@ namespace Assignment.Controllers
         public IActionResult Privacy()
         {
             return View();
+        }
+
+        [Route("status-code/{code:int}")]
+        public IActionResult StatusCodeHandler(int code)
+        {
+            if (code == StatusCodes.Status404NotFound)
+            {
+                return NotFoundPage();
+            }
+
+            Response.StatusCode = code;
+            return View("Error", new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+        }
+
+        [Route("not-found")]
+        [Route("404")]
+        public IActionResult NotFoundPage()
+        {
+            Response.StatusCode = StatusCodes.Status404NotFound;
+            return View("NotFound");
         }
 
         [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]

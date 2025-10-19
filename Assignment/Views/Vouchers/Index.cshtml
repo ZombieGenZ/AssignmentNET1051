@@ -73,6 +73,7 @@
                                     <th>@Html.DisplayNameFor(model => model.Code)</th>
                                     <th>@Html.DisplayNameFor(model => model.Name)</th>
                                     <th>@Html.DisplayNameFor(model => model.Type)</th>
+                                    <th>@Html.DisplayNameFor(model => model.ProductScope)</th>
                                     <th>@Html.DisplayNameFor(model => model.DiscountType)</th>
                                     <th>@Html.DisplayNameFor(model => model.Discount)</th>
                                     <th>@Html.DisplayNameFor(model => model.Used)</th>
@@ -101,6 +102,16 @@
                                             else
                                             {
                                                 <span class="badge bg-info">Riêng tư</span>
+                                            }
+                                        </td>
+                                        <td>
+                                            @if (item.ProductScope == VoucherProductScope.AllProducts)
+                                            {
+                                                <span class="badge bg-success">Tất cả sản phẩm</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="badge bg-primary">Một số sản phẩm</span>
                                             }
                                         </td>
                                         <td>

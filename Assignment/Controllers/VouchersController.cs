@@ -1,5 +1,6 @@
 ﻿using Assignment.Data;
 using Assignment.Models;
+using Assignment.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -60,6 +61,7 @@ namespace Assignment.Controllers
 
             var voucher = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
                 .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
 
             if (voucher == null)
@@ -100,6 +102,32 @@ namespace Assignment.Controllers
                 }
             }
 
+            if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
+            {
+                var productIds = voucher.VoucherProducts?
+                    .Where(vp => !vp.IsDeleted)
+                    .Select(vp => vp.ProductId)
+                    .ToList() ?? new List<long>();
+
+                if (productIds.Any())
+                {
+                    var products = await _context.Products
+                        .Where(p => productIds.Contains(p.Id))
+                        .Select(p => new { p.Id, p.Name })
+                        .ToListAsync();
+
+                    var lookup = products.ToDictionary(p => p.Id, p => p.Name);
+
+                    ViewData["VoucherProductNames"] = productIds
+                        .Select(id => lookup.TryGetValue(id, out var name) ? name : $"Sản phẩm #{id}")
+                        .ToList();
+                }
+                else
+                {
+                    ViewData["VoucherProductNames"] = new List<string>();
+                }
+            }
+
             return View(voucher);
         }
 
@@ -107,14 +135,16 @@ namespace Assignment.Controllers
         public async Task<IActionResult> Create()
         {
             ViewBag.Users = await GetUserOptionsAsync();
+            ViewBag.Products = await GetProductOptionsAsync();
             ViewData["SelectedUserIds"] = new List<string>();
+            ViewData["SelectedProductIds"] = new List<long>();
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateVoucherPolicy")]
-        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction")] Voucher voucher, List<string> UserIds)
+        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
         {
             var codeExists = await _context.Vouchers.AnyAsync(v => v.Code == voucher.Code && !v.IsDeleted);
             if (codeExists)
@@ -132,6 +162,16 @@ namespace Assignment.Controllers
                 ModelState.AddModelError(string.Empty, "Voucher riêng tư cần ít nhất một người dùng.");
             }
 
+            var selectedProductIds = ProductIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<long>();
+
+            if (voucher.ProductScope == VoucherProductScope.SelectedProducts && !selectedProductIds.Any())
+            {
+                ModelState.AddModelError(string.Empty, "Vui lòng chọn ít nhất một sản phẩm áp dụng cho voucher.");
+            }
+
             if (selectedUserIds.Any())
             {
                 var validUserIds = await _userManager.Users
@@ -147,6 +187,21 @@ namespace Assignment.Controllers
                 selectedUserIds = validUserIds;
             }
 
+            if (selectedProductIds.Any())
+            {
+                var validProductIds = await _context.Products
+                    .Where(p => selectedProductIds.Contains(p.Id) && !p.IsDeleted)
+                    .Select(p => p.Id)
+                    .ToListAsync();
+
+                if (validProductIds.Count != selectedProductIds.Count)
+                {
+                    ModelState.AddModelError(string.Empty, "Có sản phẩm không hợp lệ trong danh sách đã chọn.");
+                }
+
+                selectedProductIds = validProductIds;
+            }
+
             if (ModelState.IsValid)
             {
                 if (voucher.Type == Enums.VoucherType.Public)
@@ -157,6 +212,11 @@ namespace Assignment.Controllers
                 if (voucher.Type == Enums.VoucherType.Public)
                 {
                     voucher.UserId = null;
+                }
+
+                if (voucher.ProductScope == VoucherProductScope.AllProducts)
+                {
+                    selectedProductIds.Clear();
                 }
 
                 if (voucher.IsLifeTime)
@@ -197,11 +257,32 @@ namespace Assignment.Controllers
 
                     await _context.SaveChangesAsync();
                 }
+                if (selectedProductIds.Any())
+                {
+                    var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    var now = DateTime.Now;
+
+                    foreach (var productId in selectedProductIds)
+                    {
+                        _context.VoucherProducts.Add(new VoucherProduct
+                        {
+                            VoucherId = voucher.Id,
+                            ProductId = productId,
+                            CreateBy = currentUserId,
+                            CreatedAt = now,
+                            IsDeleted = false
+                        });
+                    }
+
+                    await _context.SaveChangesAsync();
+                }
                 return RedirectToAction(nameof(Index));
             }
 
             ViewBag.Users = await GetUserOptionsAsync(selectedUserIds);
+            ViewBag.Products = await GetProductOptionsAsync(selectedProductIds);
             ViewData["SelectedUserIds"] = selectedUserIds;
+            ViewData["SelectedProductIds"] = selectedProductIds;
             return View(voucher);
         }
 
@@ -214,6 +295,7 @@ namespace Assignment.Controllers
 
             var voucher = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
                 .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
             if (voucher == null)
             {
@@ -231,14 +313,21 @@ namespace Assignment.Controllers
                 .Select(vu => vu.UserId)
                 .ToList() ?? new List<string>();
 
+            var selectedProductIds = voucher.VoucherProducts?
+                .Where(vp => !vp.IsDeleted)
+                .Select(vp => vp.ProductId)
+                .ToList() ?? new List<long>();
+
             ViewBag.Users = await GetUserOptionsAsync(selectedUserIds);
+            ViewBag.Products = await GetProductOptionsAsync(selectedProductIds);
             ViewData["SelectedUserIds"] = selectedUserIds;
+            ViewData["SelectedProductIds"] = selectedProductIds;
             return View(voucher);
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,Id")] Voucher voucher, List<string> UserIds)
+        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,Id")] Voucher voucher, List<string> UserIds, List<long> ProductIds)
         {
             if (id != voucher.Id)
             {
@@ -273,6 +362,16 @@ namespace Assignment.Controllers
                 ModelState.AddModelError(string.Empty, "Voucher riêng tư cần ít nhất một người dùng.");
             }
 
+            var selectedProductIds = ProductIds?
+                .Where(idValue => idValue > 0)
+                .Distinct()
+                .ToList() ?? new List<long>();
+
+            if (voucher.ProductScope == VoucherProductScope.SelectedProducts && !selectedProductIds.Any())
+            {
+                ModelState.AddModelError(string.Empty, "Voucher áp dụng cho một số sản phẩm cần ít nhất một sản phẩm.");
+            }
+
             if (selectedUserIds.Any())
             {
                 var validUserIds = await _userManager.Users
@@ -288,6 +387,21 @@ namespace Assignment.Controllers
                 selectedUserIds = validUserIds;
             }
 
+            if (selectedProductIds.Any())
+            {
+                var validProductIds = await _context.Products
+                    .Where(p => selectedProductIds.Contains(p.Id) && !p.IsDeleted)
+                    .Select(p => p.Id)
+                    .ToListAsync();
+
+                if (validProductIds.Count != selectedProductIds.Count)
+                {
+                    ModelState.AddModelError(string.Empty, "Có sản phẩm không hợp lệ trong danh sách đã chọn.");
+                }
+
+                selectedProductIds = validProductIds;
+            }
+
             if (ModelState.IsValid)
             {
                 try
@@ -300,6 +414,11 @@ namespace Assignment.Controllers
                     if (voucher.Type == Enums.VoucherType.Public)
                     {
                         voucher.UserId = null;
+                    }
+
+                    if (voucher.ProductScope == VoucherProductScope.AllProducts)
+                    {
+                        selectedProductIds.Clear();
                     }
 
                     if (voucher.IsLifeTime)
@@ -331,6 +450,15 @@ namespace Assignment.Controllers
                         _context.VoucherUsers.RemoveRange(existingVoucherUsers);
                     }
 
+                    var existingVoucherProducts = await _context.VoucherProducts
+                        .Where(vp => vp.VoucherId == voucher.Id)
+                        .ToListAsync();
+
+                    if (existingVoucherProducts.Any())
+                    {
+                        _context.VoucherProducts.RemoveRange(existingVoucherProducts);
+                    }
+
                     if (selectedUserIds.Any())
                     {
                         var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -342,6 +470,24 @@ namespace Assignment.Controllers
                             {
                                 VoucherId = voucher.Id,
                                 UserId = userId,
+                                CreateBy = currentUserId,
+                                CreatedAt = now,
+                                IsDeleted = false
+                            });
+                        }
+                    }
+
+                    if (selectedProductIds.Any())
+                    {
+                        var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                        var now = DateTime.Now;
+
+                        foreach (var productId in selectedProductIds)
+                        {
+                            _context.VoucherProducts.Add(new VoucherProduct
+                            {
+                                VoucherId = voucher.Id,
+                                ProductId = productId,
                                 CreateBy = currentUserId,
                                 CreatedAt = now,
                                 IsDeleted = false
@@ -366,7 +512,9 @@ namespace Assignment.Controllers
             }
 
             ViewBag.Users = await GetUserOptionsAsync(selectedUserIds);
+            ViewBag.Products = await GetProductOptionsAsync(selectedProductIds);
             ViewData["SelectedUserIds"] = selectedUserIds;
+            ViewData["SelectedProductIds"] = selectedProductIds;
             return View(voucher);
         }
 
@@ -379,6 +527,7 @@ namespace Assignment.Controllers
 
             var voucher = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
                 .FirstOrDefaultAsync(m => m.Id == id && !m.IsDeleted);
 
             if (voucher == null)
@@ -419,6 +568,32 @@ namespace Assignment.Controllers
                 }
             }
 
+            if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
+            {
+                var productIds = voucher.VoucherProducts?
+                    .Where(vp => !vp.IsDeleted)
+                    .Select(vp => vp.ProductId)
+                    .ToList() ?? new List<long>();
+
+                if (productIds.Any())
+                {
+                    var products = await _context.Products
+                        .Where(p => productIds.Contains(p.Id))
+                        .Select(p => new { p.Id, p.Name })
+                        .ToListAsync();
+
+                    var lookup = products.ToDictionary(p => p.Id, p => p.Name);
+
+                    ViewData["VoucherProductNames"] = productIds
+                        .Select(id => lookup.TryGetValue(id, out var name) ? name : $"Sản phẩm #{id}")
+                        .ToList();
+                }
+                else
+                {
+                    ViewData["VoucherProductNames"] = new List<string>();
+                }
+            }
+
             return View(voucher);
         }
 
@@ -428,6 +603,7 @@ namespace Assignment.Controllers
         {
             var voucher = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
                 .FirstOrDefaultAsync(v => v.Id == id && !v.IsDeleted);
 
             if (voucher == null)
@@ -457,6 +633,17 @@ namespace Assignment.Controllers
                 _context.VoucherUsers.UpdateRange(voucher.VoucherUsers);
             }
 
+            if (voucher.VoucherProducts != null && voucher.VoucherProducts.Any())
+            {
+                foreach (var voucherProduct in voucher.VoucherProducts)
+                {
+                    voucherProduct.IsDeleted = true;
+                    voucherProduct.DeletedAt = DateTime.Now;
+                }
+
+                _context.VoucherProducts.UpdateRange(voucher.VoucherProducts);
+            }
+
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
@@ -474,6 +661,7 @@ namespace Assignment.Controllers
             var vouchers = await _context.Vouchers
                 .Where(v => selectedIds.Contains(v.Id) && !v.IsDeleted)
                 .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
                 .ToListAsync();
 
             if (!vouchers.Any())
@@ -485,6 +673,7 @@ namespace Assignment.Controllers
             var now = DateTime.Now;
             var deletableVouchers = new List<Voucher>();
             var voucherUsersToUpdate = new List<VoucherUser>();
+            var voucherProductsToUpdate = new List<VoucherProduct>();
             var unauthorizedCount = 0;
 
             foreach (var voucher in vouchers)
@@ -511,6 +700,17 @@ namespace Assignment.Controllers
                         voucherUsersToUpdate.Add(voucherUser);
                     }
                 }
+
+                if (voucher.VoucherProducts != null)
+                {
+                    foreach (var voucherProduct in voucher.VoucherProducts.Where(vp => !vp.IsDeleted))
+                    {
+                        voucherProduct.IsDeleted = true;
+                        voucherProduct.DeletedAt = now;
+                        voucherProduct.UpdatedAt = now;
+                        voucherProductsToUpdate.Add(voucherProduct);
+                    }
+                }
             }
 
             if (deletableVouchers.Any())
@@ -519,6 +719,11 @@ namespace Assignment.Controllers
                 if (voucherUsersToUpdate.Any())
                 {
                     _context.VoucherUsers.UpdateRange(voucherUsersToUpdate);
+                }
+
+                if (voucherProductsToUpdate.Any())
+                {
+                    _context.VoucherProducts.UpdateRange(voucherProductsToUpdate);
                 }
 
                 await _context.SaveChangesAsync();
@@ -644,6 +849,27 @@ namespace Assignment.Controllers
                 Text = BuildUserDisplayName(user),
                 Selected = selectedSet.Contains(user.Id)
             }).ToList();
+        }
+
+        [NonAction]
+        private async Task<List<SelectListItem>> GetProductOptionsAsync(IEnumerable<long>? selectedIds = null)
+        {
+            var selectedSet = selectedIds?
+                .Where(id => id > 0)
+                .ToHashSet() ?? new HashSet<long>();
+
+            var products = await _context.Products
+                .Where(p => !p.IsDeleted)
+                .OrderBy(p => p.Name)
+                .Select(p => new SelectListItem
+                {
+                    Value = p.Id.ToString(),
+                    Text = p.Name,
+                    Selected = selectedSet.Contains(p.Id)
+                })
+                .ToListAsync();
+
+            return products;
         }
     }
 }
