@@ -54,7 +54,7 @@ namespace Assignment.ViewModels
 
         public void SetItems(IEnumerable<T> items)
         {
-            Items = items?.ToList() ?? Array.Empty<T>();
+            Items = (items ?? Enumerable.Empty<T>()).ToList();
         }
     }
 }
