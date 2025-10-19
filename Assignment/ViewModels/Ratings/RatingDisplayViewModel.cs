@@ -11,7 +11,9 @@ namespace Assignment.ViewModels.Ratings
         public DateTime? UpdatedAt { get; set; }
         public long OrderItemId { get; set; }
         public string? UserName { get; set; }
+        public bool IsCurrentUser { get; set; }
 
         public bool IsEdited => UpdatedAt.HasValue && UpdatedAt.Value > CreatedAt;
+        public string DisplayName => string.IsNullOrWhiteSpace(UserName) ? "Khách hàng" : UserName;
     }
 }

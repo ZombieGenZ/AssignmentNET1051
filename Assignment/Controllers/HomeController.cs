@@ -159,7 +159,7 @@ namespace Assignment.Controllers
             return View(viewModel);
         }
 
-        public async Task<IActionResult> ProductDetail(long id)
+        public async Task<IActionResult> ProductDetail(long id, int? rating)
         {
             var product = await _context.Products
                 .Include(p => p.Category)
@@ -191,6 +191,7 @@ namespace Assignment.Controllers
 
                     var existingRating = await _context.Ratings
                         .AsNoTracking()
+                        .Include(r => r.User)
                         .Where(r => !r.IsDeleted && r.UserId == userId && r.ProductId == product.Id)
                         .OrderByDescending(r => r.UpdatedAt ?? r.CreatedAt)
                         .FirstOrDefaultAsync();
@@ -206,7 +207,11 @@ namespace Assignment.Controllers
                             CreatedAt = existingRating.CreatedAt,
                             UpdatedAt = existingRating.UpdatedAt,
                             OrderItemId = existingRating.OrderItemId,
-                            UserName = existingRating.UserId
+                            UserName = existingRating.User?.FullName
+                                ?? existingRating.User?.UserName
+                                ?? User.Identity?.Name
+                                ?? "Bạn",
+                            IsCurrentUser = true
                         };
                     }
                     else
@@ -216,10 +221,45 @@ namespace Assignment.Controllers
                 }
             }
 
+            int? normalizedRatingFilter = rating is >= 1 and <= 5 ? rating : null;
+
+            var ratingsQuery = _context.Ratings
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted && r.ProductId == product.Id);
+
+            var ratingCountLookup = (await ratingsQuery
+                .GroupBy(r => r.Score)
+                .Select(g => new { Score = g.Key, Count = g.Count() })
+                .ToListAsync())
+                .ToDictionary(x => x.Score, x => x.Count);
+
+            viewModel.RatingCounts = Enumerable.Range(1, 5)
+                .ToDictionary(score => score, score => ratingCountLookup.TryGetValue(score, out var count) ? count : 0);
+
+            viewModel.SelectedRatingFilter = normalizedRatingFilter;
+
+            viewModel.Ratings = await ratingsQuery
+                .Where(r => !normalizedRatingFilter.HasValue || r.Score == normalizedRatingFilter.Value)
+                .OrderByDescending(r => r.UpdatedAt ?? r.CreatedAt)
+                .Select(r => new RatingDisplayViewModel
+                {
+                    Id = r.Id,
+                    Score = r.Score,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt,
+                    UpdatedAt = r.UpdatedAt,
+                    OrderItemId = r.OrderItemId,
+                    UserName = r.User != null
+                        ? (!string.IsNullOrWhiteSpace(r.User.FullName) ? r.User.FullName : r.User.UserName)
+                        : "Khách hàng",
+                    IsCurrentUser = r.UserId == userId
+                })
+                .ToListAsync();
+
             return View(viewModel);
         }
 
-        public async Task<IActionResult> ComboDetail(long id)
+        public async Task<IActionResult> ComboDetail(long id, int? rating)
         {
             var combo = await _context.Combos
                 .Include(c => c.ComboItems)
@@ -252,6 +292,7 @@ namespace Assignment.Controllers
 
                     var existingRating = await _context.Ratings
                         .AsNoTracking()
+                        .Include(r => r.User)
                         .Where(r => !r.IsDeleted && r.UserId == userId && r.ComboId == combo.Id)
                         .OrderByDescending(r => r.UpdatedAt ?? r.CreatedAt)
                         .FirstOrDefaultAsync();
@@ -267,7 +308,11 @@ namespace Assignment.Controllers
                             CreatedAt = existingRating.CreatedAt,
                             UpdatedAt = existingRating.UpdatedAt,
                             OrderItemId = existingRating.OrderItemId,
-                            UserName = existingRating.UserId
+                            UserName = existingRating.User?.FullName
+                                ?? existingRating.User?.UserName
+                                ?? User.Identity?.Name
+                                ?? "Bạn",
+                            IsCurrentUser = true
                         };
                     }
                     else
@@ -276,6 +321,41 @@ namespace Assignment.Controllers
                     }
                 }
             }
+
+            int? normalizedComboRatingFilter = rating is >= 1 and <= 5 ? rating : null;
+
+            var comboRatingsQuery = _context.Ratings
+                .AsNoTracking()
+                .Where(r => !r.IsDeleted && r.ComboId == combo.Id);
+
+            var comboRatingCountsLookup = (await comboRatingsQuery
+                .GroupBy(r => r.Score)
+                .Select(g => new { Score = g.Key, Count = g.Count() })
+                .ToListAsync())
+                .ToDictionary(x => x.Score, x => x.Count);
+
+            viewModel.RatingCounts = Enumerable.Range(1, 5)
+                .ToDictionary(score => score, score => comboRatingCountsLookup.TryGetValue(score, out var count) ? count : 0);
+
+            viewModel.SelectedRatingFilter = normalizedComboRatingFilter;
+
+            viewModel.Ratings = await comboRatingsQuery
+                .Where(r => !normalizedComboRatingFilter.HasValue || r.Score == normalizedComboRatingFilter.Value)
+                .OrderByDescending(r => r.UpdatedAt ?? r.CreatedAt)
+                .Select(r => new RatingDisplayViewModel
+                {
+                    Id = r.Id,
+                    Score = r.Score,
+                    Comment = r.Comment,
+                    CreatedAt = r.CreatedAt,
+                    UpdatedAt = r.UpdatedAt,
+                    OrderItemId = r.OrderItemId,
+                    UserName = r.User != null
+                        ? (!string.IsNullOrWhiteSpace(r.User.FullName) ? r.User.FullName : r.User.UserName)
+                        : "Khách hàng",
+                    IsCurrentUser = r.UserId == userId
+                })
+                .ToListAsync();
 
             return View(viewModel);
         }

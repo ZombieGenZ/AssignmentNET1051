@@ -135,6 +135,147 @@
         margin-bottom: 2rem;
     }
 
+    .ratings-section {
+        margin-top: 3rem;
+        padding-top: 2.5rem;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .ratings-header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .ratings-header h3 {
+        font-weight: 700;
+        color: #0f172a;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+
+    .ratings-header .ratings-count {
+        font-size: 0.95rem;
+        color: #64748b;
+    }
+
+    .my-rating-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .my-rating-card .card-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-top: 1rem;
+    }
+
+    .rating-filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        margin-bottom: 1.75rem;
+    }
+
+    .rating-filter-btn {
+        border: 1px solid #d0d7e2;
+        border-radius: 999px;
+        padding: 0.45rem 1rem;
+        font-weight: 600;
+        color: #475569;
+        background: #fff;
+        transition: all 0.2s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        text-decoration: none;
+    }
+
+    .rating-filter-btn:hover {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
+    }
+
+    .rating-filter-btn.active {
+        background: #2563eb;
+        color: #fff;
+        border-color: #2563eb;
+        box-shadow: 0 6px 18px rgba(37, 99, 235, 0.25);
+    }
+
+    .ratings-list {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .rating-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 18px;
+        padding: 1.5rem;
+        background: #fff;
+        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+    }
+
+    .rating-card-self {
+        border-color: #2563eb;
+        box-shadow: 0 18px 40px rgba(37, 99, 235, 0.12);
+    }
+
+    .rating-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .rating-card-author {
+        font-weight: 600;
+        color: #0f172a;
+    }
+
+    .rating-card-stars {
+        color: #fbbf24;
+        display: flex;
+        gap: 0.25rem;
+        font-size: 1.05rem;
+    }
+
+    .rating-card-date {
+        color: #94a3b8;
+        font-size: 0.85rem;
+    }
+
+    .rating-card-comment {
+        color: #475569;
+        margin-bottom: 0;
+        white-space: pre-wrap;
+    }
+
+    .rating-empty-state {
+        text-align: center;
+        padding: 2.5rem 1rem;
+        border: 1px dashed #cbd5f5;
+        border-radius: 18px;
+        background: #f8fafc;
+        color: #64748b;
+    }
+
+    .rating-empty-state i {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        color: #94a3b8;
+    }
+
     .final-price {
         color: #2563eb;
         font-size: 2.3rem;
@@ -419,63 +560,6 @@
                             <span>@product.AverageEvaluate.ToString("0.0") (@product.TotalEvaluate đánh giá)</span>
                         </div>
 
-                        @if (Model.UserRating != null)
-                        {
-                            <div class="card shadow-sm border-0 mb-4">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <h6 class="mb-0"><i class="fas fa-comment-dots me-2 text-primary"></i>Đánh giá của bạn</h6>
-                                        @if (Model.UserRating.IsEdited)
-                                        {
-                                            <span class="badge bg-warning text-dark">Đã chỉnh sửa</span>
-                                        }
-                                    </div>
-                                    <div class="text-warning mb-2">
-                                        @for (int i = 1; i <= 5; i++)
-                                        {
-                                            if (i <= Model.UserRating.Score)
-                                            {
-                                                <i class="fas fa-star"></i>
-                                            }
-                                            else
-                                            {
-                                                <i class="far fa-star"></i>
-                                            }
-                                        }
-                                    </div>
-                                    @if (!string.IsNullOrWhiteSpace(Model.UserRating.Comment))
-                                    {
-                                        <p class="mb-2">@Model.UserRating.Comment</p>
-                                    }
-                                    <small class="text-muted d-block">Gửi ngày @Model.UserRating.CreatedAt.ToString("dd/MM/yyyy HH:mm")</small>
-                                    <div class="d-flex flex-wrap gap-2 mt-3">
-                                        <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#productRatingModal">
-                                            <i class="fas fa-edit me-1"></i>Chỉnh sửa đánh giá
-                                        </button>
-                                        @if (Model.CanDeleteRating)
-                                        {
-                                            <form asp-controller="Ratings" asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xóa đánh giá này?');">
-                                                @Html.AntiForgeryToken()
-                                                <input type="hidden" name="id" value="@Model.UserRating.Id" />
-                                                <input type="hidden" name="returnUrl" value="@returnUrl" />
-                                                <button type="submit" class="btn btn-outline-danger btn-sm">
-                                                    <i class="fas fa-trash-alt me-1"></i>Xóa đánh giá
-                                                </button>
-                                            </form>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                        else if (Model.CanRate && Model.OrderItemIdForRating.HasValue)
-                        {
-                            <div class="mb-4">
-                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#productRatingModal">
-                                    <i class="fas fa-star me-2"></i>Đánh giá sản phẩm
-                                </button>
-                            </div>
-                        }
-
                         <div class="detail-tags">
                             @if (product.IsSpicy)
                             {
@@ -613,6 +697,191 @@
                         <p>@product.Ingredients</p>
                     </div>
                 </div>
+            </div>
+
+            <div class="ratings-section" id="ratings-section">
+                @{
+                    var ratingCounts = Model.RatingCounts ?? new Dictionary<int, int>();
+                    var totalRatings = ratingCounts.Values.Sum();
+                    var selectedRating = Model.SelectedRatingFilter;
+                    var hasRatings = totalRatings > 0;
+                }
+
+                <div class="ratings-header">
+                    <h3><i class="fas fa-comments text-primary"></i>Đánh giá từ khách hàng</h3>
+                    <div class="ratings-count">
+                        @if (hasRatings)
+                        {
+                            <span>@totalRatings đánh giá đã được gửi cho sản phẩm này.</span>
+                        }
+                        else
+                        {
+                            <span>Chưa có đánh giá nào cho sản phẩm này.</span>
+                        }
+                    </div>
+                </div>
+
+                @if (Model.UserRating != null)
+                {
+                    <div class="my-rating-card">
+                        <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+                            <div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge bg-primary">Đánh giá của bạn</span>
+                                    <span class="rating-card-author">@Model.UserRating.DisplayName</span>
+                                </div>
+                                <div class="rating-card-stars mt-2">
+                                    @for (int i = 1; i <= 5; i++)
+                                    {
+                                        if (i <= Model.UserRating.Score)
+                                        {
+                                            <i class="fas fa-star"></i>
+                                        }
+                                        else
+                                        {
+                                            <i class="far fa-star"></i>
+                                        }
+                                    }
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <div class="rating-card-date">@((Model.UserRating.UpdatedAt ?? Model.UserRating.CreatedAt).ToString("dd/MM/yyyy HH:mm"))</div>
+                                @if (Model.UserRating.IsEdited)
+                                {
+                                    <span class="badge bg-warning text-dark mt-2">Đã chỉnh sửa</span>
+                                }
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(Model.UserRating.Comment))
+                        {
+                            <p class="rating-card-comment mt-3">@Model.UserRating.Comment</p>
+                        }
+                        else
+                        {
+                            <p class="rating-card-comment mt-3 text-muted fst-italic">Bạn chưa để lại nhận xét.</p>
+                        }
+                        <div class="card-actions">
+                            <button type="button" class="btn btn-outline-primary btn-sm" data-bs-toggle="modal" data-bs-target="#productRatingModal">
+                                <i class="fas fa-edit me-1"></i>Chỉnh sửa đánh giá
+                            </button>
+                            @if (Model.CanDeleteRating)
+                            {
+                                <form asp-controller="Ratings" asp-action="Delete" method="post" class="d-inline" onsubmit="return confirm('Bạn có chắc muốn xóa đánh giá này?');">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@Model.UserRating.Id" />
+                                    <input type="hidden" name="returnUrl" value="@returnUrl" />
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-trash-alt me-1"></i>Xóa đánh giá
+                                    </button>
+                                </form>
+                            }
+                        </div>
+                    </div>
+                }
+                else if (Model.CanRate && Model.OrderItemIdForRating.HasValue)
+                {
+                    <div class="my-rating-card">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+                            <div>
+                                <h6 class="mb-1 text-primary fw-semibold"><i class="fas fa-pen-nib me-2"></i>Chia sẻ trải nghiệm của bạn</h6>
+                                <p class="mb-0 text-muted">@(!hasRatings ? "Hãy là người đầu tiên đánh giá sản phẩm này." : "Đánh giá của bạn sẽ giúp những người mua khác đưa ra quyết định tốt hơn.")</p>
+                            </div>
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#productRatingModal">
+                                <i class="fas fa-star me-2"></i>Viết đánh giá
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                @if (hasRatings)
+                {
+                    <div class="rating-filters">
+                        <a href="@Url.Action("ProductDetail", "Home", new { id = product.Id })" class="rating-filter-btn@(selectedRating.HasValue ? string.Empty : " active")">
+                            <i class="fas fa-layer-group"></i>
+                            Tất cả (@totalRatings)
+                        </a>
+                        @for (int score = 5; score >= 1; score--)
+                        {
+                            var count = ratingCounts.ContainsKey(score) ? ratingCounts[score] : 0;
+                            var filterUrl = Url.Action("ProductDetail", "Home", new { id = product.Id, rating = score });
+                            <a href="@filterUrl" class="rating-filter-btn@(selectedRating == score ? " active" : string.Empty)">
+                                <i class="fas fa-star"></i>
+                                @score sao (@count)
+                            </a>
+                        }
+                    </div>
+                }
+
+                @if (Model.Ratings != null && Model.Ratings.Any())
+                {
+                    <div class="ratings-list">
+                        @foreach (var ratingItem in Model.Ratings)
+                        {
+                            <div class="rating-card@(ratingItem.IsCurrentUser ? " rating-card-self" : string.Empty)">
+                                <div class="rating-card-header">
+                                    <div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            @if (ratingItem.IsCurrentUser)
+                                            {
+                                                <span class="badge bg-primary">Bạn</span>
+                                            }
+                                            <span class="rating-card-author">@ratingItem.DisplayName</span>
+                                        </div>
+                                        <div class="rating-card-stars mt-2">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                if (i <= ratingItem.Score)
+                                                {
+                                                    <i class="fas fa-star"></i>
+                                                }
+                                                else
+                                                {
+                                                    <i class="far fa-star"></i>
+                                                }
+                                            }
+                                        </div>
+                                    </div>
+                                    <div class="rating-card-date text-end">
+                                        @((ratingItem.UpdatedAt ?? ratingItem.CreatedAt).ToString("dd/MM/yyyy HH:mm"))
+                                        @if (ratingItem.IsEdited)
+                                        {
+                                            <div><span class="badge bg-warning text-dark mt-2">Đã chỉnh sửa</span></div>
+                                        }
+                                    </div>
+                                </div>
+                                @if (!string.IsNullOrWhiteSpace(ratingItem.Comment))
+                                {
+                                    <p class="rating-card-comment">@ratingItem.Comment</p>
+                                }
+                                else
+                                {
+                                    <p class="rating-card-comment text-muted fst-italic">Người dùng không để lại nhận xét.</p>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else if (hasRatings)
+                {
+                    <div class="rating-empty-state">
+                        <i class="fas fa-filter-circle-xmark"></i>
+                        <p>Không có đánh giá phù hợp với bộ lọc hiện tại.</p>
+                    </div>
+                }
+                else
+                {
+                    <div class="rating-empty-state">
+                        <i class="fas fa-comment-slash"></i>
+                        <p>
+                            Chưa có đánh giá nào cho sản phẩm này.
+                            @if (Model.CanRate && Model.OrderItemIdForRating.HasValue)
+                            {
+                                <br />
+                                <span>Hãy là người đầu tiên chia sẻ trải nghiệm của bạn!</span>
+                            }
+                        </p>
+                    </div>
+                }
             </div>
         </div>
     </div>
