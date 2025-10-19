@@ -57,3 +57,4 @@ appsettings.json
 *.env
 
 *.pdb
+.env
