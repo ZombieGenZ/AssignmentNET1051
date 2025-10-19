@@ -1,7 +1,7 @@
 @model Assignment.ViewModels.Combos.ComboDetailViewModel
 
 @{
-    var combo = combo.Combo;
+    var combo = Model.Combo;
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
     ViewData["Title"] = combo.Name;
 }
