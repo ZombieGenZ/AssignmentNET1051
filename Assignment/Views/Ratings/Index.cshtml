@@ -72,7 +72,7 @@
                                     <select class="form-select" id="score-@item.OrderItemId" name="Score" required>
                                         @for (var score = 1; score <= 5; score++)
                                         {
-                                            <option value="@score" @(item.Score == score ? "selected" : null)>@score sao</option>
+                                            <option value="@score" selected="@(item.Score == score ? "selected" : null)">@score sao</option>
                                         }
                                     </select>
                                 </div>
