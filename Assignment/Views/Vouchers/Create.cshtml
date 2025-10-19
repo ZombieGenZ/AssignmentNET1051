@@ -223,6 +223,23 @@
                             </div>
                         </div>
 
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <div class="form-check form-switch">
+                                    <input asp-for="IsPublish" class="form-check-input" type="checkbox" id="IsPublish">
+                                    <label asp-for="IsPublish" class="form-check-label"></label>
+                                </div>
+                                <span asp-validation-for="IsPublish" class="text-danger"></span>
+                            </div>
+                            <div class="col-md-6 mb-3" id="PublicVisibilityWrapper" style="display: @(Model?.Type == VoucherType.Public ? "block" : "none")">
+                                <div class="form-check form-switch">
+                                    <input asp-for="IsShow" class="form-check-input" type="checkbox" id="IsShow">
+                                    <label asp-for="IsShow" class="form-check-label"></label>
+                                </div>
+                                <span asp-validation-for="IsShow" class="text-danger"></span>
+                            </div>
+                        </div>
+
                         <div class="form-check mb-3">
                             <input asp-for="IsLifeTime" class="form-check-input" type="checkbox" id="IsLifeTime">
                             <label asp-for="IsLifeTime" class="form-check-label"></label>
@@ -295,6 +312,8 @@
                 userSection.style.display = 'none';
                 selects.forEach(select => select.removeAttribute('required'));
             }
+
+            togglePublicVisibilityField();
         }
 
         function toggleEndTimeField() {
@@ -309,6 +328,25 @@
             } else {
                 endTimeField.style.display = 'block';
                 endTimeInput.setAttribute('required', 'required');
+            }
+        }
+
+        function togglePublicVisibilityField() {
+            const wrapper = document.getElementById('PublicVisibilityWrapper');
+            const isShowInput = document.getElementById('IsShow');
+            const voucherType = document.getElementById('VoucherType').value;
+
+            if (!wrapper) {
+                return;
+            }
+
+            if (voucherType === '0') {
+                wrapper.style.display = 'block';
+            } else {
+                wrapper.style.display = 'none';
+                if (isShowInput) {
+                    isShowInput.checked = false;
+                }
             }
         }
 
@@ -806,6 +844,7 @@
             updateVoucherUserDropdowns();
             updateVoucherProductDropdowns();
             toggleCombinedUsageLimitField();
+            togglePublicVisibilityField();
         });
     </script>
 }

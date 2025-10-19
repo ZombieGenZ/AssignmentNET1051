@@ -30,5 +30,6 @@ namespace Assignment.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<OrderVoucher> OrderVouchers { get; set; }
+        public DbSet<Rating> Ratings { get; set; }
     }
 }

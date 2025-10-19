@@ -11,5 +11,7 @@ namespace Assignment.Models
         [Required]
         public string UserId { get; set; } = string.Empty;
         public virtual ApplicationUser? User { get; set; }
+        [Required]
+        public bool IsSaved { get; set; } = false;
     }
 }

@@ -108,7 +108,7 @@ namespace Assignment.Controllers
             if (voucher.Type == Enums.VoucherType.Private)
             {
                 var activeVoucherUsers = voucher.VoucherUsers?
-                    .Where(vu => !vu.IsDeleted)
+                    .Where(vu => !vu.IsDeleted && !vu.IsSaved)
                     .Select(vu => vu.UserId)
                     .ToList() ?? new List<string>();
 
@@ -174,7 +174,7 @@ namespace Assignment.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = "CreateVoucherPolicy")]
-        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount")] Voucher voucher, List<string> UserIds, List<string> ProductIds)
+        public async Task<IActionResult> Create([Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount,IsPublish,IsShow")] Voucher voucher, List<string> UserIds, List<string> ProductIds)
         {
             var codeExists = await _context.Vouchers.AnyAsync(v => v.Code == voucher.Code && !v.IsDeleted);
             if (codeExists)
@@ -245,6 +245,11 @@ namespace Assignment.Controllers
 
             if (ModelState.IsValid)
             {
+                if (voucher.Type != Enums.VoucherType.Public)
+                {
+                    voucher.IsShow = false;
+                }
+
                 if (voucher.Type == Enums.VoucherType.Public)
                 {
                     selectedUserIds.Clear();
@@ -297,7 +302,8 @@ namespace Assignment.Controllers
                             UserId = userId,
                             CreateBy = currentUserId,
                             CreatedAt = now,
-                            IsDeleted = false
+                            IsDeleted = false,
+                            IsSaved = false
                         });
                     }
 
@@ -355,7 +361,7 @@ namespace Assignment.Controllers
             }
 
             var selectedUserIds = voucher.VoucherUsers?
-                .Where(vu => !vu.IsDeleted)
+                .Where(vu => !vu.IsDeleted && !vu.IsSaved)
                 .Select(vu => vu.UserId)
                 .ToList() ?? new List<string>();
 
@@ -373,7 +379,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount,Id")] Voucher voucher, List<string> UserIds, List<string> ProductIds)
+        public async Task<IActionResult> Edit(long id, [Bind("Code,Name,Description,Type,ProductScope,UserId,Discount,DiscountType,Quantity,StartTime,IsLifeTime,EndTime,MinimumRequirements,UnlimitedPercentageDiscount,MaximumPercentageReduction,HasCombinedUsageLimit,MaxCombinedUsageCount,IsPublish,IsShow,Id")] Voucher voucher, List<string> UserIds, List<string> ProductIds)
         {
             if (id != voucher.Id)
             {
@@ -463,6 +469,11 @@ namespace Assignment.Controllers
             {
                 try
                 {
+                    if (voucher.Type != Enums.VoucherType.Public)
+                    {
+                        voucher.IsShow = false;
+                    }
+
                     if (voucher.Type == Enums.VoucherType.Public)
                     {
                         selectedUserIds.Clear();
@@ -504,7 +515,7 @@ namespace Assignment.Controllers
                     await _context.SaveChangesAsync();
 
                     var existingVoucherUsers = await _context.VoucherUsers
-                        .Where(vu => vu.VoucherId == voucher.Id)
+                        .Where(vu => vu.VoucherId == voucher.Id && !vu.IsSaved)
                         .ToListAsync();
 
                     if (existingVoucherUsers.Any())
@@ -534,7 +545,8 @@ namespace Assignment.Controllers
                                 UserId = userId,
                                 CreateBy = currentUserId,
                                 CreatedAt = now,
-                                IsDeleted = false
+                                IsDeleted = false,
+                                IsSaved = false
                             });
                         }
                     }
@@ -606,7 +618,7 @@ namespace Assignment.Controllers
             if (voucher.Type == Enums.VoucherType.Private)
             {
                 var userIds = voucher.VoucherUsers?
-                    .Where(vu => !vu.IsDeleted)
+                    .Where(vu => !vu.IsDeleted && !vu.IsSaved)
                     .Select(vu => vu.UserId)
                     .ToList() ?? new List<string>();
 
