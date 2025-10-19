@@ -164,52 +164,89 @@
 }
 
 .rating-stars {
-    display: inline-flex;
-    flex-direction: row-reverse;
-    justify-content: flex-end;
-    gap: 0.65rem;
+    display: inline-block;
 }
 
-.rating-stars input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+.rating-stars::after {
+    content: "";
+    display: table;
+    clear: both;
 }
 
-.rating-stars label {
-    font-size: 1.9rem;
-    line-height: 1;
-    color: #d3cfe0;
+.rating-stars > input {
+    display: none;
+}
+
+.rating-stars > label {
+    float: right;
     cursor: pointer;
-    transition: color 0.2s ease, transform 0.2s ease, text-shadow 0.2s ease;
+    font-size: 2rem;
+    line-height: 1;
+    margin-left: 4px;
 }
 
-.rating-stars label::before {
-    content: "★";
+.rating-stars > label > svg {
     display: block;
+    fill: #666;
+    transition: fill 0.3s ease;
 }
 
-.rating-stars input:checked ~ label,
-.rating-stars label:hover,
-.rating-stars label:hover ~ label {
-    color: #ffb545;
-    text-shadow: 0 8px 16px rgba(255, 181, 69, 0.35);
+.rating-stars > input:checked ~ label > svg {
+    fill: #ffa723;
 }
 
-.rating-stars label:hover {
-    transform: translateY(-3px);
+.rating-stars > label:hover > svg,
+.rating-stars > label:hover ~ label > svg {
+    fill: #ff9e0b;
 }
 
-.rating-stars label:hover ~ label {
-    transform: translateY(-1px);
+.rating-stars > label[data-star="1"]:hover > svg,
+.rating-stars > label[data-star="1"]:hover ~ label > svg {
+    fill: #a23c3c !important;
 }
 
-.rating-stars input:checked + label {
-    transform: translateY(-2px);
+.rating-stars > label[data-star="2"]:hover > svg,
+.rating-stars > label[data-star="2"]:hover ~ label > svg {
+    fill: #99542d !important;
 }
 
-.rating-stars input:focus-visible + label {
-    outline: 2px solid #ffb545;
+.rating-stars > label[data-star="3"]:hover > svg,
+.rating-stars > label[data-star="3"]:hover ~ label > svg {
+    fill: #9f7e18 !important;
+}
+
+.rating-stars > label[data-star="4"]:hover > svg,
+.rating-stars > label[data-star="4"]:hover ~ label > svg {
+    fill: #22885e !important;
+}
+
+.rating-stars > label[data-star="5"]:hover > svg,
+.rating-stars > label[data-star="5"]:hover ~ label > svg {
+    fill: #7951ac !important;
+}
+
+.rating-stars > input[id$='star1']:checked ~ label > svg {
+    fill: #ef4444;
+}
+
+.rating-stars > input[id$='star2']:checked ~ label > svg {
+    fill: #e06c2b;
+}
+
+.rating-stars > input[id$='star3']:checked ~ label > svg {
+    fill: #eab308;
+}
+
+.rating-stars > input[id$='star4']:checked ~ label > svg {
+    fill: #19c37d;
+}
+
+.rating-stars > input[id$='star5']:checked ~ label > svg {
+    fill: #ab68ff;
+}
+
+.rating-stars > input:focus-visible + label {
+    outline: 2px solid #ffa723;
     outline-offset: 4px;
     border-radius: 6px;
 }
