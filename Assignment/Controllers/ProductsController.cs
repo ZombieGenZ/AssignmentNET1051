@@ -12,6 +12,8 @@ using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Services;
 using Assignment.Extensions;
+using Assignment.Options;
+using Assignment.ViewModels;
 
 namespace Assignment.Controllers
 {
@@ -27,8 +29,11 @@ namespace Assignment.Controllers
             _authorizationService = authorizationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int page = 1, int pageSize = PaginationDefaults.DefaultPageSize)
         {
+            page = PaginationDefaults.NormalizePage(page);
+            pageSize = PaginationDefaults.NormalizePageSize(pageSize);
+
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var hasGetAll = User.HasPermission("GetProductAll");
 
@@ -48,7 +53,32 @@ namespace Assignment.Controllers
                 }
             }
 
-            return View(await products.ToListAsync());
+            var totalItems = await products.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+            if (totalPages > 0 && page > totalPages)
+            {
+                page = totalPages;
+            }
+
+            var pagedProducts = await products
+                .OrderByDescending(p => p.CreatedAt)
+                .ThenBy(p => p.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var viewModel = new PagedResult<Product>
+            {
+                CurrentPage = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                PageSizeOptions = PaginationDefaults.PageSizeOptions
+            };
+
+            viewModel.SetItems(pagedProducts);
+
+            return View(viewModel.EnsureValidPage());
         }
 
         public async Task<IActionResult> Details(long? id)

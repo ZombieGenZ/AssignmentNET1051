@@ -10,6 +10,8 @@ using System.Linq;
 using System.Security.Claims;
 using System.IO;
 using Assignment.Extensions;
+using Assignment.Options;
+using Assignment.ViewModels;
 using ClosedXML.Excel;
 
 namespace Assignment.Controllers
@@ -26,8 +28,11 @@ namespace Assignment.Controllers
             _authorizationService = authorizationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int page = 1, int pageSize = PaginationDefaults.DefaultPageSize)
         {
+            page = PaginationDefaults.NormalizePage(page);
+            pageSize = PaginationDefaults.NormalizePageSize(pageSize);
+
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var hasGetAll = User.HasPermission("GetComboAll");
 
@@ -48,7 +53,32 @@ namespace Assignment.Controllers
                 }
             }
 
-            return View(await combos.ToListAsync());
+            var totalItems = await combos.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+            if (totalPages > 0 && page > totalPages)
+            {
+                page = totalPages;
+            }
+
+            var pagedCombos = await combos
+                .OrderByDescending(c => c.CreatedAt)
+                .ThenBy(c => c.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var viewModel = new PagedResult<Combo>
+            {
+                CurrentPage = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                PageSizeOptions = PaginationDefaults.PageSizeOptions
+            };
+
+            viewModel.SetItems(pagedCombos);
+
+            return View(viewModel.EnsureValidPage());
         }
 
         public async Task<IActionResult> Details(long? id)

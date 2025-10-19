@@ -12,6 +12,8 @@ using System.Linq;
 using System.Security.Claims;
 using System.IO;
 using Assignment.Extensions;
+using Assignment.Options;
+using Assignment.ViewModels;
 using ClosedXML.Excel;
 
 namespace Assignment.Controllers
@@ -30,8 +32,11 @@ namespace Assignment.Controllers
             _userManager = userManager;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int page = 1, int pageSize = PaginationDefaults.DefaultPageSize)
         {
+            page = PaginationDefaults.NormalizePage(page);
+            pageSize = PaginationDefaults.NormalizePageSize(pageSize);
+
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var hasGetAll = User.HasPermission("GetVoucherAll");
 
@@ -49,7 +54,32 @@ namespace Assignment.Controllers
                 }
             }
 
-            return View(await vouchers.ToListAsync());
+            var totalItems = await vouchers.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+            if (totalPages > 0 && page > totalPages)
+            {
+                page = totalPages;
+            }
+
+            var pagedVouchers = await vouchers
+                .OrderByDescending(v => v.CreatedAt)
+                .ThenBy(v => v.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var viewModel = new PagedResult<Voucher>
+            {
+                CurrentPage = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                PageSizeOptions = PaginationDefaults.PageSizeOptions
+            };
+
+            viewModel.SetItems(pagedVouchers);
+
+            return View(viewModel.EnsureValidPage());
         }
 
         public async Task<IActionResult> Details(long? id)

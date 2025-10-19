@@ -1,6 +1,6 @@
 @using Assignment.Enums
 @using System.Linq
-@model IEnumerable<Assignment.Models.Order>
+@model Assignment.ViewModels.PagedResult<Assignment.Models.Order>
 
 @{
     ViewData["Title"] = "Quản lý đơn hàng";
@@ -10,6 +10,37 @@
     var canUpdateStatus = ViewBag.CanUpdateStatus is bool flag && flag;
     var statuses = Enum.GetValues(typeof(OrderStatus)).Cast<OrderStatus>().ToList();
     var bulkDefaultStatus = OrderStatus.Processing;
+    var pageSize = Model?.PageSize ?? 25;
+    var page = Model?.CurrentPage ?? 1;
+    var totalPages = Model?.TotalPages ?? 0;
+    var totalItems = Model?.TotalItems ?? 0;
+    var startItem = Model?.StartItem ?? 0;
+    var endItem = Model?.EndItem ?? 0;
+    var pageSizeOptions = (Model?.PageSizeOptions != null && Model.PageSizeOptions.Count > 0)
+        ? Model.PageSizeOptions
+        : new[] { 25, 50, 75, 100 };
+    var hasData = Model?.Items?.Any() == true;
+    var hasPagination = totalPages > 1;
+    var startPage = 1;
+    var endPage = totalPages;
+
+    if (totalPages > 0)
+    {
+        startPage = Math.Max(1, page - 2);
+        endPage = Math.Min(totalPages, page + 2);
+
+        if (endPage - startPage < 4)
+        {
+            if (startPage == 1)
+            {
+                endPage = Math.Min(totalPages, startPage + 4);
+            }
+            else if (endPage == totalPages)
+            {
+                startPage = Math.Max(1, endPage - 4);
+            }
+        }
+    }
 }
 
 @functions {
@@ -37,14 +68,16 @@
 <div class="container-fluid pt-4 px-4">
     <div class="card shadow-sm">
         <div class="card-header bg-light">
-            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3">
+            <div class="d-flex flex-column flex-xl-row justify-content-between align-items-xl-end gap-3">
                 <div>
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-receipt me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Theo dõi và cập nhật trạng thái đơn hàng của khách hàng.</p>
+                    <p class="text-muted mb-0">Theo dõi, tìm kiếm và cập nhật trạng thái đơn hàng của khách hàng.</p>
                 </div>
                 <form class="row gx-2 gy-2 align-items-end" method="get" asp-action="Manage">
+                    <input type="hidden" name="page" value="1" />
+                    <input type="hidden" name="pageSize" value="@pageSize" />
                     <div class="col-12 col-sm-auto">
                         <label class="form-label mb-1" for="search">Tìm kiếm</label>
                         <input type="search" id="search" name="search" value="@searchTerm" class="form-control" placeholder="Tên, email, số điện thoại hoặc mã đơn" />
@@ -90,27 +123,57 @@
                 </div>
             }
 
-            @if (Model != null && Model.Any())
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <div class="text-muted small">
+                    @if (hasData)
+                    {
+                        <span>Hiển thị <strong>@startItem</strong> - <strong>@endItem</strong> trong tổng số <strong>@totalItems</strong> đơn hàng.</span>
+                    }
+                    else
+                    {
+                        <span>Không có đơn hàng nào phù hợp với tiêu chí hiện tại.</span>
+                    }
+                </div>
+                <form method="get" asp-action="Manage" class="d-flex align-items-center gap-2">
+                    <input type="hidden" name="status" value="@(statusFilter?.ToString())" />
+                    <input type="hidden" name="search" value="@searchTerm" />
+                    <input type="hidden" name="page" value="1" />
+                    <label class="form-label mb-0" for="pageSizeSelect">Hiển thị</label>
+                    <select id="pageSizeSelect" name="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        @foreach (var option in pageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == pageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                    <span class="text-muted small">bản ghi/trang</span>
+                </form>
+            </div>
+
+            @if (hasData)
             {
                 <form id="order-bulk-form" asp-action="BulkUpdateStatus" method="post">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="statusFilter" value="@(statusFilter?.ToString())" />
                     <input type="hidden" name="search" value="@searchTerm" />
+                    <input type="hidden" name="page" value="@page" />
+                    <input type="hidden" name="pageSize" value="@pageSize" />
                 </form>
 
                 <div class="table-responsive" data-bulk-container data-bulk-form="order-bulk-form" data-bulk-empty-message="Vui lòng chọn ít nhất một đơn hàng để cập nhật.">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
                         <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>
                             <span class="text-muted small">Đã chọn <span data-bulk-count>0</span> đơn hàng</span>
-                            <select class="form-select form-select-sm w-auto" name="status" form="order-bulk-form" data-bulk-enable>
-                                @foreach (var option in statuses)
-                                {
-                                    <option value="@option" selected="@(option == bulkDefaultStatus ? "selected" : null)">@GetStatusDisplay(option)</option>
-                                }
-                            </select>
-                            <button type="submit" class="btn btn-sm btn-primary" form="order-bulk-form" data-bulk-enable>
-                                <i class="fas fa-sync-alt me-1"></i>Chỉnh sửa trạng thái tất cả
-                            </button>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <select class="form-select form-select-sm w-auto" name="status" form="order-bulk-form" data-bulk-enable>
+                                    @foreach (var option in statuses)
+                                    {
+                                        <option value="@option" selected="@(option == bulkDefaultStatus ? "selected" : null)">@GetStatusDisplay(option)</option>
+                                    }
+                                </select>
+                                <button type="submit" class="btn btn-sm btn-primary" form="order-bulk-form" data-bulk-enable>
+                                    <i class="fas fa-sync-alt me-1"></i>Cập nhật trạng thái
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -133,7 +196,7 @@
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach (var order in Model)
+                            @foreach (var order in Model!.Items)
                             {
                                 var statusClass = GetStatusBadgeClass(order.Status);
                                 var paymentDescription = order.PaymentType == PaymentType.PayNow
@@ -193,36 +256,25 @@
                                         <span class="badge @statusClass px-3 py-2">@GetStatusDisplay(order.Status)</span>
                                     </td>
                                     <td>
-                                        <div class="order-actions">
+                                        <div class="d-flex flex-column flex-lg-row align-items-stretch align-items-lg-center gap-2 order-actions">
+                                            <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@order.Id">
+                                                <i class="fas fa-eye me-1"></i>Chi tiết
+                                            </a>
                                             @if (canUpdateStatus)
                                             {
-                                                <form asp-action="UpdateStatus" method="post" class="order-actions-form" asp-route-statusFilter="@(statusFilter?.ToString())" asp-route-search="@searchTerm">
+                                                <form asp-action="UpdateStatus" method="post" class="d-flex gap-2" asp-route-statusFilter="@(statusFilter?.ToString())" asp-route-search="@searchTerm" asp-route-page="@page" asp-route-pageSize="@pageSize">
                                                     @Html.AntiForgeryToken()
                                                     <input type="hidden" name="id" value="@order.Id" />
-                                                    <div class="status-select">
-                                                        <label class="form-label mb-1" for="status-@order.Id">Trạng thái đơn</label>
-                                                        <select class="form-select form-select-sm" id="status-@order.Id" name="status">
-                                                            @foreach (var option in statuses)
-                                                            {
-                                                                <option value="@option" selected="@(order.Status == option ? "selected" : null)">@GetStatusDisplay(option)</option>
-                                                            }
-                                                        </select>
-                                                    </div>
-                                                    <div class="order-action-buttons">
-                                                        <button type="submit" class="btn btn-sm btn-primary">
-                                                            <i class="fas fa-save me-1"></i>Lưu thay đổi
-                                                        </button>
-                                                        <a class="btn btn-sm btn-outline-secondary" asp-action="Details" asp-route-id="@order.Id">
-                                                            <i class="fas fa-eye me-1"></i>Xem chi tiết
-                                                        </a>
-                                                    </div>
+                                                    <select class="form-select form-select-sm" name="status">
+                                                        @foreach (var option in statuses)
+                                                        {
+                                                            <option value="@option" selected="@(option == order.Status ? "selected" : null)">@GetStatusDisplay(option)</option>
+                                                        }
+                                                    </select>
+                                                    <button type="submit" class="btn btn-sm btn-primary">
+                                                        <i class="fas fa-save me-1"></i>Lưu
+                                                    </button>
                                                 </form>
-                                            }
-                                            else
-                                            {
-                                                <a class="btn btn-sm btn-outline-secondary" asp-action="Details" asp-route-id="@order.Id">
-                                                    <i class="fas fa-eye me-1"></i>Xem chi tiết
-                                                </a>
                                             }
                                         </div>
                                     </td>
@@ -231,12 +283,39 @@
                         </tbody>
                     </table>
                 </div>
+
+                @if (hasPagination)
+                {
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
+                        <div class="text-muted small">Trang <strong>@page</strong> / <strong>@totalPages</strong></div>
+                        <nav aria-label="Điều hướng trang đơn hàng">
+                            <ul class="pagination justify-content-md-end mb-0">
+                                <li class="page-item @(page == 1 ? "disabled" : string.Empty)">
+                                    <a class="page-link" asp-action="Manage" asp-route-status="@(statusFilter?.ToString())" asp-route-search="@searchTerm" asp-route-page="@(page - 1)" asp-route-pageSize="@pageSize">
+                                        <span aria-hidden="true">&laquo;</span>
+                                    </a>
+                                </li>
+                                @for (var p = startPage; p <= endPage; p++)
+                                {
+                                    <li class="page-item @(p == page ? "active" : string.Empty)">
+                                        <a class="page-link" asp-action="Manage" asp-route-status="@(statusFilter?.ToString())" asp-route-search="@searchTerm" asp-route-page="@p" asp-route-pageSize="@pageSize">@p</a>
+                                    </li>
+                                }
+                                <li class="page-item @(page == totalPages ? "disabled" : string.Empty)">
+                                    <a class="page-link" asp-action="Manage" asp-route-status="@(statusFilter?.ToString())" asp-route-search="@searchTerm" asp-route-page="@(page + 1)" asp-route-pageSize="@pageSize">
+                                        <span aria-hidden="true">&raquo;</span>
+                                    </a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                }
             }
             else
             {
                 <div class="text-center py-5">
                     <i class="fas fa-box-open fa-3x text-muted mb-3"></i>
-                    <p class="text-muted mb-0">Không có đơn hàng nào phù hợp với tiêu chí hiện tại.</p>
+                    <p class="text-muted mb-0">Không tìm thấy đơn hàng nào để hiển thị.</p>
                 </div>
             }
         </div>

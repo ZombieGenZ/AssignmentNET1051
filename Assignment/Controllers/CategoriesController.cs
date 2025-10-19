@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using Assignment.Data;
 using Assignment.Extensions;
+using Assignment.Options;
+using Assignment.ViewModels;
 
 namespace Assignment.Controllers
 {
@@ -25,8 +27,11 @@ namespace Assignment.Controllers
             _authorizationService = authorizationService;
         }
 
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index(int page = 1, int pageSize = PaginationDefaults.DefaultPageSize)
         {
+            page = PaginationDefaults.NormalizePage(page);
+            pageSize = PaginationDefaults.NormalizePageSize(pageSize);
+
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var hasGetAll = User.HasPermission("GetCategoryAll");
 
@@ -44,7 +49,32 @@ namespace Assignment.Controllers
                 }
             }
 
-            return View(await categories.ToListAsync());
+            var totalItems = await categories.CountAsync();
+            var totalPages = (int)Math.Ceiling(totalItems / (double)pageSize);
+
+            if (totalPages > 0 && page > totalPages)
+            {
+                page = totalPages;
+            }
+
+            var pagedCategories = await categories
+                .OrderBy(c => c.Index)
+                .ThenBy(c => c.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            var viewModel = new PagedResult<Category>
+            {
+                CurrentPage = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                PageSizeOptions = PaginationDefaults.PageSizeOptions
+            };
+
+            viewModel.SetItems(pagedCategories);
+
+            return View(viewModel.EnsureValidPage());
         }
 
         public async Task<IActionResult> Details(long? id)
