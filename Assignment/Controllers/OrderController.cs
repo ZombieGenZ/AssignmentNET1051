@@ -361,15 +361,15 @@ namespace Assignment.Controllers
 
             if (!sanitizedVoucherIds.Any())
             {
-                var vatAmount = subtotal * 0.15;
-                var totalBill = subtotal + vatAmount;
+                var vatAmountWithoutVouchers = subtotal * 0.15;
+                var totalBillWithoutVouchers = subtotal + vatAmountWithoutVouchers;
                 return Json(new
                 {
                     success = true,
                     vouchers = Array.Empty<object>(),
                     totalDiscount = 0,
-                    vatAmount,
-                    totalBill
+                    vatAmount = vatAmountWithoutVouchers,
+                    totalBill = totalBillWithoutVouchers
                 });
             }
 
