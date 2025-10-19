@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.IO;
 using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Extensions;
@@ -7,6 +8,7 @@ using Assignment.Models;
 using Assignment.Options;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -400,6 +402,196 @@ namespace Assignment.Controllers.Api
             };
 
             return Ok(response);
+        }
+
+        [HttpPost("import-users")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportUsers([FromForm] IFormFile? file)
+        {
+            if (!User.HasAnyPermission(
+                    "CreateVoucher",
+                    "CreateVoucherAll",
+                    "UpdateVoucher",
+                    "UpdateVoucherAll"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách người dùng." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu người dùng." });
+                }
+
+                var userIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    var rawValue = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(rawValue))
+                    {
+                        continue;
+                    }
+
+                    if (row.RowNumber() == 1 && string.Equals(rawValue, "UserId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    userIds.Add(rawValue);
+                }
+
+                if (!userIds.Any())
+                {
+                    return Ok(new ImportUsersResponse());
+                }
+
+                var normalizedIds = userIds.ToList();
+                var users = await _userManager.Users
+                    .Where(u => normalizedIds.Contains(u.Id))
+                    .ToListAsync();
+
+                var foundIds = new HashSet<string>(users.Select(u => u.Id), StringComparer.OrdinalIgnoreCase);
+                var invalidIds = normalizedIds
+                    .Where(id => !foundIds.Contains(id))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var response = new ImportUsersResponse
+                {
+                    Users = users.Select(user => new UserOption
+                    {
+                        Id = user.Id,
+                        DisplayName = BuildUserDisplayName(user)
+                    }).ToList(),
+                    InvalidEntries = invalidIds
+                };
+
+                return Ok(response);
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "File không hợp lệ hoặc bị hỏng." });
+            }
+        }
+
+        [HttpPost("import-products")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportProducts([FromForm] IFormFile? file)
+        {
+            if (!User.HasAnyPermission(
+                    "CreateVoucher",
+                    "CreateVoucherAll",
+                    "UpdateVoucher",
+                    "UpdateVoucherAll"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách sản phẩm." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu sản phẩm." });
+                }
+
+                var productIds = new HashSet<long>();
+                var invalidEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    var rawValue = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(rawValue))
+                    {
+                        continue;
+                    }
+
+                    if (row.RowNumber() == 1 && string.Equals(rawValue, "ProductId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!long.TryParse(rawValue, out var productId) || productId <= 0)
+                    {
+                        invalidEntries.Add(rawValue);
+                        continue;
+                    }
+
+                    productIds.Add(productId);
+                }
+
+                if (!productIds.Any())
+                {
+                    return Ok(new ImportProductsResponse
+                    {
+                        InvalidEntries = invalidEntries.ToList()
+                    });
+                }
+
+                var products = await _context.Products
+                    .Where(p => productIds.Contains(p.Id) && !p.IsDeleted)
+                    .Select(p => new ProductOption
+                    {
+                        Id = p.Id,
+                        Name = p.Name
+                    })
+                    .ToListAsync();
+
+                var foundIds = new HashSet<long>(products.Select(p => p.Id));
+                foreach (var id in productIds)
+                {
+                    if (!foundIds.Contains(id))
+                    {
+                        invalidEntries.Add(id.ToString());
+                    }
+                }
+
+                var response = new ImportProductsResponse
+                {
+                    Products = products,
+                    InvalidEntries = invalidEntries.ToList()
+                };
+
+                return Ok(response);
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "File không hợp lệ hoặc bị hỏng." });
+            }
         }
 
         [HttpGet("product-template")]
@@ -920,6 +1112,18 @@ namespace Assignment.Controllers.Api
         {
             public List<UserOption> Users { get; set; } = new();
             public List<ProductOption> Products { get; set; } = new();
+        }
+
+        public class ImportUsersResponse
+        {
+            public List<UserOption> Users { get; set; } = new();
+            public List<string> InvalidEntries { get; set; } = new();
+        }
+
+        public class ImportProductsResponse
+        {
+            public List<ProductOption> Products { get; set; } = new();
+            public List<string> InvalidEntries { get; set; } = new();
         }
 
         public class PagedResponse<T>

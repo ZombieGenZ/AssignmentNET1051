@@ -212,14 +212,54 @@
                             <input type="number" min="0" step="0.01" class="form-control mt-2" id="voucherMaximumPercentageReduction" placeholder="Giảm tối đa (đ)" />
                         </div>
                         <div class="col-12 d-none" id="voucherUsersWrapper">
-                            <label for="voucherUserIds" class="form-label">Người dùng áp dụng<span class="text-danger">*</span></label>
-                            <select id="voucherUserIds" class="form-select" multiple size="6"></select>
-                            <small class="text-muted">Giữ phím Ctrl (hoặc Command trên Mac) để chọn nhiều người dùng.</small>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                <label class="form-label mb-0">Người dùng áp dụng<span class="text-danger">*</span></label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @if (canDownloadTemplates)
+                                    {
+                                        <a class="btn btn-outline-secondary btn-sm" href="/api/vouchers/user-template">
+                                            <i class="fas fa-file-download me-1"></i>Tải mẫu
+                                        </a>
+                                    }
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="importVoucherUsersBtn">
+                                        <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearVoucherUsersBtn">
+                                        <i class="fas fa-times me-1"></i>Xóa tất cả
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success btn-sm" id="addVoucherUserBtn">
+                                        <i class="fas fa-plus me-1"></i>Thêm người dùng
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="voucherUsersContainer" class="d-flex flex-column gap-2"></div>
+                            <input type="file" class="d-none" id="voucherUserImportInput" accept=".xlsx" />
+                            <small class="text-muted">Thêm người dùng cụ thể hoặc nhập danh sách từ file mẫu.</small>
                         </div>
                         <div class="col-12 d-none" id="voucherProductsWrapper">
-                            <label for="voucherProductIds" class="form-label">Sản phẩm áp dụng<span class="text-danger">*</span></label>
-                            <select id="voucherProductIds" class="form-select" multiple size="6"></select>
-                            <small class="text-muted">Giữ phím Ctrl (hoặc Command trên Mac) để chọn nhiều sản phẩm.</small>
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                                <label class="form-label mb-0">Sản phẩm áp dụng<span class="text-danger">*</span></label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @if (canDownloadTemplates)
+                                    {
+                                        <a class="btn btn-outline-secondary btn-sm" href="/api/vouchers/product-template">
+                                            <i class="fas fa-file-download me-1"></i>Tải mẫu
+                                        </a>
+                                    }
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="importVoucherProductsBtn">
+                                        <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearVoucherProductsBtn">
+                                        <i class="fas fa-times me-1"></i>Xóa tất cả
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success btn-sm" id="addVoucherProductBtn">
+                                        <i class="fas fa-plus me-1"></i>Thêm sản phẩm
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="voucherProductsContainer" class="d-flex flex-column gap-2"></div>
+                            <input type="file" class="d-none" id="voucherProductImportInput" accept=".xlsx" />
+                            <small class="text-muted">Chọn các sản phẩm áp dụng voucher hoặc nhập nhanh từ file.</small>
                         </div>
                     </div>
                 </div>
@@ -353,8 +393,16 @@
                 maximumPercentageInput: document.getElementById('voucherMaximumPercentageReduction'),
                 usersWrapper: document.getElementById('voucherUsersWrapper'),
                 productsWrapper: document.getElementById('voucherProductsWrapper'),
-                usersSelect: document.getElementById('voucherUserIds'),
-                productsSelect: document.getElementById('voucherProductIds'),
+                usersContainer: document.getElementById('voucherUsersContainer'),
+                productsContainer: document.getElementById('voucherProductsContainer'),
+                addUserBtn: document.getElementById('addVoucherUserBtn'),
+                addProductBtn: document.getElementById('addVoucherProductBtn'),
+                importUsersBtn: document.getElementById('importVoucherUsersBtn'),
+                importProductsBtn: document.getElementById('importVoucherProductsBtn'),
+                clearUsersBtn: document.getElementById('clearVoucherUsersBtn'),
+                clearProductsBtn: document.getElementById('clearVoucherProductsBtn'),
+                userImportInput: document.getElementById('voucherUserImportInput'),
+                productImportInput: document.getElementById('voucherProductImportInput'),
                 endTimeWrapper: document.getElementById('voucherEndTimeWrapper')
             };
 
@@ -452,8 +500,16 @@
                 formFields.endTimeWrapper.classList.remove('d-none');
                 formFields.maximumPercentageInput.disabled = false;
                 formFields.maximumPercentageInput.classList.remove('d-none');
-                formFields.usersSelect.innerHTML = '';
-                formFields.productsSelect.innerHTML = '';
+                if (formFields.usersContainer) {
+                    formFields.usersContainer.innerHTML = '';
+                }
+
+                if (formFields.productsContainer) {
+                    formFields.productsContainer.innerHTML = '';
+                }
+
+                updateUserControlStates();
+                updateProductControlStates();
             }
 
             function showAlert(message, type = 'success') {
@@ -676,24 +732,319 @@
                     state.formOptions.users = options.users || [];
                     state.formOptions.products = options.products || [];
                     state.formOptionsLoaded = true;
+                    updateUserControlStates();
+                    updateProductControlStates();
                 } catch (error) {
                     voucherFormErrors.classList.remove('d-none');
                     voucherFormErrors.textContent = error.message || 'Không thể tải dữ liệu cần thiết.';
                 }
             }
 
-            function populateSelect(selectElement, options, valueKey, labelKey, selectedValues = []) {
+            function populateSelectOptions(selectElement, options, valueKey, labelKey, selectedOption = null) {
                 if (!selectElement) {
                     return;
                 }
 
-                const selectedSet = new Set(selectedValues);
-                selectElement.innerHTML = options.map(option => {
+                const selectedValue = selectedOption && selectedOption[valueKey] != null
+                    ? String(selectedOption[valueKey])
+                    : '';
+                const selectedLabel = selectedOption ? selectedOption[labelKey] || '' : '';
+
+                selectElement.innerHTML = '<option value="">-- Chọn --</option>';
+
+                let hasSelected = false;
+                options.forEach(option => {
+                    if (!option) {
+                        return;
+                    }
+
                     const value = option[valueKey];
-                    const label = option[labelKey];
-                    const selected = selectedSet.has(value) ? 'selected' : '';
-                    return `<option value="${value}" ${selected}>${label}</option>`;
-                }).join('');
+                    if (value === undefined || value === null) {
+                        return;
+                    }
+
+                    const label = option[labelKey] ?? String(value);
+                    const optionElement = document.createElement('option');
+                    optionElement.value = String(value);
+                    optionElement.textContent = label;
+
+                    if (selectedValue && String(value) === selectedValue) {
+                        optionElement.selected = true;
+                        hasSelected = true;
+                    }
+
+                    selectElement.appendChild(optionElement);
+                });
+
+                if (selectedValue && !hasSelected) {
+                    const fallbackOption = document.createElement('option');
+                    fallbackOption.value = selectedValue;
+                    fallbackOption.textContent = selectedLabel || selectedValue;
+                    fallbackOption.selected = true;
+                    selectElement.appendChild(fallbackOption);
+                }
+            }
+
+            function createUserRow(userOption = null) {
+                const row = document.createElement('div');
+                row.className = 'row g-2 align-items-end voucher-user-row';
+
+                const selectCol = document.createElement('div');
+                selectCol.className = 'col';
+                const select = document.createElement('select');
+                select.className = 'form-select voucher-user-select';
+                select.required = true;
+                populateSelectOptions(select, state.formOptions.users, 'id', 'displayName', userOption);
+                select.addEventListener('change', () => {
+                    refreshUserSelectOptions();
+                    updateUserControlStates();
+                });
+                selectCol.appendChild(select);
+
+                const actionCol = document.createElement('div');
+                actionCol.className = 'col-auto';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-outline-danger';
+                removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                removeBtn.addEventListener('click', () => {
+                    row.remove();
+                    refreshUserSelectOptions();
+                    updateUserControlStates();
+                });
+                actionCol.appendChild(removeBtn);
+
+                row.appendChild(selectCol);
+                row.appendChild(actionCol);
+                return row;
+            }
+
+            function createProductRow(productOption = null) {
+                const row = document.createElement('div');
+                row.className = 'row g-2 align-items-end voucher-product-row';
+
+                const selectCol = document.createElement('div');
+                selectCol.className = 'col';
+                const select = document.createElement('select');
+                select.className = 'form-select voucher-product-select';
+                select.required = true;
+                populateSelectOptions(select, state.formOptions.products, 'id', 'name', productOption);
+                select.addEventListener('change', () => {
+                    refreshProductSelectOptions();
+                    updateProductControlStates();
+                });
+                selectCol.appendChild(select);
+
+                const actionCol = document.createElement('div');
+                actionCol.className = 'col-auto';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-outline-danger';
+                removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                removeBtn.addEventListener('click', () => {
+                    row.remove();
+                    refreshProductSelectOptions();
+                    updateProductControlStates();
+                });
+                actionCol.appendChild(removeBtn);
+
+                row.appendChild(selectCol);
+                row.appendChild(actionCol);
+                return row;
+            }
+
+            function addVoucherUserRow(userOption = null) {
+                if (!formFields.usersContainer) {
+                    return;
+                }
+
+                if (!userOption && (!state.formOptions.users || state.formOptions.users.length === 0)) {
+                    showAlert('Không có dữ liệu người dùng để chọn.', 'warning');
+                    return;
+                }
+
+                const row = createUserRow(userOption);
+                formFields.usersContainer.appendChild(row);
+                refreshUserSelectOptions();
+                updateUserControlStates();
+            }
+
+            function addVoucherProductRow(productOption = null) {
+                if (!formFields.productsContainer) {
+                    return;
+                }
+
+                if (!productOption && (!state.formOptions.products || state.formOptions.products.length === 0)) {
+                    showAlert('Không có dữ liệu sản phẩm để chọn.', 'warning');
+                    return;
+                }
+
+                const row = createProductRow(productOption);
+                formFields.productsContainer.appendChild(row);
+                refreshProductSelectOptions();
+                updateProductControlStates();
+            }
+
+            function setVoucherUserRows(users = []) {
+                if (!formFields.usersContainer) {
+                    return;
+                }
+
+                formFields.usersContainer.innerHTML = '';
+
+                if (Array.isArray(users) && users.length > 0) {
+                    users.forEach(user => {
+                        const row = createUserRow(user);
+                        formFields.usersContainer.appendChild(row);
+                    });
+                }
+
+                refreshUserSelectOptions();
+                updateUserControlStates();
+            }
+
+            function setVoucherProductRows(products = []) {
+                if (!formFields.productsContainer) {
+                    return;
+                }
+
+                formFields.productsContainer.innerHTML = '';
+
+                if (Array.isArray(products) && products.length > 0) {
+                    products.forEach(product => {
+                        const row = createProductRow(product);
+                        formFields.productsContainer.appendChild(row);
+                    });
+                }
+
+                refreshProductSelectOptions();
+                updateProductControlStates();
+            }
+
+            function refreshUserSelectOptions() {
+                if (!formFields.usersContainer) {
+                    return;
+                }
+
+                const selects = Array.from(formFields.usersContainer.querySelectorAll('.voucher-user-select'));
+                const selectedValues = new Set(selects.map(select => select.value).filter(value => value));
+
+                selects.forEach(select => {
+                    const currentValue = select.value;
+                    Array.from(select.options).forEach(option => {
+                        if (!option.value) {
+                            option.disabled = false;
+                            return;
+                        }
+
+                        option.disabled = option.value !== currentValue && selectedValues.has(option.value);
+                    });
+                });
+            }
+
+            function refreshProductSelectOptions() {
+                if (!formFields.productsContainer) {
+                    return;
+                }
+
+                const selects = Array.from(formFields.productsContainer.querySelectorAll('.voucher-product-select'));
+                const selectedValues = new Set(selects.map(select => select.value).filter(value => value));
+
+                selects.forEach(select => {
+                    const currentValue = select.value;
+                    Array.from(select.options).forEach(option => {
+                        if (!option.value) {
+                            option.disabled = false;
+                            return;
+                        }
+
+                        option.disabled = option.value !== currentValue && selectedValues.has(option.value);
+                    });
+                });
+            }
+
+            function updateUserControlStates() {
+                if (!formFields.usersContainer) {
+                    return;
+                }
+
+                const rowCount = formFields.usersContainer.querySelectorAll('.voucher-user-row').length;
+                const totalOptions = state.formOptions.users.length;
+
+                if (formFields.addUserBtn) {
+                    formFields.addUserBtn.disabled = totalOptions === 0 || rowCount >= totalOptions;
+                }
+
+                if (formFields.clearUsersBtn) {
+                    formFields.clearUsersBtn.disabled = rowCount === 0;
+                }
+            }
+
+            function updateProductControlStates() {
+                if (!formFields.productsContainer) {
+                    return;
+                }
+
+                const rowCount = formFields.productsContainer.querySelectorAll('.voucher-product-row').length;
+                const totalOptions = state.formOptions.products.length;
+
+                if (formFields.addProductBtn) {
+                    formFields.addProductBtn.disabled = totalOptions === 0 || rowCount >= totalOptions;
+                }
+
+                if (formFields.clearProductsBtn) {
+                    formFields.clearProductsBtn.disabled = rowCount === 0;
+                }
+            }
+
+            function mergeUserOptions(users = []) {
+                if (!Array.isArray(users) || users.length === 0) {
+                    return;
+                }
+
+                const existingIds = new Set(state.formOptions.users.map(user => String(user.id)));
+                users.forEach(user => {
+                    if (!user || !user.id) {
+                        return;
+                    }
+
+                    const id = String(user.id);
+                    if (!existingIds.has(id)) {
+                        state.formOptions.users.push({
+                            id,
+                            displayName: user.displayName || user.name || id
+                        });
+                        existingIds.add(id);
+                    }
+                });
+
+                refreshUserSelectOptions();
+                updateUserControlStates();
+            }
+
+            function mergeProductOptions(products = []) {
+                if (!Array.isArray(products) || products.length === 0) {
+                    return;
+                }
+
+                const existingIds = new Set(state.formOptions.products.map(product => String(product.id)));
+                products.forEach(product => {
+                    if (!product || product.id == null) {
+                        return;
+                    }
+
+                    const id = String(product.id);
+                    if (!existingIds.has(id)) {
+                        state.formOptions.products.push({
+                            id: Number(product.id),
+                            name: product.name || `Sản phẩm #${product.id}`
+                        });
+                        existingIds.add(id);
+                    }
+                });
+
+                refreshProductSelectOptions();
+                updateProductControlStates();
             }
 
             function updateDynamicFields() {
@@ -703,12 +1054,24 @@
 
                 if (typeValue === @((int)VoucherType.Private)) {
                     formFields.usersWrapper.classList.remove('d-none');
+                    if (formFields.usersContainer && formFields.usersContainer.childElementCount === 0) {
+                        addVoucherUserRow();
+                    } else {
+                        refreshUserSelectOptions();
+                        updateUserControlStates();
+                    }
                 } else {
                     formFields.usersWrapper.classList.add('d-none');
                 }
 
                 if (productScopeValue === @((int)VoucherProductScope.SelectedProducts)) {
                     formFields.productsWrapper.classList.remove('d-none');
+                    if (formFields.productsContainer && formFields.productsContainer.childElementCount === 0) {
+                        addVoucherProductRow();
+                    } else {
+                        refreshProductSelectOptions();
+                        updateProductControlStates();
+                    }
                 } else {
                     formFields.productsWrapper.classList.add('d-none');
                 }
@@ -753,8 +1116,8 @@
                 voucherSubmitBtn.textContent = 'Thêm mới';
                 state.formMode = 'create';
                 await ensureFormOptionsLoaded();
-                populateSelect(formFields.usersSelect, state.formOptions.users, 'id', 'displayName');
-                populateSelect(formFields.productsSelect, state.formOptions.products, 'id', 'name');
+                setVoucherUserRows([]);
+                setVoucherProductRows([]);
                 updateDynamicFields();
                 voucherModal.show();
             }
@@ -796,8 +1159,13 @@
                     formFields.unlimitedPercentageSwitch.checked = Boolean(voucher.unlimitedPercentageDiscount);
                     formFields.maximumPercentageInput.value = voucher.maximumPercentageReduction ?? '';
 
-                    populateSelect(formFields.usersSelect, state.formOptions.users, 'id', 'displayName', (voucher.users || []).map(u => u.id));
-                    populateSelect(formFields.productsSelect, state.formOptions.products, 'id', 'name', (voucher.products || []).map(p => p.id));
+                    const voucherUsers = Array.isArray(voucher.users) ? voucher.users : [];
+                    const voucherProducts = Array.isArray(voucher.products) ? voucher.products : [];
+
+                    mergeUserOptions(voucherUsers);
+                    mergeProductOptions(voucherProducts);
+                    setVoucherUserRows(voucherUsers);
+                    setVoucherProductRows(voucherProducts);
 
                     updateDynamicFields();
                     voucherModal.show();
@@ -949,8 +1317,15 @@
                 const typeValue = Number(formFields.typeSelect.value);
                 const productScopeValue = Number(formFields.productScopeSelect.value);
                 const discountTypeValue = Number(formFields.discountTypeSelect.value);
-                const selectedUserIds = Array.from(formFields.usersSelect?.selectedOptions || []).map(option => option.value);
-                const selectedProductIds = Array.from(formFields.productsSelect?.selectedOptions || []).map(option => Number(option.value));
+                const selectedUserIds = Array.from(formFields.usersContainer?.querySelectorAll('.voucher-user-select') || [])
+                    .map(select => select.value)
+                    .filter(value => value);
+                const uniqueUserIds = Array.from(new Set(selectedUserIds));
+
+                const selectedProductIds = Array.from(formFields.productsContainer?.querySelectorAll('.voucher-product-select') || [])
+                    .map(select => Number(select.value))
+                    .filter(value => !Number.isNaN(value) && value > 0);
+                const uniqueProductIds = Array.from(new Set(selectedProductIds));
 
                 return {
                     code: formFields.codeInput.value?.trim(),
@@ -973,8 +1348,8 @@
                     maximumPercentageReduction: discountTypeValue === @((int)VoucherDiscountType.Percent) && !formFields.unlimitedPercentageSwitch.checked
                         ? Number(formFields.maximumPercentageInput.value || 0)
                         : null,
-                    userIds: typeValue === @((int)VoucherType.Private) ? selectedUserIds : [],
-                    productIds: productScopeValue === @((int)VoucherProductScope.SelectedProducts) ? selectedProductIds : []
+                    userIds: typeValue === @((int)VoucherType.Private) ? uniqueUserIds : [],
+                    productIds: productScopeValue === @((int)VoucherProductScope.SelectedProducts) ? uniqueProductIds : []
                 };
             }
 
@@ -1047,6 +1422,166 @@
             if (createBtn && canCreate) {
                 createBtn.addEventListener('click', () => {
                     openCreateModal();
+                });
+            }
+
+            if (formFields.addUserBtn) {
+                formFields.addUserBtn.addEventListener('click', async () => {
+                    await ensureFormOptionsLoaded();
+                    addVoucherUserRow();
+                });
+            }
+
+            if (formFields.addProductBtn) {
+                formFields.addProductBtn.addEventListener('click', async () => {
+                    await ensureFormOptionsLoaded();
+                    addVoucherProductRow();
+                });
+            }
+
+            if (formFields.clearUsersBtn) {
+                formFields.clearUsersBtn.addEventListener('click', () => {
+                    if (!formFields.usersContainer || formFields.usersContainer.childElementCount === 0) {
+                        return;
+                    }
+
+                    setVoucherUserRows([]);
+                    showAlert('Đã xóa tất cả người dùng áp dụng.', 'info');
+                });
+            }
+
+            if (formFields.clearProductsBtn) {
+                formFields.clearProductsBtn.addEventListener('click', () => {
+                    if (!formFields.productsContainer || formFields.productsContainer.childElementCount === 0) {
+                        return;
+                    }
+
+                    setVoucherProductRows([]);
+                    showAlert('Đã xóa tất cả sản phẩm áp dụng.', 'info');
+                });
+            }
+
+            if (formFields.importUsersBtn && formFields.userImportInput) {
+                formFields.importUsersBtn.addEventListener('click', () => {
+                    formFields.userImportInput.click();
+                });
+
+                formFields.userImportInput.addEventListener('change', async event => {
+                    const file = event.target?.files?.[0];
+                    if (!file) {
+                        return;
+                    }
+
+                    try {
+                        await ensureFormOptionsLoaded();
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        const response = await fetch(`${API_BASE_URL}/import-users`, {
+                            method: 'POST',
+                            headers: {
+                                'RequestVerificationToken': antiForgeryToken
+                            },
+                            body: formData
+                        });
+
+                        if (!response.ok) {
+                            const errorPayload = await response.json().catch(() => null);
+                            const message = errorPayload?.message || errorPayload?.Message || 'Không thể nhập danh sách người dùng.';
+                            throw new Error(message);
+                        }
+
+                        const result = await response.json();
+                        const importedUsers = Array.isArray(result.users)
+                            ? result.users
+                            : (Array.isArray(result.Users) ? result.Users : []);
+                        const invalidEntries = Array.isArray(result.invalidEntries)
+                            ? result.invalidEntries
+                            : (Array.isArray(result.InvalidEntries) ? result.InvalidEntries : []);
+
+                        if (!importedUsers.length) {
+                            const message = result.message || result.Message || 'Không tìm thấy người dùng hợp lệ trong file.';
+                            showAlert(message, 'warning');
+                            return;
+                        }
+
+                        mergeUserOptions(importedUsers);
+                        setVoucherUserRows(importedUsers);
+
+                        let message = `Đã nhập ${importedUsers.length} người dùng hợp lệ.`;
+                        if (invalidEntries.length) {
+                            message += ` ${invalidEntries.length} dòng không hợp lệ đã được bỏ qua.`;
+                            showAlert(message, 'warning');
+                        } else {
+                            showAlert(message, 'success');
+                        }
+                    } catch (error) {
+                        showAlert(error?.message || 'Không thể nhập danh sách người dùng.', 'danger');
+                    } finally {
+                        event.target.value = '';
+                    }
+                });
+            }
+
+            if (formFields.importProductsBtn && formFields.productImportInput) {
+                formFields.importProductsBtn.addEventListener('click', () => {
+                    formFields.productImportInput.click();
+                });
+
+                formFields.productImportInput.addEventListener('change', async event => {
+                    const file = event.target?.files?.[0];
+                    if (!file) {
+                        return;
+                    }
+
+                    try {
+                        await ensureFormOptionsLoaded();
+                        const formData = new FormData();
+                        formData.append('file', file);
+
+                        const response = await fetch(`${API_BASE_URL}/import-products`, {
+                            method: 'POST',
+                            headers: {
+                                'RequestVerificationToken': antiForgeryToken
+                            },
+                            body: formData
+                        });
+
+                        if (!response.ok) {
+                            const errorPayload = await response.json().catch(() => null);
+                            const message = errorPayload?.message || errorPayload?.Message || 'Không thể nhập danh sách sản phẩm.';
+                            throw new Error(message);
+                        }
+
+                        const result = await response.json();
+                        const importedProducts = Array.isArray(result.products)
+                            ? result.products
+                            : (Array.isArray(result.Products) ? result.Products : []);
+                        const invalidEntries = Array.isArray(result.invalidEntries)
+                            ? result.invalidEntries
+                            : (Array.isArray(result.InvalidEntries) ? result.InvalidEntries : []);
+
+                        if (!importedProducts.length) {
+                            const message = result.message || result.Message || 'Không tìm thấy sản phẩm hợp lệ trong file.';
+                            showAlert(message, 'warning');
+                            return;
+                        }
+
+                        mergeProductOptions(importedProducts);
+                        setVoucherProductRows(importedProducts);
+
+                        let message = `Đã nhập ${importedProducts.length} sản phẩm hợp lệ.`;
+                        if (invalidEntries.length) {
+                            message += ` ${invalidEntries.length} dòng không hợp lệ đã được bỏ qua.`;
+                            showAlert(message, 'warning');
+                        } else {
+                            showAlert(message, 'success');
+                        }
+                    } catch (error) {
+                        showAlert(error?.message || 'Không thể nhập danh sách sản phẩm.', 'danger');
+                    } finally {
+                        event.target.value = '';
+                    }
                 });
             }
 
