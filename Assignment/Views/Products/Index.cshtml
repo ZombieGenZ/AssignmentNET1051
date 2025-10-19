@@ -206,6 +206,7 @@
 
             const productModalEl = document.getElementById('productModal');
             const productModal = new bootstrap.Modal(productModalEl);
+            const productModalBody = productModalEl ? productModalEl.querySelector('.modal-body') : null;
             const productForm = document.getElementById('productForm');
             const productModalTitle = document.getElementById('productModalLabel');
             const productFormErrors = document.getElementById('productFormErrors');
@@ -469,6 +470,12 @@
                 }
             }
 
+            function resetModalScroll() {
+                if (productModalBody) {
+                    productModalBody.scrollTop = 0;
+                }
+            }
+
             function resetForm() {
                 productForm.reset();
                 productFormErrors.classList.add('d-none');
@@ -477,6 +484,7 @@
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Thêm mới';
                 toggleDiscountField();
+                resetModalScroll();
             }
 
             function fillForm(product) {
@@ -526,6 +534,7 @@
                 resetForm();
                 productModalTitle.textContent = 'Thêm mới sản phẩm';
                 submitButton.innerHTML = 'Thêm mới';
+                resetModalScroll();
                 productModal.show();
             }
 
@@ -534,6 +543,7 @@
                 productFormErrors.innerHTML = '';
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Lưu thay đổi';
+                resetModalScroll();
 
                 try {
                     const response = await fetch(`${API_BASE_URL}/${productId}`);
@@ -555,6 +565,7 @@
                     productModalTitle.textContent = 'Chỉnh sửa sản phẩm';
                     submitButton.innerHTML = 'Lưu thay đổi';
                     fillForm(product);
+                    resetModalScroll();
                     productModal.show();
                 } catch (error) {
                     showAlert('Không thể tải thông tin sản phẩm. Vui lòng thử lại sau.', 'danger');
