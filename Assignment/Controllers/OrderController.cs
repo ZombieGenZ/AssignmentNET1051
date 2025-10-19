@@ -113,11 +113,7 @@ namespace Assignment.Controllers
 
             order.SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id));
 
-            long? voucherId = null;
-            if (!string.IsNullOrEmpty(order.VoucherId) && long.TryParse(order.VoucherId, out var parsedId))
-            {
-                voucherId = parsedId;
-            }
+            long? voucherId = order.VoucherId;
 
             if (ModelState.IsValid)
             {
@@ -212,7 +208,7 @@ namespace Assignment.Controllers
                                 }
 
                                 order.Discount = Math.Min(discountAmount, discountBase);
-                                order.VoucherId = voucher.Id.ToString();
+                                order.VoucherId = voucher.Id;
 
                                 voucher.Used += 1;
                                 _context.Vouchers.Update(voucher);

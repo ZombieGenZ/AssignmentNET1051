@@ -31,7 +31,7 @@ namespace Assignment.Models
         public double TotalBill { get; set; }
         public string? Note { get; set; }
         public string? UserId { get; set; }
-        public string? VoucherId { get; set; }
+        public long? VoucherId { get; set; }
         public virtual Voucher? Voucher { get; set; }
         public PaymentMethodType? PaymentMethod { get; set; }
         public PaymentType PaymentType { get; set; }
