@@ -163,6 +163,57 @@
     border-color: transparent;
 }
 
+.rating-stars {
+    display: inline-flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    gap: 0.65rem;
+}
+
+.rating-stars input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.rating-stars label {
+    font-size: 1.9rem;
+    line-height: 1;
+    color: #d3cfe0;
+    cursor: pointer;
+    transition: color 0.2s ease, transform 0.2s ease, text-shadow 0.2s ease;
+}
+
+.rating-stars label::before {
+    content: "★";
+    display: block;
+}
+
+.rating-stars input:checked ~ label,
+.rating-stars label:hover,
+.rating-stars label:hover ~ label {
+    color: #ffb545;
+    text-shadow: 0 8px 16px rgba(255, 181, 69, 0.35);
+}
+
+.rating-stars label:hover {
+    transform: translateY(-3px);
+}
+
+.rating-stars label:hover ~ label {
+    transform: translateY(-1px);
+}
+
+.rating-stars input:checked + label {
+    transform: translateY(-2px);
+}
+
+.rating-stars input:focus-visible + label {
+    outline: 2px solid #ffb545;
+    outline-offset: 4px;
+    border-radius: 6px;
+}
+
 .detail-card__description {
     line-height: 1.6;
     color: var(--detail-text);
