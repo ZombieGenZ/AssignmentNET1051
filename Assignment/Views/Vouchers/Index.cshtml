@@ -1,306 +1,1147 @@
 @using Assignment.Enums
-@using Assignment.Models
-@using Microsoft.AspNetCore.Identity
-@using System.Linq
-@model Assignment.ViewModels.PagedResult<Assignment.Models.Voucher>
-@inject UserManager<ApplicationUser> UserManager
-
 @{
-    ViewData["Title"] = "Danh sách Voucher";
+    ViewData["Title"] = "Quản lý voucher";
     Layout = "_AdminLayout";
-    var pageSize = Model?.PageSize ?? 25;
-    var page = Model?.CurrentPage ?? 1;
-    var totalPages = Model?.TotalPages ?? 0;
-    var totalItems = Model?.TotalItems ?? 0;
-    var startItem = Model?.StartItem ?? 0;
-    var endItem = Model?.EndItem ?? 0;
-    var vouchers = Model?.Items ?? Enumerable.Empty<Voucher>();
-    var hasData = vouchers.Any();
-    var pageSizeOptions = (Model?.PageSizeOptions != null && Model.PageSizeOptions.Count > 0)
-        ? Model.PageSizeOptions
-        : new[] { 25, 50, 75, 100 };
-    var hasPagination = totalPages > 1;
-    var startPage = 1;
-    var endPage = totalPages;
 
-    if (totalPages > 0)
-    {
-        startPage = Math.Max(1, page - 2);
-        endPage = Math.Min(totalPages, page + 2);
-
-        if (endPage - startPage < 4)
-        {
-            if (startPage == 1)
-            {
-                endPage = Math.Min(totalPages, startPage + 4);
-            }
-            else if (endPage == totalPages)
-            {
-                startPage = Math.Max(1, endPage - 4);
-            }
-        }
-    }
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
+    var canDownloadTemplates = ViewData["CanDownloadTemplates"] as bool? ?? false;
 }
 
-<head>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
-</head>
-
 <div class="container-fluid pt-4 px-4">
-    <div class="card shadow-sm">
+    <div class="card shadow-sm" id="voucher-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
         <div class="card-header bg-light">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-ticket-alt me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Theo dõi hiệu lực, phạm vi áp dụng và thông tin sử dụng của các voucher.</p>
+                    <p class="text-muted mb-0">Theo dõi hiệu lực, phạm vi áp dụng và thao tác CRUD với các voucher.</p>
                 </div>
-                @if (User.HasPermission("CreateVoucher"))
-                {
-                    <a class="btn btn-primary" asp-action="Create">
-                        <i class="fas fa-plus me-2"></i>Tạo mới
-                    </a>
-                }
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                    @if (canDownloadTemplates)
+                    {
+                        <a class="btn btn-outline-secondary" href="/api/vouchers/user-template">
+                            <i class="fas fa-file-download me-2"></i>Mẫu người dùng
+                        </a>
+                        <a class="btn btn-outline-secondary" href="/api/vouchers/product-template">
+                            <i class="fas fa-file-download me-2"></i>Mẫu sản phẩm
+                        </a>
+                    }
+                    @if (canCreate)
+                    {
+                        <button type="button" class="btn btn-primary" id="createVoucherBtn">
+                            <i class="fas fa-plus me-2"></i>Thêm voucher
+                        </button>
+                    }
+                </div>
             </div>
         </div>
         <div class="card-body">
-            @if (TempData["Success"] is string successMessage)
-            {
-                <div class="alert alert-success alert-dismissible fade show" role="alert">
-                    <i class="fas fa-check-circle me-2"></i>@successMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["Error"] is string errorMessage)
-            {
-                <div class="alert alert-danger alert-dismissible fade show" role="alert">
-                    <i class="fas fa-exclamation-triangle me-2"></i>@errorMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-            @if (TempData["Info"] is string infoMessage)
-            {
-                <div class="alert alert-info alert-dismissible fade show" role="alert">
-                    <i class="fas fa-info-circle me-2"></i>@infoMessage
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                </div>
-            }
-
-            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
-                <div class="text-muted small">
-                    @if (hasData)
-                    {
-                        <span>Hiển thị <strong>@startItem</strong> - <strong>@endItem</strong> trong tổng số <strong>@totalItems</strong> voucher.</span>
-                    }
-                    else
-                    {
-                        <span>Không có voucher nào để hiển thị.</span>
-                    }
-                </div>
-                <form method="get" asp-action="Index" class="d-flex align-items-center gap-2">
-                    <input type="hidden" name="page" value="1" />
-                    <label class="form-label mb-0" for="pageSizeSelect">Hiển thị</label>
-                    <select id="pageSizeSelect" name="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
-                        @foreach (var option in pageSizeOptions)
-                        {
-                            <option value="@option" selected="@(option == pageSize ? "selected" : null)">@option</option>
-                        }
-                    </select>
-                    <span class="text-muted small">bản ghi/trang</span>
-                </form>
-            </div>
-
-            @if (hasData)
-            {
-                <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một mã giảm giá để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} mã giảm giá đã chọn?">
-                    <form asp-action="BulkDelete" method="post" data-confirm="Bạn có chắc chắn muốn xóa {count} mã giảm giá đã chọn? Hành động này không thể hoàn tác.">
-                        @Html.AntiForgeryToken()
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>
-                                <span class="text-muted small">Đã chọn <span data-bulk-count>0</span> mã giảm giá</span>
-                                <button type="submit" class="btn btn-sm btn-danger" data-bulk-enable data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} mã giảm giá đã chọn? Hành động này không thể hoàn tác.">
-                                    <i class="fas fa-trash-alt me-1"></i>Xóa tất cả
-                                </button>
-                            </div>
-                        </div>
-                        <div class="table-responsive">
-                            <table class="table table-hover table-bordered align-middle">
-                                <thead class="table-light">
-                                    <tr>
-                                        <th style="width: 50px;">
-                                            <div class="form-check d-flex justify-content-center mb-0">
-                                                <input class="form-check-input" type="checkbox" data-bulk-select-all />
-                                            </div>
-                                        </th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Code)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Name)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Type)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().ProductScope)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().DiscountType)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Discount)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Used)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().Quantity)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().IsPublish)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().IsShow)</th>
-                                        <th>@Html.DisplayNameFor(model => model.Items.First().MaxCombinedUsageCount)</th>
-                                        <th>Thời gian bắt đầu</th>
-                                        <th>Thời gian kết thúc</th>
-                                        <th style="width: 15%;">Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @foreach (var voucher in vouchers)
-                                    {
-                                        <tr>
-                                            <td>
-                                                <div class="form-check d-flex justify-content-center mb-0">
-                                                    <input class="form-check-input" type="checkbox" name="selectedIds" value="@voucher.Id" data-bulk-item />
-                                                </div>
-                                            </td>
-                                            <td class="fw-semibold text-start">@voucher.Code</td>
-                                            <td>@voucher.Name</td>
-                                            <td>
-                                                @if (voucher.Type == VoucherType.Public)
-                                                {
-                                                    <span class="badge bg-success">Công khai</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-info">Riêng tư</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (voucher.ProductScope == VoucherProductScope.AllProducts)
-                                                {
-                                                    <span class="badge bg-success">Tất cả sản phẩm</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-primary">Một số sản phẩm</span>
-                                                }
-                                            </td>
-                                            <td>@(voucher.DiscountType == VoucherDiscountType.Money ? "Tiền mặt" : "Phần trăm")</td>
-                                            <td>
-                                                @if (voucher.DiscountType == VoucherDiscountType.Money)
-                                                {
-                                                    @voucher.Discount.ToString("C0")
-                                                }
-                                                else
-                                                {
-                                                    @($"{voucher.Discount}%")
-                                                }
-                                            </td>
-                                            <td>@voucher.Used.ToString("N0")</td>
-                                            <td>@voucher.Quantity.ToString("N0")</td>
-                                            <td>
-                                                @if (voucher.HasCombinedUsageLimit && voucher.MaxCombinedUsageCount.HasValue)
-                                                {
-                                                    @voucher.MaxCombinedUsageCount.Value.ToString("N0")
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">Không giới hạn</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (voucher.IsPublish)
-                                                {
-                                                    <span class="badge bg-success">Bật</span>
-                                                }
-                                                else
-                                                {
-                                                    <span class="badge bg-secondary">Tắt</span>
-                                                }
-                                            </td>
-                                            <td>
-                                                @if (voucher.Type == VoucherType.Public)
-                                                {
-                                                    if (voucher.IsShow)
-                                                    {
-                                                        <span class="badge bg-success">Hiển thị</span>
-                                                    }
-                                                    else
-                                                    {
-                                                        <span class="badge bg-secondary">Ẩn</span>
-                                                    }
-                                                }
-                                                else
-                                                {
-                                                    <span class="text-muted">N/A</span>
-                                                }
-                                            </td>
-                                            <td>@voucher.StartTime.ToString("dd/MM/yyyy HH:mm")</td>
-                                            <td>
-                                                @if (voucher.IsLifeTime)
-                                                {
-                                                    <span class="badge bg-warning">Vô thời hạn</span>
-                                                }
-                                                else
-                                                {
-                                                    @voucher.EndTime?.ToString("dd/MM/yyyy HH:mm")
-                                                }
-                                            </td>
-                                            <td>
-                                                <div class="d-flex justify-content-center gap-2">
-                                                    @if (User.HasAnyPermission("UpdateVoucher", "UpdateVoucherAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@voucher.Id" title="Chỉnh sửa">
-                                                            <i class="fas fa-edit"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("GetVoucher", "GetVoucherAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@voucher.Id" title="Chi tiết">
-                                                            <i class="fas fa-info-circle"></i>
-                                                        </a>
-                                                    }
-                                                    @if (User.HasAnyPermission("DeleteVoucher", "DeleteVoucherAll"))
-                                                    {
-                                                        <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@voucher.Id" title="Xóa">
-                                                            <i class="fas fa-trash-alt"></i>
-                                                        </a>
-                                                    }
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-                    </form>
-                </div>
-
-                @if (hasPagination)
-                {
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
-                        <div class="text-muted small">Trang <strong>@(page)</strong> / <strong>@totalPages</strong></div>
-                        <nav aria-label="Điều hướng trang voucher">
-                            <ul class="pagination justify-content-md-end mb-0">
-                                <li class="page-item @(page == 1 ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(page - 1)" asp-route-pageSize="@(pageSize)">&laquo;</a>
-                                </li>
-                                @for (var p = startPage; p <= endPage; p++)
-                                {
-                                    <li class="page-item @(p == page ? "active" : string.Empty)">
-                                        <a class="page-link" asp-action="Index" asp-route-page="@p" asp-route-pageSize="@(pageSize)">@p</a>
-                                    </li>
-                                }
-                                <li class="page-item @(page == totalPages ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(page + 1)" asp-route-pageSize="@(pageSize)">&raquo;</a>
-                                </li>
-                            </ul>
-                        </nav>
+            <div id="alertPlaceholder"></div>
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
+                <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu voucher..." : "Bạn không có quyền xem danh sách voucher.")</div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <div class="input-group input-group-sm" style="width: auto;">
+                        <label class="input-group-text" for="pageSizeSelect">Số dòng</label>
+                        <select id="pageSizeSelect" class="form-select">
+                            @foreach (var size in Assignment.Options.PaginationDefaults.PageSizeOptions)
+                            {
+                                <option value="@size">@size</option>
+                            }
+                        </select>
                     </div>
-                }
-            }
-            else
-            {
-                <div class="text-center py-5">
-                    <i class="fas fa-ticket-alt fa-3x text-muted mb-3"></i>
-                    <p class="text-muted mb-0">Chưa có voucher nào được tạo.</p>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshVouchersBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
+                    @if (canDelete)
+                    {
+                        <div class="d-none" id="bulkActions">
+                            <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                                <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
+                            </button>
+                        </div>
+                    }
                 </div>
-            }
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            @if (canDelete)
+                            {
+                                <th style="width: 50px;" class="text-center">
+                                    <input type="checkbox" id="selectAllVouchers" class="form-check-input" />
+                                </th>
+                            }
+                            <th>Mã voucher</th>
+                            <th>Tên</th>
+                            <th>Loại</th>
+                            <th>Phạm vi</th>
+                            <th>Giảm giá</th>
+                            <th>Đơn tối thiểu</th>
+                            <th>Sử dụng</th>
+                            <th>Thời gian</th>
+                            <th>Trạng thái</th>
+                            <th style="width: 160px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vouchersTableBody">
+                        <tr>
+                            <td colspan="@(canDelete ? 11 : 10)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
+                <div id="paginationSummary" class="text-muted small"></div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="prevPageBtn">
+                        <i class="fas fa-angle-left me-1"></i>Trước
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="nextPageBtn">
+                        Sau<i class="fas fa-angle-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+<form id="antiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+<div class="modal fade" id="voucherModal" tabindex="-1" aria-labelledby="voucherModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="voucherModalLabel">Thêm voucher</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="voucherForm" novalidate>
+                <div class="modal-body">
+                    <div id="voucherFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="voucherCode" class="form-label">Mã voucher<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="voucherCode" maxlength="100" required />
+                        </div>
+                        <div class="col-md-8">
+                            <label for="voucherName" class="form-label">Tên voucher<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="voucherName" maxlength="300" required />
+                        </div>
+                        <div class="col-12">
+                            <label for="voucherDescription" class="form-label">Mô tả<span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="voucherDescription" rows="3" maxlength="1000" required></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="voucherType" class="form-label">Loại voucher</label>
+                            <select id="voucherType" class="form-select">
+                                <option value="@((int)VoucherType.Public)">Công khai</option>
+                                <option value="@((int)VoucherType.Private)">Riêng tư</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="voucherProductScope" class="form-label">Phạm vi sản phẩm</label>
+                            <select id="voucherProductScope" class="form-select">
+                                <option value="@((int)VoucherProductScope.AllProducts)">Tất cả sản phẩm</option>
+                                <option value="@((int)VoucherProductScope.SelectedProducts)">Một số sản phẩm</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="voucherDiscountType" class="form-label">Kiểu giảm giá</label>
+                            <select id="voucherDiscountType" class="form-select">
+                                <option value="@((int)VoucherDiscountType.Money)">Tiền mặt</option>
+                                <option value="@((int)VoucherDiscountType.Percent)">Phần trăm</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="voucherDiscount" class="form-label">Giá trị giảm<span class="text-danger">*</span></label>
+                            <input type="number" min="0" step="0.01" class="form-control" id="voucherDiscount" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="voucherMinimumRequirements" class="form-label">Đơn tối thiểu<span class="text-danger">*</span></label>
+                            <input type="number" min="0" step="0.01" class="form-control" id="voucherMinimumRequirements" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="voucherQuantity" class="form-label">Số lượng</label>
+                            <input type="number" min="0" step="1" class="form-control" id="voucherQuantity" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="voucherStartTime" class="form-label">Thời gian bắt đầu<span class="text-danger">*</span></label>
+                            <input type="datetime-local" class="form-control" id="voucherStartTime" required />
+                        </div>
+                        <div class="col-md-6 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="voucherIsLifeTime" />
+                                <label class="form-check-label" for="voucherIsLifeTime">Không giới hạn thời gian</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6" id="voucherEndTimeWrapper">
+                            <label for="voucherEndTime" class="form-label">Thời gian kết thúc<span class="text-danger">*</span></label>
+                            <input type="datetime-local" class="form-control" id="voucherEndTime" />
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="voucherIsPublish" />
+                                <label class="form-check-label" for="voucherIsPublish">Cho phép sử dụng</label>
+                            </div>
+                            <div class="form-check form-switch mt-2" id="voucherIsShowWrapper">
+                                <input class="form-check-input" type="checkbox" id="voucherIsShow" />
+                                <label class="form-check-label" for="voucherIsShow">Hiển thị công khai</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="voucherHasCombinedLimit" />
+                                <label class="form-check-label" for="voucherHasCombinedLimit">Giới hạn sử dụng chung</label>
+                            </div>
+                            <input type="number" min="1" step="1" class="form-control mt-2 d-none" id="voucherMaxCombinedUsageCount" placeholder="Số voucher áp dụng chung tối đa" />
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="voucherUnlimitedPercentage" />
+                                <label class="form-check-label" for="voucherUnlimitedPercentage">Không giới hạn giảm theo %</label>
+                            </div>
+                            <input type="number" min="0" step="0.01" class="form-control mt-2" id="voucherMaximumPercentageReduction" placeholder="Giảm tối đa (đ)" />
+                        </div>
+                        <div class="col-12 d-none" id="voucherUsersWrapper">
+                            <label for="voucherUserIds" class="form-label">Người dùng áp dụng<span class="text-danger">*</span></label>
+                            <select id="voucherUserIds" class="form-select" multiple size="6"></select>
+                            <small class="text-muted">Giữ phím Ctrl (hoặc Command trên Mac) để chọn nhiều người dùng.</small>
+                        </div>
+                        <div class="col-12 d-none" id="voucherProductsWrapper">
+                            <label for="voucherProductIds" class="form-label">Sản phẩm áp dụng<span class="text-danger">*</span></label>
+                            <select id="voucherProductIds" class="form-select" multiple size="6"></select>
+                            <small class="text-muted">Giữ phím Ctrl (hoặc Command trên Mac) để chọn nhiều sản phẩm.</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="voucherSubmitBtn">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="detailModalLabel">Chi tiết voucher</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="detailModalBody">
+                <div class="text-center text-muted py-4">Đang tải thông tin...</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Xóa voucher</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa voucher <strong id="deleteVoucherName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkDeleteModalLabel">Xóa nhiều voucher</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa các voucher đã chọn? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmBulkDeleteBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('voucher-app');
+            if (!app) {
+                return;
+            }
+
+            const canCreate = app.dataset.canCreate === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+            const canView = app.dataset.canView === 'true';
+            const API_BASE_URL = '/api/vouchers';
+
+            const tableBody = document.getElementById('vouchersTableBody');
+            const tableStatus = document.getElementById('tableStatus');
+            const alertPlaceholder = document.getElementById('alertPlaceholder');
+            const refreshBtn = document.getElementById('refreshVouchersBtn');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const prevPageBtn = document.getElementById('prevPageBtn');
+            const nextPageBtn = document.getElementById('nextPageBtn');
+            const paginationSummary = document.getElementById('paginationSummary');
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const selectAllCheckbox = document.getElementById('selectAllVouchers');
+            const createBtn = document.getElementById('createVoucherBtn');
+
+            const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
+
+            const voucherModalEl = document.getElementById('voucherModal');
+            const voucherModal = new bootstrap.Modal(voucherModalEl);
+            const voucherForm = document.getElementById('voucherForm');
+            const voucherFormErrors = document.getElementById('voucherFormErrors');
+            const voucherModalLabel = document.getElementById('voucherModalLabel');
+            const voucherSubmitBtn = document.getElementById('voucherSubmitBtn');
+
+            const detailModal = new bootstrap.Modal(document.getElementById('detailModal'));
+            const detailModalBody = document.getElementById('detailModalBody');
+
+            const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+            const deleteVoucherName = document.getElementById('deleteVoucherName');
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+            const bulkDeleteModal = new bootstrap.Modal(document.getElementById('bulkDeleteModal'));
+            const confirmBulkDeleteBtn = document.getElementById('confirmBulkDeleteBtn');
+
+            const formFields = {
+                codeInput: document.getElementById('voucherCode'),
+                nameInput: document.getElementById('voucherName'),
+                descriptionInput: document.getElementById('voucherDescription'),
+                typeSelect: document.getElementById('voucherType'),
+                productScopeSelect: document.getElementById('voucherProductScope'),
+                discountTypeSelect: document.getElementById('voucherDiscountType'),
+                discountInput: document.getElementById('voucherDiscount'),
+                minimumRequirementsInput: document.getElementById('voucherMinimumRequirements'),
+                quantityInput: document.getElementById('voucherQuantity'),
+                startTimeInput: document.getElementById('voucherStartTime'),
+                endTimeInput: document.getElementById('voucherEndTime'),
+                isLifeTimeSwitch: document.getElementById('voucherIsLifeTime'),
+                isPublishSwitch: document.getElementById('voucherIsPublish'),
+                isShowSwitch: document.getElementById('voucherIsShow'),
+                isShowWrapper: document.getElementById('voucherIsShowWrapper'),
+                hasCombinedLimitSwitch: document.getElementById('voucherHasCombinedLimit'),
+                maxCombinedInput: document.getElementById('voucherMaxCombinedUsageCount'),
+                unlimitedPercentageSwitch: document.getElementById('voucherUnlimitedPercentage'),
+                maximumPercentageInput: document.getElementById('voucherMaximumPercentageReduction'),
+                usersWrapper: document.getElementById('voucherUsersWrapper'),
+                productsWrapper: document.getElementById('voucherProductsWrapper'),
+                usersSelect: document.getElementById('voucherUserIds'),
+                productsSelect: document.getElementById('voucherProductIds'),
+                endTimeWrapper: document.getElementById('voucherEndTimeWrapper')
+            };
+
+            const voucherTypeLabels = {
+                '@((int)VoucherType.Public)': 'Công khai',
+                '@((int)VoucherType.Private)': 'Riêng tư'
+            };
+
+            const productScopeLabels = {
+                '@((int)VoucherProductScope.AllProducts)': 'Tất cả sản phẩm',
+                '@((int)VoucherProductScope.SelectedProducts)': 'Một số sản phẩm'
+            };
+
+            const discountTypeLabels = {
+                '@((int)VoucherDiscountType.Money)': 'Tiền mặt',
+                '@((int)VoucherDiscountType.Percent)': 'Phần trăm'
+            };
+
+            const state = {
+                items: [],
+                page: 1,
+                pageSize: Number(pageSizeSelect?.value || 25),
+                totalItems: 0,
+                totalPages: 0,
+                selectedIds: new Set(),
+                formMode: 'create',
+                editingId: null,
+                deletingId: null,
+                formOptionsLoaded: false,
+                formOptions: {
+                    users: [],
+                    products: []
+                }
+            };
+
+            function formatCurrency(value) {
+                return Number(value || 0).toLocaleString('vi-VN');
+            }
+
+            function formatDateTime(value) {
+                if (!value) {
+                    return 'Không xác định';
+                }
+
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return 'Không xác định';
+                }
+
+                return date.toLocaleString('vi-VN', { hour12: false });
+            }
+
+            function formatDateTimeForInput(value) {
+                if (!value) {
+                    return '';
+                }
+
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return '';
+                }
+
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                const hours = String(date.getHours()).padStart(2, '0');
+                const minutes = String(date.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+            }
+
+            function toIsoString(value) {
+                if (!value) {
+                    return null;
+                }
+
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return null;
+                }
+
+                return date.toISOString();
+            }
+
+            function resetForm() {
+                voucherForm.reset();
+                voucherFormErrors.classList.add('d-none');
+                voucherFormErrors.innerHTML = '';
+                state.formMode = 'create';
+                state.editingId = null;
+                formFields.isShowSwitch.checked = false;
+                formFields.isShowWrapper.classList.remove('d-none');
+                formFields.maxCombinedInput.classList.add('d-none');
+                formFields.usersWrapper.classList.add('d-none');
+                formFields.productsWrapper.classList.add('d-none');
+                formFields.endTimeWrapper.classList.remove('d-none');
+                formFields.maximumPercentageInput.disabled = false;
+                formFields.maximumPercentageInput.classList.remove('d-none');
+                formFields.usersSelect.innerHTML = '';
+                formFields.productsSelect.innerHTML = '';
+            }
+
+            function showAlert(message, type = 'success') {
+                alertPlaceholder.innerHTML = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+            }
+
+            function updateBulkActionsVisibility() {
+                if (!canDelete || !bulkActions) {
+                    return;
+                }
+
+                if (state.selectedIds.size > 0) {
+                    bulkActions.classList.remove('d-none');
+                } else {
+                    bulkActions.classList.add('d-none');
+                }
+            }
+
+            function renderPagination() {
+                if (!paginationSummary) {
+                    return;
+                }
+
+                if (state.totalItems === 0) {
+                    paginationSummary.textContent = 'Không có voucher nào.';
+                    return;
+                }
+
+                const startItem = (state.page - 1) * state.pageSize + 1;
+                const endItem = Math.min(state.totalItems, state.page * state.pageSize);
+                paginationSummary.textContent = `Hiển thị ${startItem.toLocaleString('vi-VN')} - ${endItem.toLocaleString('vi-VN')} trong tổng số ${state.totalItems.toLocaleString('vi-VN')} voucher.`;
+            }
+            function renderTable() {
+                if (!canView) {
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách voucher.</td></tr>`;
+                    tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
+                    return;
+                }
+
+                if (!state.items.length) {
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center py-4 text-muted">Không có voucher nào để hiển thị.</td></tr>`;
+                    tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
+                    return;
+                }
+
+                const rows = state.items.map(item => {
+                    const discountText = item.discountType === @((int)VoucherDiscountType.Percent)
+                        ? `${Number(item.discount).toLocaleString('vi-VN')}%`
+                        : `${formatCurrency(item.discount)} đ`;
+
+                    const minimumText = `${formatCurrency(item.minimumRequirements)} đ`;
+                    const quantityText = Number(item.quantity) > 0
+                        ? `${Number(item.used).toLocaleString('vi-VN')} / ${Number(item.quantity).toLocaleString('vi-VN')}`
+                        : `${Number(item.used).toLocaleString('vi-VN')} / Không giới hạn`;
+
+                    const timeText = item.isLifeTime
+                        ? 'Không giới hạn'
+                        : `${formatDateTime(item.startTime)} - ${formatDateTime(item.endTime)}`;
+
+                    const statusBadges = [];
+                    statusBadges.push(item.isPublish
+                        ? '<span class="badge bg-success">Cho phép</span>'
+                        : '<span class="badge bg-secondary">Tạm khóa</span>');
+
+                    if (item.type === @((int)VoucherType.Public)) {
+                        statusBadges.push(item.isShow
+                            ? '<span class="badge bg-primary">Hiển thị</span>'
+                            : '<span class="badge bg-warning text-dark">Ẩn</span>');
+                    }
+
+                    if (item.hasCombinedUsageLimit) {
+                        statusBadges.push(`<span class="badge bg-info text-dark">Tối đa ${item.maxCombinedUsageCount}</span>`);
+                    }
+
+                    const actions = [];
+                    actions.push(`<button type="button" class="btn btn-sm btn-outline-info me-1" data-action="detail" data-id="${item.id}"><i class="fas fa-eye"></i></button>`);
+
+                    if (canUpdate) {
+                        actions.push(`<button type="button" class="btn btn-sm btn-outline-warning me-1" data-action="edit" data-id="${item.id}"><i class="fas fa-pen"></i></button>`);
+                    }
+
+                    if (canDelete) {
+                        actions.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${item.id}" data-name="${item.name}"><i class="fas fa-trash"></i></button>`);
+                    }
+
+                    const selectCell = canDelete
+                        ? `<td class="text-center"><input type="checkbox" class="form-check-input voucher-select" data-id="${item.id}" ${state.selectedIds.has(item.id) ? 'checked' : ''}></td>`
+                        : '';
+
+                    return `
+                        <tr data-id="${item.id}">
+                            ${selectCell}
+                            <td class="fw-semibold">${item.code}</td>
+                            <td>${item.name}</td>
+                            <td>${voucherTypeLabels[String(item.type)] ?? 'Không xác định'}</td>
+                            <td>${productScopeLabels[String(item.productScope)] ?? 'Không xác định'}</td>
+                            <td>${discountText}</td>
+                            <td>${minimumText}</td>
+                            <td>${quantityText}</td>
+                            <td>${timeText}</td>
+                            <td>${statusBadges.join(' ')}</td>
+                            <td class="text-center">${actions.join('')}</td>
+                        </tr>`;
+                });
+
+                tableBody.innerHTML = rows.join('');
+                tableStatus.textContent = 'Đã tải dữ liệu voucher.';
+
+                if (canDelete) {
+                    tableBody.querySelectorAll('.voucher-select').forEach(checkbox => {
+                        checkbox.addEventListener('change', event => {
+                            const id = Number(event.target.dataset.id);
+                            if (event.target.checked) {
+                                state.selectedIds.add(id);
+                            } else {
+                                state.selectedIds.delete(id);
+                            }
+                            updateBulkActionsVisibility();
+                            if (selectAllCheckbox) {
+                                const totalSelectable = tableBody.querySelectorAll('.voucher-select').length;
+                                const selectedCount = tableBody.querySelectorAll('.voucher-select:checked').length;
+                                selectAllCheckbox.checked = totalSelectable > 0 && totalSelectable === selectedCount;
+                                selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < totalSelectable;
+                            }
+                        });
+                    });
+                }
+
+                tableBody.querySelectorAll('button[data-action="detail"]').forEach(button => {
+                    button.addEventListener('click', () => {
+                        const id = Number(button.dataset.id);
+                        openDetailModal(id);
+                    });
+                });
+
+                if (canUpdate) {
+                    tableBody.querySelectorAll('button[data-action="edit"]').forEach(button => {
+                        button.addEventListener('click', () => {
+                            const id = Number(button.dataset.id);
+                            openEditModal(id);
+                        });
+                    });
+                }
+
+                if (canDelete) {
+                    tableBody.querySelectorAll('button[data-action="delete"]').forEach(button => {
+                        button.addEventListener('click', () => {
+                            const id = Number(button.dataset.id);
+                            const name = button.dataset.name || '';
+                            openDeleteModal(id, name);
+                        });
+                    });
+                }
+            }
+
+            async function loadVouchers() {
+                if (!canView) {
+                    renderTable();
+                    renderPagination();
+                    return;
+                }
+
+                tableStatus.textContent = 'Đang tải dữ liệu voucher...';
+
+                const params = new URLSearchParams({
+                    page: String(state.page),
+                    pageSize: String(state.pageSize)
+                });
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}?${params.toString()}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải dữ liệu voucher.');
+                    }
+
+                    const result = await response.json();
+                    state.items = result.items || [];
+                    state.totalItems = Number(result.totalItems || 0);
+                    state.totalPages = Number(result.totalPages || 0);
+
+                    if (state.page > state.totalPages && state.totalPages > 0) {
+                        state.page = state.totalPages;
+                        await loadVouchers();
+                        return;
+                    }
+
+                    renderTable();
+                    renderPagination();
+                } catch (error) {
+                    tableStatus.textContent = 'Không thể tải dữ liệu voucher.';
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center text-danger py-4">${error.message || 'Không thể tải dữ liệu voucher.'}</td></tr>`;
+                }
+            }
+            async function ensureFormOptionsLoaded() {
+                if (state.formOptionsLoaded) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/form-options`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách người dùng và sản phẩm.');
+                    }
+
+                    const options = await response.json();
+                    state.formOptions.users = options.users || [];
+                    state.formOptions.products = options.products || [];
+                    state.formOptionsLoaded = true;
+                } catch (error) {
+                    voucherFormErrors.classList.remove('d-none');
+                    voucherFormErrors.textContent = error.message || 'Không thể tải dữ liệu cần thiết.';
+                }
+            }
+
+            function populateSelect(selectElement, options, valueKey, labelKey, selectedValues = []) {
+                if (!selectElement) {
+                    return;
+                }
+
+                const selectedSet = new Set(selectedValues);
+                selectElement.innerHTML = options.map(option => {
+                    const value = option[valueKey];
+                    const label = option[labelKey];
+                    const selected = selectedSet.has(value) ? 'selected' : '';
+                    return `<option value="${value}" ${selected}>${label}</option>`;
+                }).join('');
+            }
+
+            function updateDynamicFields() {
+                const typeValue = Number(formFields.typeSelect.value);
+                const productScopeValue = Number(formFields.productScopeSelect.value);
+                const discountTypeValue = Number(formFields.discountTypeSelect.value);
+
+                if (typeValue === @((int)VoucherType.Private)) {
+                    formFields.usersWrapper.classList.remove('d-none');
+                } else {
+                    formFields.usersWrapper.classList.add('d-none');
+                }
+
+                if (productScopeValue === @((int)VoucherProductScope.SelectedProducts)) {
+                    formFields.productsWrapper.classList.remove('d-none');
+                } else {
+                    formFields.productsWrapper.classList.add('d-none');
+                }
+
+                if (typeValue === @((int)VoucherType.Public)) {
+                    formFields.isShowWrapper.classList.remove('d-none');
+                } else {
+                    formFields.isShowWrapper.classList.add('d-none');
+                    formFields.isShowSwitch.checked = false;
+                }
+
+                if (discountTypeValue === @((int)VoucherDiscountType.Percent)) {
+                    formFields.unlimitedPercentageSwitch.disabled = false;
+                    formFields.maximumPercentageInput.disabled = formFields.unlimitedPercentageSwitch.checked;
+                    formFields.maximumPercentageInput.classList.toggle('d-none', formFields.unlimitedPercentageSwitch.checked);
+                } else {
+                    formFields.unlimitedPercentageSwitch.checked = false;
+                    formFields.unlimitedPercentageSwitch.disabled = true;
+                    formFields.maximumPercentageInput.disabled = true;
+                    formFields.maximumPercentageInput.classList.add('d-none');
+                    formFields.maximumPercentageInput.value = '';
+                }
+
+                if (formFields.isLifeTimeSwitch.checked) {
+                    formFields.endTimeWrapper.classList.add('d-none');
+                    formFields.endTimeInput.value = '';
+                } else {
+                    formFields.endTimeWrapper.classList.remove('d-none');
+                }
+
+                if (formFields.hasCombinedLimitSwitch.checked) {
+                    formFields.maxCombinedInput.classList.remove('d-none');
+                } else {
+                    formFields.maxCombinedInput.classList.add('d-none');
+                    formFields.maxCombinedInput.value = '';
+                }
+            }
+
+            async function openCreateModal() {
+                resetForm();
+                voucherModalLabel.textContent = 'Thêm voucher';
+                voucherSubmitBtn.textContent = 'Thêm mới';
+                state.formMode = 'create';
+                await ensureFormOptionsLoaded();
+                populateSelect(formFields.usersSelect, state.formOptions.users, 'id', 'displayName');
+                populateSelect(formFields.productsSelect, state.formOptions.products, 'id', 'name');
+                updateDynamicFields();
+                voucherModal.show();
+            }
+
+            async function openEditModal(id) {
+                resetForm();
+                voucherModalLabel.textContent = 'Chỉnh sửa voucher';
+                voucherSubmitBtn.textContent = 'Cập nhật';
+                state.formMode = 'edit';
+                state.editingId = id;
+
+                try {
+                    await ensureFormOptionsLoaded();
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải thông tin voucher.');
+                    }
+
+                    const voucher = await response.json();
+                    formFields.codeInput.value = voucher.code || '';
+                    formFields.nameInput.value = voucher.name || '';
+                    formFields.descriptionInput.value = voucher.description || '';
+                    formFields.typeSelect.value = String(voucher.type ?? @((int)VoucherType.Public));
+                    formFields.productScopeSelect.value = String(voucher.productScope ?? @((int)VoucherProductScope.AllProducts));
+                    formFields.discountTypeSelect.value = String(voucher.discountType ?? @((int)VoucherDiscountType.Money));
+                    formFields.discountInput.value = Number(voucher.discount || 0);
+                    formFields.minimumRequirementsInput.value = Number(voucher.minimumRequirements || 0);
+                    formFields.quantityInput.value = Number(voucher.quantity || 0);
+                    formFields.startTimeInput.value = formatDateTimeForInput(voucher.startTime);
+                    formFields.isLifeTimeSwitch.checked = Boolean(voucher.isLifeTime);
+                    formFields.endTimeInput.value = formatDateTimeForInput(voucher.endTime);
+                    formFields.isPublishSwitch.checked = Boolean(voucher.isPublish);
+                    formFields.isShowSwitch.checked = Boolean(voucher.isShow);
+                    formFields.hasCombinedLimitSwitch.checked = Boolean(voucher.hasCombinedUsageLimit);
+                    formFields.maxCombinedInput.value = voucher.maxCombinedUsageCount ?? '';
+                    formFields.unlimitedPercentageSwitch.checked = Boolean(voucher.unlimitedPercentageDiscount);
+                    formFields.maximumPercentageInput.value = voucher.maximumPercentageReduction ?? '';
+
+                    populateSelect(formFields.usersSelect, state.formOptions.users, 'id', 'displayName', (voucher.users || []).map(u => u.id));
+                    populateSelect(formFields.productsSelect, state.formOptions.products, 'id', 'name', (voucher.products || []).map(p => p.id));
+
+                    updateDynamicFields();
+                    voucherModal.show();
+                } catch (error) {
+                    showAlert(error.message || 'Không thể tải thông tin voucher.', 'danger');
+                }
+            }
+
+            function openDetailModal(id) {
+                detailModalBody.innerHTML = '<div class="text-center text-muted py-4">Đang tải thông tin...</div>';
+                detailModal.show();
+
+                fetch(`${API_BASE_URL}/${id}`, {
+                    headers: { 'Accept': 'application/json' }
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Không thể tải thông tin voucher.');
+                        }
+                        return response.json();
+                    })
+                    .then(voucher => {
+                        const discountText = voucher.discountType === @((int)VoucherDiscountType.Percent)
+                            ? `${Number(voucher.discount).toLocaleString('vi-VN')}%`
+                            : `${formatCurrency(voucher.discount)} đ`;
+
+                        const minimumText = `${formatCurrency(voucher.minimumRequirements)} đ`;
+                        const quantityText = Number(voucher.quantity) > 0
+                            ? `${Number(voucher.used).toLocaleString('vi-VN')} / ${Number(voucher.quantity).toLocaleString('vi-VN')}`
+                            : `${Number(voucher.used).toLocaleString('vi-VN')} / Không giới hạn`;
+
+                        const timeText = voucher.isLifeTime
+                            ? 'Không giới hạn'
+                            : `${formatDateTime(voucher.startTime)} - ${formatDateTime(voucher.endTime)}`;
+
+                        const combinedText = voucher.hasCombinedUsageLimit
+                            ? `Có (tối đa ${voucher.maxCombinedUsageCount})`
+                            : 'Không';
+
+                        const percentageLimitText = voucher.discountType === @((int)VoucherDiscountType.Percent)
+                            ? (voucher.unlimitedPercentageDiscount ? 'Không giới hạn' : `${formatCurrency(voucher.maximumPercentageReduction)} đ`)
+                            : 'Không áp dụng';
+
+                        const users = (voucher.users || []).map(u => `<li class="list-group-item">${u.displayName}</li>`).join('');
+                        const products = (voucher.products || []).map(p => `<li class="list-group-item">${p.name}</li>`).join('');
+
+                        detailModalBody.innerHTML = `
+                            <h5 class="text-primary mb-3">${voucher.name}</h5>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Mã voucher</dt>
+                                <dd class="col-sm-8">${voucher.code}</dd>
+                                <dt class="col-sm-4">Loại</dt>
+                                <dd class="col-sm-8">${voucherTypeLabels[String(voucher.type)] ?? 'Không xác định'}</dd>
+                                <dt class="col-sm-4">Phạm vi sản phẩm</dt>
+                                <dd class="col-sm-8">${productScopeLabels[String(voucher.productScope)] ?? 'Không xác định'}</dd>
+                                <dt class="col-sm-4">Giá trị giảm</dt>
+                                <dd class="col-sm-8">${discountText}</dd>
+                                <dt class="col-sm-4">Đơn tối thiểu</dt>
+                                <dd class="col-sm-8">${minimumText}</dd>
+                                <dt class="col-sm-4">Số lượng</dt>
+                                <dd class="col-sm-8">${quantityText}</dd>
+                                <dt class="col-sm-4">Thời gian</dt>
+                                <dd class="col-sm-8">${timeText}</dd>
+                                <dt class="col-sm-4">Giới hạn sử dụng chung</dt>
+                                <dd class="col-sm-8">${combinedText}</dd>
+                                <dt class="col-sm-4">Giảm % tối đa</dt>
+                                <dd class="col-sm-8">${percentageLimitText}</dd>
+                                <dt class="col-sm-4">Mô tả</dt>
+                                <dd class="col-sm-8">${voucher.description}</dd>
+                            </dl>
+                            <hr />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <h6>Người dùng áp dụng</h6>
+                                    ${users ? `<ul class="list-group list-group-flush">${users}</ul>` : '<p class="text-muted mb-0">Không giới hạn hoặc không có người dùng cụ thể.</p>'}
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Sản phẩm áp dụng</h6>
+                                    ${products ? `<ul class="list-group list-group-flush">${products}</ul>` : '<p class="text-muted mb-0">Áp dụng cho tất cả sản phẩm.</p>'}
+                                </div>
+                            </div>`;
+                    })
+                    .catch(error => {
+                        detailModalBody.innerHTML = `<div class="alert alert-danger">${error.message || 'Không thể tải thông tin voucher.'}</div>`;
+                    });
+            }
+            function openDeleteModal(id, name) {
+                state.deletingId = id;
+                deleteVoucherName.textContent = name || `#${id}`;
+                deleteModal.show();
+            }
+
+            async function deleteVoucher(id) {
+                if (!canDelete) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'RequestVerificationToken': antiForgeryToken
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể xóa voucher.');
+                    }
+
+                    showAlert('Đã xóa voucher thành công.');
+                    state.selectedIds.delete(id);
+                    await loadVouchers();
+                } catch (error) {
+                    showAlert(error.message || 'Không thể xóa voucher.', 'danger');
+                }
+            }
+
+            async function bulkDelete(ids) {
+                if (!canDelete || !ids.length) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-delete`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify({ ids })
+                    });
+
+                    if (!response.ok) {
+                        const errorPayload = await response.json().catch(() => ({}));
+                        throw new Error(errorPayload.message || 'Không thể xóa các voucher đã chọn.');
+                    }
+
+                    const result = await response.json();
+                    showAlert(result.message || 'Đã xóa các voucher đã chọn.', 'success');
+                    state.selectedIds.clear();
+                    await loadVouchers();
+                    updateBulkActionsVisibility();
+                } catch (error) {
+                    showAlert(error.message || 'Không thể xóa các voucher đã chọn.', 'danger');
+                }
+            }
+
+            function collectFormData() {
+                const typeValue = Number(formFields.typeSelect.value);
+                const productScopeValue = Number(formFields.productScopeSelect.value);
+                const discountTypeValue = Number(formFields.discountTypeSelect.value);
+                const selectedUserIds = Array.from(formFields.usersSelect?.selectedOptions || []).map(option => option.value);
+                const selectedProductIds = Array.from(formFields.productsSelect?.selectedOptions || []).map(option => Number(option.value));
+
+                return {
+                    code: formFields.codeInput.value?.trim(),
+                    name: formFields.nameInput.value?.trim(),
+                    description: formFields.descriptionInput.value?.trim(),
+                    type: typeValue,
+                    productScope: productScopeValue,
+                    discountType: discountTypeValue,
+                    discount: Number(formFields.discountInput.value || 0),
+                    minimumRequirements: Number(formFields.minimumRequirementsInput.value || 0),
+                    quantity: Number(formFields.quantityInput.value || 0),
+                    startTime: toIsoString(formFields.startTimeInput.value),
+                    isLifeTime: formFields.isLifeTimeSwitch.checked,
+                    endTime: formFields.isLifeTimeSwitch.checked ? null : toIsoString(formFields.endTimeInput.value),
+                    isPublish: formFields.isPublishSwitch.checked,
+                    isShow: typeValue === @((int)VoucherType.Public) ? formFields.isShowSwitch.checked : false,
+                    hasCombinedUsageLimit: formFields.hasCombinedLimitSwitch.checked,
+                    maxCombinedUsageCount: formFields.hasCombinedLimitSwitch.checked ? Number(formFields.maxCombinedInput.value || 0) : null,
+                    unlimitedPercentageDiscount: discountTypeValue === @((int)VoucherDiscountType.Percent) ? formFields.unlimitedPercentageSwitch.checked : false,
+                    maximumPercentageReduction: discountTypeValue === @((int)VoucherDiscountType.Percent) && !formFields.unlimitedPercentageSwitch.checked
+                        ? Number(formFields.maximumPercentageInput.value || 0)
+                        : null,
+                    userIds: typeValue === @((int)VoucherType.Private) ? selectedUserIds : [],
+                    productIds: productScopeValue === @((int)VoucherProductScope.SelectedProducts) ? selectedProductIds : []
+                };
+            }
+
+            async function submitForm(event) {
+                event.preventDefault();
+                voucherFormErrors.classList.add('d-none');
+                voucherFormErrors.innerHTML = '';
+
+                const payload = collectFormData();
+                const method = state.formMode === 'edit' ? 'PUT' : 'POST';
+                const url = state.formMode === 'edit'
+                    ? `${API_BASE_URL}/${state.editingId}`
+                    : API_BASE_URL;
+
+                voucherSubmitBtn.disabled = true;
+                voucherSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang lưu...';
+
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 400 || response.status === 422) {
+                        const errorData = await response.json().catch(() => null);
+                        const errors = errorData?.errors;
+                        const messages = [];
+                        if (errors) {
+                            Object.keys(errors).forEach(key => {
+                                const message = errors[key];
+                                if (Array.isArray(message)) {
+                                    message.forEach(m => messages.push(m));
+                                } else if (typeof message === 'string') {
+                                    messages.push(message);
+                                }
+                            });
+                        }
+
+                        if (!messages.length) {
+                            messages.push(errorData?.title || 'Dữ liệu không hợp lệ.');
+                        }
+
+                        voucherFormErrors.innerHTML = messages.map(message => `<div>${message}</div>`).join('');
+                        voucherFormErrors.classList.remove('d-none');
+                        throw new Error();
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể lưu voucher.');
+                    }
+
+                    voucherModal.hide();
+                    showAlert(state.formMode === 'edit' ? 'Đã cập nhật voucher thành công.' : 'Đã tạo voucher mới thành công.');
+                    await loadVouchers();
+                } catch (error) {
+                    if (error && error.message) {
+                        showAlert(error.message, 'danger');
+                    }
+                } finally {
+                    voucherSubmitBtn.disabled = false;
+                    voucherSubmitBtn.textContent = state.formMode === 'edit' ? 'Cập nhật' : 'Thêm mới';
+                }
+            }
+
+            if (createBtn && canCreate) {
+                createBtn.addEventListener('click', () => {
+                    openCreateModal();
+                });
+            }
+
+            voucherForm.addEventListener('submit', submitForm);
+
+            formFields.typeSelect.addEventListener('change', updateDynamicFields);
+            formFields.productScopeSelect.addEventListener('change', updateDynamicFields);
+            formFields.discountTypeSelect.addEventListener('change', updateDynamicFields);
+            formFields.unlimitedPercentageSwitch.addEventListener('change', updateDynamicFields);
+            formFields.isLifeTimeSwitch.addEventListener('change', updateDynamicFields);
+            formFields.hasCombinedLimitSwitch.addEventListener('change', updateDynamicFields);
+
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', async () => {
+                    state.page = 1;
+                    await loadVouchers();
+                });
+            }
+
+            if (pageSizeSelect) {
+                pageSizeSelect.value = String(state.pageSize);
+                pageSizeSelect.addEventListener('change', async () => {
+                    state.pageSize = Number(pageSizeSelect.value || 25);
+                    state.page = 1;
+                    await loadVouchers();
+                });
+            }
+
+            if (prevPageBtn) {
+                prevPageBtn.addEventListener('click', async () => {
+                    if (state.page > 1) {
+                        state.page -= 1;
+                        await loadVouchers();
+                    }
+                });
+            }
+
+            if (nextPageBtn) {
+                nextPageBtn.addEventListener('click', async () => {
+                    if (state.totalPages === 0 || state.page >= state.totalPages) {
+                        return;
+                    }
+                    state.page += 1;
+                    await loadVouchers();
+                });
+            }
+
+            if (selectAllCheckbox && canDelete) {
+                selectAllCheckbox.addEventListener('change', event => {
+                    const checked = event.target.checked;
+                    tableBody.querySelectorAll('.voucher-select').forEach(checkbox => {
+                        checkbox.checked = checked;
+                        const id = Number(checkbox.dataset.id);
+                        if (checked) {
+                            state.selectedIds.add(id);
+                        } else {
+                            state.selectedIds.delete(id);
+                        }
+                    });
+                    updateBulkActionsVisibility();
+                });
+            }
+
+            if (bulkDeleteBtn && canDelete) {
+                bulkDeleteBtn.addEventListener('click', () => {
+                    if (state.selectedIds.size === 0) {
+                        showAlert('Vui lòng chọn ít nhất một voucher để xóa.', 'warning');
+                        return;
+                    }
+
+                    bulkDeleteModal.show();
+                });
+            }
+
+            confirmDeleteBtn.addEventListener('click', async () => {
+                if (state.deletingId != null) {
+                    const id = state.deletingId;
+                    state.deletingId = null;
+                    deleteModal.hide();
+                    await deleteVoucher(id);
+                }
+            });
+
+            confirmBulkDeleteBtn.addEventListener('click', async () => {
+                const ids = Array.from(state.selectedIds);
+                if (!ids.length) {
+                    showAlert('Không có voucher nào được chọn.', 'warning');
+                    return;
+                }
+
+                bulkDeleteModal.hide();
+                await bulkDelete(ids);
+            });
+
+            loadVouchers();
+        })();
+    </script>
+}
