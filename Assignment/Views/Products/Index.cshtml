@@ -18,10 +18,17 @@
 
 @section Styles {
     <style>
-        #productModal form {
+        #productModal .modal-content {
             display: flex;
             flex-direction: column;
             max-height: calc(100vh - var(--bs-modal-margin) * 2);
+        }
+
+        #productModal form {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
         }
 
         #productModal .modal-body {
