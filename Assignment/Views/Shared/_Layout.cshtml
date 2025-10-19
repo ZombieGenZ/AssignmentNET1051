@@ -136,6 +136,40 @@
                             var nameParts = userDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                             var initials = nameParts.Length == 0 ? "?" : string.Concat(nameParts.Select(part => char.ToUpperInvariant(part[0])));
 
+                            var canAccessStatistics = User.HasPermission("ViewStatistics");
+                            var canAccessCategories = User.HasAnyPermission("GetCategoryAll", "GetCategory");
+                            var canAccessProducts = User.HasAnyPermission("GetProductAll", "GetProduct");
+                            var canAccessCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
+                            var canAccessVouchers = User.HasAnyPermission("GetVoucherAll", "GetVoucher");
+                            var canAccessOrders = User.HasPermission("GetOrderAll");
+
+                            string? dashboardUrl = null;
+
+                            if (canAccessStatistics)
+                            {
+                                dashboardUrl = Url.Action("Index", "Statistics");
+                            }
+                            else if (canAccessProducts)
+                            {
+                                dashboardUrl = Url.Action("Index", "Products");
+                            }
+                            else if (canAccessCategories)
+                            {
+                                dashboardUrl = Url.Action("Index", "Categories");
+                            }
+                            else if (canAccessCombos)
+                            {
+                                dashboardUrl = Url.Action("Index", "Combos");
+                            }
+                            else if (canAccessVouchers)
+                            {
+                                dashboardUrl = Url.Action("Index", "Vouchers");
+                            }
+                            else if (canAccessOrders)
+                            {
+                                dashboardUrl = Url.Action("Manage", "Order");
+                            }
+
                             <li class="nav-item me-3">
                                 <a class="nav-link position-relative fs-5" asp-area="" asp-controller="Cart" asp-action="Index" title="Giỏ hàng">
                                     <i class="fas fa-shopping-cart"></i>
@@ -155,53 +189,25 @@
                                     <span class="d-none d-lg-inline">@userDisplayName</span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountMenu">
-                                    <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index"><i class="fas fa-user-circle me-2"></i>Hồ sơ</a></li>
-                                    <li><a class="dropdown-item" asp-area="" asp-controller="Order" asp-action="History"><i class="fas fa-history me-2"></i>Lịch sử đặt hàng</a></li>
+                                    <li>
+                                        <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">
+                                            <i class="fas fa-user-circle me-2"></i>Hồ sơ
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" asp-area="" asp-controller="Order" asp-action="History">
+                                            <i class="fas fa-history me-2"></i>Lịch sử đặt hàng
+                                        </a>
+                                    </li>
 
-                                    @{
-                                        var canAccessStatistics = User.HasPermission("ViewStatistics");
-                                        var canAccessCategories = User.HasAnyPermission("GetCategoryAll", "GetCategory");
-                                        var canAccessProducts = User.HasAnyPermission("GetProductAll", "GetProduct");
-                                        var canAccessCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
-                                        var canAccessVouchers = User.HasAnyPermission("GetVoucherAll", "GetVoucher");
-                                        var canAccessOrders = User.HasPermission("GetOrderAll");
-
-                                        var dashboardUrl = string.Empty;
-
-                                        if (canAccessStatistics)
-                                        {
-                                            dashboardUrl = Url.Action("Index", "Statistics") ?? string.Empty;
-                                        }
-                                        else if (canAccessProducts)
-                                        {
-                                            dashboardUrl = Url.Action("Index", "Products") ?? string.Empty;
-                                        }
-                                        else if (canAccessCategories)
-                                        {
-                                            dashboardUrl = Url.Action("Index", "Categories") ?? string.Empty;
-                                        }
-                                        else if (canAccessCombos)
-                                        {
-                                            dashboardUrl = Url.Action("Index", "Combos") ?? string.Empty;
-                                        }
-                                        else if (canAccessVouchers)
-                                        {
-                                            dashboardUrl = Url.Action("Index", "Vouchers") ?? string.Empty;
-                                        }
-                                        else if (canAccessOrders)
-                                        {
-                                            dashboardUrl = Url.Action("Manage", "Order") ?? string.Empty;
-                                        }
-
-                                        if (!string.IsNullOrEmpty(dashboardUrl))
-                                        {
-                                            @:<li><hr class="dropdown-divider" /></li>
-                                            @:<li>
-                                            @:    <a class="dropdown-item" href="@dashboardUrl">
-                                            @:        <i class="fa-solid fa-gauge-high me-2"></i>Dashboard
-                                            @:    </a>
-                                            @:</li>
-                                        }
+                                    @if (!string.IsNullOrEmpty(dashboardUrl))
+                                    {
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li>
+                                            <a class="dropdown-item" href="@dashboardUrl">
+                                                <i class="fa-solid fa-gauge-high me-2"></i>Dashboard
+                                            </a>
+                                        </li>
                                     }
 
                                     <li><hr class="dropdown-divider" /></li>
