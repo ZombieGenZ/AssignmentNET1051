@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Assignment.Controllers.Api
 {
     [ApiController]
-    [Route("api/[controller]s")]
+    [Route("api/categories")]
     [Authorize]
     public class CategoryController : ControllerBase
     {
