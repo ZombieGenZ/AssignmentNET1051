@@ -1,0 +1,64 @@
+@model Assignment.Models.Category
+
+@{
+    ViewData["Title"] = "Xóa danh mục";
+    Layout = "_AdminLayout";
+}
+
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
+
+<div class="container-fluid pt-4 px-4">
+    <div class="row g-4 justify-content-center">
+        <div class="col-lg-8 col-xl-6">
+            <div class="card shadow-sm border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-exclamation-triangle me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+                    <div class="alert alert-warning d-flex align-items-start gap-3" role="alert">
+                        <i class="fas fa-info-circle fs-4"></i>
+                        <div>
+                            <h5 class="alert-heading">Bạn có chắc chắn muốn xóa danh mục này?</h5>
+                            <p class="mb-0">Hành động này không thể hoàn tác và có thể ảnh hưởng đến các sản phẩm liên quan.</p>
+                        </div>
+                    </div>
+                    <div class="border rounded-3 p-3">
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted">Tên danh mục</span>
+                                    <span class="fw-semibold">@Model.Name</span>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span class="text-muted">Thứ tự hiển thị</span>
+                                    <span class="fw-semibold">@Model.Index</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top">
+                    <form asp-action="Delete" class="d-flex flex-wrap gap-2">
+                        <input type="hidden" asp-for="Id" />
+                        @if (User.HasAnyPermission("GetCategory", "GetCategoryAll"))
+                        {
+                            <a class="btn btn-outline-secondary" asp-action="Index">
+                                <i class="fas fa-times-circle me-2"></i>Hủy
+                            </a>
+                        }
+                        <button type="submit" class="btn btn-danger">
+                            <i class="fas fa-trash-alt me-2"></i>Xác nhận xóa
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

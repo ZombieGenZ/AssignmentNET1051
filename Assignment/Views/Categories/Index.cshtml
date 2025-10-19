@@ -1,13 +1,49 @@
-@{
-    ViewData["Title"] = "Danh mục sản phẩm";
-    Layout = "_AdminLayout";
+@using Assignment.Models
+@using Microsoft.AspNetCore.Identity
+@using System.Linq
+@model Assignment.ViewModels.PagedResult<Assignment.Models.Category>
+@inject UserManager<ApplicationUser> UserManager
 
-    var canCreate = User.HasPermission("CreateCategory");
-    var canEdit = User.HasAnyPermission("UpdateCategory", "UpdateCategoryAll");
-    var canDelete = User.HasAnyPermission("DeleteCategory", "DeleteCategoryAll");
-    var showActionColumn = canEdit || canDelete;
-    var columnCount = 2 + (showActionColumn ? 1 : 0);
+@{
+    ViewData["Title"] = "Danh sách danh mục";
+    Layout = "_AdminLayout";
+    var currentPageSize = Model?.PageSize ?? 25;
+    var currentPage = Model?.CurrentPage ?? 1;
+    var totalPages = Model?.TotalPages ?? 0;
+    var totalItems = Model?.TotalItems ?? 0;
+    var startItem = Model?.StartItem ?? 0;
+    var endItem = Model?.EndItem ?? 0;
+    var categories = Model?.Items ?? Enumerable.Empty<Category>();
+    var hasData = categories.Any();
+    var pageSizeOptions = (Model?.PageSizeOptions != null && Model.PageSizeOptions.Count > 0)
+        ? Model.PageSizeOptions
+        : new[] { 25, 50, 75, 100 };
+    var hasPagination = totalPages > 1;
+    var startPage = 1;
+    var endPage = totalPages;
+
+    if (totalPages > 0)
+    {
+        startPage = Math.Max(1, currentPage - 2);
+        endPage = Math.Min(totalPages, currentPage + 2);
+
+        if (endPage - startPage < 4)
+        {
+            if (startPage == 1)
+            {
+                endPage = Math.Min(totalPages, startPage + 4);
+            }
+            else if (endPage == totalPages)
+            {
+                startPage = Math.Max(1, endPage - 4);
+            }
+        }
+    }
 }
+
+<head>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+</head>
 
 <div class="container-fluid pt-4 px-4">
     <div class="card shadow-sm">
@@ -17,450 +53,161 @@
                     <h4 class="mb-1 text-primary">
                         <i class="fas fa-tags me-2"></i>@ViewData["Title"]
                     </h4>
-                    <p class="text-muted mb-0">Quản lý danh mục sản phẩm trên một giao diện duy nhất.</p>
+                    <p class="text-muted mb-0">Quản lý danh mục sản phẩm và thứ tự hiển thị.</p>
                 </div>
-                @if (canCreate)
+                @if (User.HasPermission("CreateCategory"))
                 {
-                    <button id="openCreateModalButton" class="btn btn-primary" type="button">
-                        <i class="fas fa-plus me-2"></i>Thêm mới Category
-                    </button>
+                    <a class="btn btn-primary" asp-action="Create">
+                        <i class="fas fa-plus me-2"></i>Tạo mới
+                    </a>
                 }
             </div>
         </div>
         <div class="card-body">
-            <div id="alertContainer" class="mb-3"></div>
+            @if (TempData["Success"] is string successMessage)
+            {
+                <div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="fas fa-check-circle me-2"></i>@successMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (TempData["Error"] is string errorMessage)
+            {
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>@errorMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
+            @if (TempData["Info"] is string infoMessage)
+            {
+                <div class="alert alert-info alert-dismissible fade show" role="alert">
+                    <i class="fas fa-info-circle me-2"></i>@infoMessage
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            }
 
-            <div class="table-responsive">
-                <table class="table table-hover table-bordered text-center align-middle mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th class="text-start">Tên danh mục</th>
-                            <th style="width: 120px;">Thứ tự</th>
-                            @if (showActionColumn)
-                            {
-                                <th style="width: 180px;">Hành động</th>
-                            }
-                        </tr>
-                    </thead>
-                    <tbody id="categoryTableBody" data-colspan="@columnCount">
-                        <tr>
-                            <td colspan="@columnCount" class="text-center py-4">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Đang tải dữ liệu...</span>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="categoryModal" tabindex="-1" aria-labelledby="categoryModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="categoryModalTitle">Thêm danh mục</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
-            </div>
-            <div class="modal-body">
-                <form id="categoryForm" novalidate>
-                    <input type="hidden" id="categoryId" name="Id" />
-                    <div class="mb-3">
-                        <label for="categoryName" class="form-label">Tên danh mục</label>
-                        <input type="text" class="form-control" id="categoryName" name="Name" maxlength="100" required />
-                        <div class="invalid-feedback" data-feedback-for="Name"></div>
-                    </div>
-                    <div class="mb-3">
-                        <label for="categoryIndex" class="form-label">Thứ tự hiển thị</label>
-                        <input type="number" class="form-control" id="categoryIndex" name="Index" min="0" step="1" required />
-                        <div class="invalid-feedback" data-feedback-for="Index"></div>
-                    </div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <div class="text-muted small">
+                    @if (hasData)
+                    {
+                        <span>Hiển thị <strong>@startItem</strong> - <strong>@endItem</strong> trong tổng số <strong>@totalItems</strong> danh mục.</span>
+                    }
+                    else
+                    {
+                        <span>Không có danh mục nào để hiển thị.</span>
+                    }
+                </div>
+                <form method="get" asp-action="Index" class="d-flex align-items-center gap-2">
+                    <input type="hidden" name="page" value="1" />
+                    <label class="form-label mb-0" for="pageSizeSelect">Hiển thị</label>
+                    <select id="pageSizeSelect" name="pageSize" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                        @foreach (var option in pageSizeOptions)
+                        {
+                            <option value="@option" selected="@(option == currentPageSize ? "selected" : null)">@option</option>
+                        }
+                    </select>
+                    <span class="text-muted small">bản ghi/trang</span>
                 </form>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="submit" form="categoryForm" id="categoryModalSubmit" class="btn btn-primary">Lưu</button>
-            </div>
-        </div>
-    </div>
-</div>
 
-<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="deleteModalTitle">Xác nhận xóa</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
-            </div>
-            <div class="modal-body">
-                <p id="deleteModalMessage" class="mb-0"></p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
-                <button type="button" class="btn btn-danger" id="confirmDeleteButton">Xóa</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script>
-        (function () {
-            const apiBaseUrl = '/api/categories';
-            const canEdit = @(canEdit ? "true" : "false");
-            const canDelete = @(canDelete ? "true" : "false");
-            const showActionColumn = @(showActionColumn ? "true" : "false");
-            const columnCount = @columnCount;
-
-            const tableBody = document.getElementById('categoryTableBody');
-            const alertContainer = document.getElementById('alertContainer');
-            const createButton = document.getElementById('openCreateModalButton');
-
-            const categoryModalElement = document.getElementById('categoryModal');
-            const categoryModal = new bootstrap.Modal(categoryModalElement);
-            const categoryModalTitle = document.getElementById('categoryModalTitle');
-            const categoryModalSubmit = document.getElementById('categoryModalSubmit');
-            const categoryForm = document.getElementById('categoryForm');
-            const categoryIdInput = document.getElementById('categoryId');
-            const categoryNameInput = document.getElementById('categoryName');
-            const categoryIndexInput = document.getElementById('categoryIndex');
-
-            const deleteModalElement = document.getElementById('deleteModal');
-            const deleteModal = new bootstrap.Modal(deleteModalElement);
-            const deleteMessage = document.getElementById('deleteModalMessage');
-            const deleteConfirmButton = document.getElementById('confirmDeleteButton');
-
-            let deleteTargetId = null;
-
-            document.addEventListener('DOMContentLoaded', () => {
-                loadCategories();
-            });
-
-            if (createButton) {
-                createButton.addEventListener('click', () => {
-                    resetForm();
-                    categoryForm.dataset.mode = 'create';
-                    categoryModalTitle.textContent = 'Thêm danh mục';
-                    categoryModalSubmit.textContent = 'Thêm mới';
-                    categoryModal.show();
-                });
-            }
-
-            categoryModalElement.addEventListener('hidden.bs.modal', () => {
-                resetForm();
-                categoryForm.dataset.mode = 'create';
-                categoryModalSubmit.textContent = 'Lưu';
-            });
-
-            categoryForm.addEventListener('submit', async (event) => {
-                event.preventDefault();
-
-                clearValidationErrors();
-                categoryModalSubmit.disabled = true;
-
-                const payload = {
-                    name: categoryNameInput.value,
-                    index: Number(categoryIndexInput.value || 0)
-                };
-
-                let url = apiBaseUrl;
-                let method = 'POST';
-                const mode = categoryForm.dataset.mode || 'create';
-
-                if (mode === 'edit') {
-                    const id = categoryIdInput.value;
-                    url = `${apiBaseUrl}/${id}`;
-                    method = 'PUT';
-                }
-
-                try {
-                    const response = await fetch(url, {
-                        method,
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    await handleResponse(response);
-
-                    const successMessage = mode === 'edit'
-                        ? 'Đã cập nhật danh mục thành công.'
-                        : 'Đã tạo danh mục thành công.';
-
-                    categoryModal.hide();
-                    showAlert('success', successMessage);
-                    await loadCategories();
-                } catch (error) {
-                    applyFieldErrors(error.fieldErrors);
-                    showAlert('danger', error.message);
-                } finally {
-                    categoryModalSubmit.disabled = false;
-                }
-            });
-
-            deleteConfirmButton.addEventListener('click', async () => {
-                if (!deleteTargetId) {
-                    return;
-                }
-
-                deleteConfirmButton.disabled = true;
-
-                try {
-                    const response = await fetch(`${apiBaseUrl}/${deleteTargetId}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-
-                    await handleResponse(response);
-
-                    deleteModal.hide();
-                    showAlert('success', 'Đã xóa danh mục thành công.');
-                    await loadCategories();
-                } catch (error) {
-                    showAlert('danger', error.message);
-                } finally {
-                    deleteTargetId = null;
-                    deleteConfirmButton.disabled = false;
-                }
-            });
-
-            async function loadCategories() {
-                setLoadingState();
-
-                try {
-                    const response = await fetch(apiBaseUrl, {
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-
-                    const data = await handleResponse(response);
-                    renderCategories(Array.isArray(data) ? data : []);
-                } catch (error) {
-                    renderErrorRow(error.message);
-                    showAlert('danger', error.message);
-                }
-            }
-
-            function setLoadingState() {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="${columnCount}" class="text-center py-4">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Đang tải dữ liệu...</span>
+            @if (hasData)
+            {
+                <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một danh mục để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} danh mục đã chọn?">
+                    <form asp-action="BulkDelete" method="post" data-confirm="Bạn có chắc chắn muốn xóa {count} danh mục đã chọn? Hành động này không thể hoàn tác.">
+                        @Html.AntiForgeryToken()
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>
+                                <span class="text-muted small">Đã chọn <span data-bulk-count>0</span> danh mục</span>
+                                <button type="submit" class="btn btn-sm btn-danger" data-bulk-enable data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} danh mục đã chọn? Hành động này không thể hoàn tác.">
+                                    <i class="fas fa-trash-alt me-1"></i>Xóa tất cả
+                                </button>
                             </div>
-                        </td>
-                    </tr>`;
-            }
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover table-bordered text-center">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 50px;">
+                                            <div class="form-check d-flex justify-content-center mb-0">
+                                                <input class="form-check-input" type="checkbox" data-bulk-select-all />
+                                            </div>
+                                        </th>
+                                        <th scope="col">@Html.DisplayNameFor(model => model.Items.First().Name)</th>
+                                        <th scope="col">@Html.DisplayNameFor(model => model.Items.First().Index)</th>
+                                        <th scope="col" style="width: 20%;">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @foreach (var item in categories)
+                                    {
+                                        <tr>
+                                            <td>
+                                                <div class="form-check d-flex justify-content-center mb-0">
+                                                    <input class="form-check-input" type="checkbox" name="selectedIds" value="@item.Id" data-bulk-item />
+                                                </div>
+                                            </td>
+                                            <td class="text-start fw-semibold">@item.Name</td>
+                                            <td>@item.Index</td>
+                                            <td>
+                                                <div class="d-flex justify-content-center gap-2">
+                                                    @if (User.HasAnyPermission("UpdateCategory", "UpdateCategoryAll"))
+                                                    {
+                                                        <a class="btn btn-sm btn-outline-warning" asp-action="Edit" asp-route-id="@item.Id" title="Chỉnh sửa">
+                                                            <i class="fas fa-edit"></i>
+                                                        </a>
+                                                    }
+                                                    @if (User.HasAnyPermission("GetCategory", "GetCategoryAll"))
+                                                    {
+                                                        <a class="btn btn-sm btn-outline-info" asp-action="Details" asp-route-id="@item.Id" title="Chi tiết">
+                                                            <i class="fas fa-info-circle"></i>
+                                                        </a>
+                                                    }
+                                                    @if (User.HasAnyPermission("DeleteCategory", "DeleteCategoryAll"))
+                                                    {
+                                                        <a class="btn btn-sm btn-outline-danger" asp-action="Delete" asp-route-id="@item.Id" title="Xóa">
+                                                            <i class="fas fa-trash-alt"></i>
+                                                        </a>
+                                                    }
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    </form>
+                </div>
 
-            function renderErrorRow(message) {
-                tableBody.innerHTML = `
-                    <tr>
-                        <td colspan="${columnCount}" class="text-center text-danger py-4">${message}</td>
-                    </tr>`;
-            }
-
-            function renderCategories(categories) {
-                tableBody.innerHTML = '';
-
-                if (!categories.length) {
-                    const emptyRow = document.createElement('tr');
-                    const emptyCell = document.createElement('td');
-                    emptyCell.colSpan = columnCount;
-                    emptyCell.className = 'text-center text-muted py-4';
-                    emptyCell.textContent = 'Chưa có danh mục nào.';
-                    emptyRow.appendChild(emptyCell);
-                    tableBody.appendChild(emptyRow);
-                    return;
-                }
-
-                categories.forEach(category => {
-                    const row = document.createElement('tr');
-
-                    const nameCell = document.createElement('td');
-                    nameCell.className = 'text-start fw-semibold';
-                    nameCell.textContent = category.name;
-                    row.appendChild(nameCell);
-
-                    const indexCell = document.createElement('td');
-                    indexCell.textContent = category.index;
-                    row.appendChild(indexCell);
-
-                    if (showActionColumn) {
-                        const actionCell = document.createElement('td');
-                        const actionsWrapper = document.createElement('div');
-                        actionsWrapper.className = 'd-flex justify-content-center gap-2';
-
-                        if (canEdit) {
-                            const editButton = document.createElement('button');
-                            editButton.type = 'button';
-                            editButton.className = 'btn btn-sm btn-outline-warning';
-                            editButton.innerHTML = '<i class="fas fa-edit"></i>';
-                            editButton.title = 'Chỉnh sửa';
-                            editButton.addEventListener('click', () => openEditModal(category.id));
-                            actionsWrapper.appendChild(editButton);
-                        }
-
-                        if (canDelete) {
-                            const deleteButton = document.createElement('button');
-                            deleteButton.type = 'button';
-                            deleteButton.className = 'btn btn-sm btn-outline-danger';
-                            deleteButton.innerHTML = '<i class="fas fa-trash-alt"></i>';
-                            deleteButton.title = 'Xóa';
-                            deleteButton.addEventListener('click', () => openDeleteModal(category.id, category.name));
-                            actionsWrapper.appendChild(deleteButton);
-                        }
-
-                        actionCell.appendChild(actionsWrapper);
-                        row.appendChild(actionCell);
-                    }
-
-                    tableBody.appendChild(row);
-                });
-            }
-
-            async function openEditModal(id) {
-                resetForm();
-                categoryForm.dataset.mode = 'edit';
-                categoryModalTitle.textContent = 'Chỉnh sửa danh mục';
-                categoryModalSubmit.textContent = 'Lưu thay đổi';
-                categoryModalSubmit.disabled = true;
-
-                try {
-                    const response = await fetch(`${apiBaseUrl}/${id}`, {
-                        headers: {
-                            'Accept': 'application/json'
-                        }
-                    });
-
-                    const data = await handleResponse(response);
-
-                    categoryIdInput.value = data.id;
-                    categoryNameInput.value = data.name;
-                    categoryIndexInput.value = data.index;
-
-                    categoryModal.show();
-                } catch (error) {
-                    showAlert('danger', error.message);
-                    categoryForm.dataset.mode = 'create';
-                } finally {
-                    categoryModalSubmit.disabled = false;
+                @if (hasPagination)
+                {
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
+                        <div class="text-muted small">Trang <strong>@currentPage</strong> / <strong>@totalPages</strong></div>
+                        <nav aria-label="Điều hướng trang danh mục">
+                            <ul class="pagination justify-content-md-end mb-0">
+                                <li class="page-item @(currentPage == 1 ? "disabled" : string.Empty)">
+                                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage - 1)" asp-route-pageSize="@currentPageSize">&laquo;</a>
+                                </li>
+                                @for (var p = startPage; p <= endPage; p++)
+                                {
+                                    <li class="page-item @(p == currentPage ? "active" : string.Empty)">
+                                        <a class="page-link" asp-action="Index" asp-route-page="@p" asp-route-pageSize="@currentPageSize">@p</a>
+                                    </li>
+                                }
+                                <li class="page-item @(currentPage == totalPages ? "disabled" : string.Empty)">
+                                    <a class="page-link" asp-action="Index" asp-route-page="@(currentPage + 1)" asp-route-pageSize="@currentPageSize">&raquo;</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
                 }
             }
-
-            function openDeleteModal(id, name) {
-                deleteTargetId = id;
-                deleteMessage.textContent = `Bạn có chắc chắn muốn xóa danh mục "${name}"?`;
-                deleteModal.show();
+            else
+            {
+                <div class="text-center py-5">
+                    <i class="fas fa-folder-open fa-3x text-muted mb-3"></i>
+                    <p class="text-muted mb-0">Chưa có danh mục nào được tạo.</p>
+                </div>
             }
-
-            function resetForm() {
-                categoryForm.reset();
-                categoryIdInput.value = '';
-                clearValidationErrors();
-            }
-
-            function clearValidationErrors() {
-                const inputs = categoryForm.querySelectorAll('.form-control');
-                inputs.forEach(input => input.classList.remove('is-invalid'));
-
-                const feedbackElements = categoryForm.querySelectorAll('[data-feedback-for]');
-                feedbackElements.forEach(element => {
-                    element.textContent = '';
-                });
-            }
-
-            function applyFieldErrors(fieldErrors = {}) {
-                if (!fieldErrors) {
-                    return;
-                }
-
-                Object.entries(fieldErrors).forEach(([field, messages]) => {
-                    const input = categoryForm.querySelector(`[name="${field}"]`);
-                    const feedback = categoryForm.querySelector(`[data-feedback-for="${field}"]`);
-
-                    if (!input) {
-                        return;
-                    }
-
-                    const message = Array.isArray(messages) ? messages.join(' ') : String(messages);
-
-                    input.classList.add('is-invalid');
-                    if (feedback) {
-                        feedback.textContent = message;
-                    }
-                });
-            }
-
-            function showAlert(type, message) {
-                if (!message) {
-                    return;
-                }
-
-                alertContainer.innerHTML = '';
-
-                const wrapper = document.createElement('div');
-                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
-                wrapper.role = 'alert';
-                wrapper.innerHTML = `
-                    <div>${message}</div>
-                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>`;
-
-                alertContainer.appendChild(wrapper);
-            }
-
-            async function handleResponse(response) {
-                if (response.ok) {
-                    if (response.status === 204) {
-                        return null;
-                    }
-
-                    const contentType = response.headers.get('content-type') || '';
-                    if (contentType.includes('application/json')) {
-                        return await response.json();
-                    }
-
-                    return null;
-                }
-
-                const errorPayload = await parseErrorResponse(response);
-                const error = new Error(errorPayload.message);
-                error.fieldErrors = errorPayload.fieldErrors;
-                throw error;
-            }
-
-            async function parseErrorResponse(response) {
-                const fallbackMessage = response.status === 403
-                    ? 'Bạn không có quyền thực hiện thao tác này.'
-                    : 'Đã xảy ra lỗi. Vui lòng thử lại.';
-
-                const contentType = response.headers.get('content-type') || '';
-
-                if (contentType.includes('application/json')) {
-                    try {
-                        const data = await response.json();
-                        const fieldErrors = data?.errors ?? {};
-                        const message = data?.detail || data?.title || data?.message || fallbackMessage;
-                        return { message, fieldErrors };
-                    } catch {
-                        return { message: fallbackMessage, fieldErrors: {} };
-                    }
-                }
-
-                try {
-                    const text = await response.text();
-                    const message = text || fallbackMessage;
-                    return { message, fieldErrors: {} };
-                } catch {
-                    return { message: fallbackMessage, fieldErrors: {} };
-                }
-            }
-        })();
-    </script>
-}
+        </div>
+    </div>
+</div>
