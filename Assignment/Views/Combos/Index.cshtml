@@ -13,14 +13,13 @@
     <style>
         #comboModal .modal-dialog,
         #detailModal .modal-dialog {
-            height: calc(100vh - var(--bs-modal-margin) * 2);
+            max-height: calc(100vh - var(--bs-modal-margin) * 2);
         }
 
         #comboModal .modal-content,
         #detailModal .modal-content {
             display: flex;
             flex-direction: column;
-            height: 100%;
             max-height: 100%;
         }
 
@@ -41,6 +40,17 @@
         #comboModal .modal-footer,
         #detailModal .modal-footer {
             flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+            background-color: var(--bs-modal-bg);
+            border-top: 1px solid var(--bs-modal-border-color);
+            z-index: 1;
+        }
+
+        #comboModal .modal-body::after {
+            content: '';
+            display: block;
+            height: 1rem;
         }
     </style>
 }
