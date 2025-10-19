@@ -245,20 +245,20 @@
                 @if (hasPagination)
                 {
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
-                        <div class="text-muted small">Trang <strong>@page</strong> / <strong>@totalPages</strong></div>
+                        <div class="text-muted small">Trang <strong>@(page)</strong> / <strong>@totalPages</strong></div>
                         <nav aria-label="Điều hướng trang voucher">
                             <ul class="pagination justify-content-md-end mb-0">
                                 <li class="page-item @(page == 1 ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(page - 1)" asp-route-pageSize="@pageSize">&laquo;</a>
+                                    <a class="page-link" asp-action="Index" asp-route-page="@(page - 1)" asp-route-pageSize="@(pageSize)">&laquo;</a>
                                 </li>
                                 @for (var p = startPage; p <= endPage; p++)
                                 {
                                     <li class="page-item @(p == page ? "active" : string.Empty)">
-                                        <a class="page-link" asp-action="Index" asp-route-page="@p" asp-route-pageSize="@pageSize">@p</a>
+                                        <a class="page-link" asp-action="Index" asp-route-page="@p" asp-route-pageSize="@(pageSize)">@p</a>
                                     </li>
                                 }
                                 <li class="page-item @(page == totalPages ? "disabled" : string.Empty)">
-                                    <a class="page-link" asp-action="Index" asp-route-page="@(page + 1)" asp-route-pageSize="@pageSize">&raquo;</a>
+                                    <a class="page-link" asp-action="Index" asp-route-page="@(page + 1)" asp-route-pageSize="@(pageSize)">&raquo;</a>
                                 </li>
                             </ul>
                         </nav>
