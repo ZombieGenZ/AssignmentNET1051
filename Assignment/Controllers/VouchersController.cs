@@ -747,6 +747,29 @@ namespace Assignment.Controllers
         }
 
         [HttpGet]
+        public IActionResult DownloadVoucherProductTemplate()
+        {
+            if (!User.HasAnyPermission("CreateVoucher", "CreateVoucherAll", "UpdateVoucher", "UpdateVoucherAll"))
+            {
+                return Forbid();
+            }
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("VoucherProducts");
+            worksheet.Cell(1, 1).Value = "ProductId";
+            worksheet.Cell(2, 1).Value = "sample-product-id";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            var content = stream.ToArray();
+            const string fileName = "voucher_products_template.xlsx";
+            const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(content, contentType, fileName);
+        }
+
+        [HttpGet]
         public IActionResult DownloadVoucherTemplate()
         {
             if (!User.HasAnyPermission("CreateVoucher", "CreateVoucherAll", "UpdateVoucher", "UpdateVoucherAll"))
