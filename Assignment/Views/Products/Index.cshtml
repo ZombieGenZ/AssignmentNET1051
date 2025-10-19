@@ -50,7 +50,7 @@
             }
 
             <div data-bulk-container data-bulk-empty-message="Vui lòng chọn ít nhất một sản phẩm để xóa." data-bulk-confirm="Bạn có chắc chắn muốn xóa {count} sản phẩm đã chọn?">
-                <form asp-action="BulkDelete" method="post">
+                <form asp-action="BulkDelete" method="post" data-confirm="Bạn có chắc chắn muốn xóa {count} sản phẩm đã chọn? Hành động này không thể hoàn tác.">
                     @Html.AntiForgeryToken()
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <div class="d-flex align-items-center gap-3 bulk-actions d-none" data-bulk-actions>

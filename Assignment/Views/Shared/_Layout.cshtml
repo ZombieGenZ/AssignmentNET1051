@@ -118,8 +118,22 @@
                     <ul class="navbar-nav ms-auto mb-2 mb-lg-0 align-items-center">
                         @if (SignInManager.IsSignedIn(User))
                         {
-                            var userName = User.Identity?.Name ?? "Người dùng";
-                            var nameParts = userName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                            var appUser = await UserManager.GetUserAsync(User);
+                            var userDisplayName = appUser?.FullName;
+
+                            if (string.IsNullOrWhiteSpace(userDisplayName))
+                            {
+                                userDisplayName = appUser?.UserName;
+                            }
+
+                            if (string.IsNullOrWhiteSpace(userDisplayName))
+                            {
+                                userDisplayName = appUser?.Email;
+                            }
+
+                            userDisplayName ??= "Người dùng";
+
+                            var nameParts = userDisplayName.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                             var initials = nameParts.Length == 0 ? "?" : string.Concat(nameParts.Select(part => char.ToUpperInvariant(part[0])));
 
                             <li class="nav-item me-3">
@@ -138,7 +152,7 @@
                                     <span class="d-inline-flex justify-content-center align-items-center rounded-circle user-avatar">
                                         @initials
                                     </span>
-                                    <span class="d-none d-lg-inline">@userName</span>
+                                    <span class="d-none d-lg-inline">@userDisplayName</span>
                                 </a>
                                 <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="accountMenu">
                                     <li><a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index"><i class="fas fa-user-circle me-2"></i>Hồ sơ</a></li>
