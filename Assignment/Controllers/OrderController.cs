@@ -64,8 +64,7 @@ namespace Assignment.Controllers
                 SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id))
             };
 
-            cart.CartItems = filteredItems;
-            ViewBag.Cart = cart;
+            PrepareCheckoutViewData(cart, filteredItems, Enumerable.Empty<VoucherDiscountSummary>());
             return View(order);
         }
 
@@ -112,157 +111,134 @@ namespace Assignment.Controllers
             }
 
             order.SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id));
-
-            long? voucherId = order.VoucherId;
-
-            if (ModelState.IsValid)
+            var orderItems = filteredItems.Select(cartItem => new OrderItem
             {
-                order.UserId = userId;
-                order.CreatedAt = DateTime.Now;
-                order.Status = OrderStatus.Pending;
+                Price = GetCartItemUnitPrice(cartItem),
+                Quantity = cartItem.Quantity,
+                ProductId = cartItem.ProductId,
+                ComboId = cartItem.ComboId,
+                Product = cartItem.Product,
+                Combo = cartItem.Combo
+            }).ToList();
 
-                var orderItems = new List<OrderItem>();
-                foreach (var cartItem in filteredItems)
+            order.OrderItems = orderItems;
+            order.TotalQuantity = orderItems.Sum(oi => oi.Quantity);
+            order.TotalPrice = orderItems.Sum(oi => oi.Price * oi.Quantity);
+
+            var subtotal = order.TotalPrice;
+            var appliedVoucherIds = order.AppliedVoucherIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<long>();
+
+            var voucherSummaries = new List<VoucherDiscountSummary>();
+            var appliedVouchers = new List<Voucher>();
+
+            if (appliedVoucherIds.Any())
+            {
+                appliedVouchers = await _context.Vouchers
+                    .Include(v => v.VoucherUsers)
+                    .Include(v => v.VoucherProducts)
+                    .Where(v => appliedVoucherIds.Contains(v.Id) && !v.IsDeleted)
+                    .ToListAsync();
+
+                appliedVouchers = appliedVouchers
+                    .OrderBy(v => appliedVoucherIds.IndexOf(v.Id))
+                    .ToList();
+
+                if (appliedVouchers.Count != appliedVoucherIds.Count)
                 {
-                    var unitPrice = GetCartItemUnitPrice(cartItem);
-                    orderItems.Add(new OrderItem
-                    {
-                        Price = unitPrice,
-                        Quantity = cartItem.Quantity,
-                        ProductId = cartItem.ProductId,
-                        ComboId = cartItem.ComboId,
-                        Product = cartItem.Product,
-                        Combo = cartItem.Combo
-                    });
+                    ModelState.AddModelError(string.Empty, "Có voucher không hợp lệ hoặc đã bị xóa. Vui lòng kiểm tra lại.");
                 }
-
-                order.OrderItems = orderItems;
-                order.TotalQuantity = orderItems.Sum(oi => oi.Quantity);
-                order.TotalPrice = orderItems.Sum(oi => oi.Price * oi.Quantity);
-                order.Discount = 0;
-
-                if (voucherId.HasValue)
+                else
                 {
-                    var voucher = await _context.Vouchers
-                        .Include(v => v.VoucherUsers)
-                        .Include(v => v.VoucherProducts)
-                        .FirstOrDefaultAsync(v => v.Id == voucherId.Value);
-                    var now = DateTime.Now;
-
-                    if (voucher != null)
+                    var limitError = ValidateCombinedVoucherLimits(appliedVouchers);
+                    if (limitError != null)
                     {
-                        var allowedUserIds = voucher.VoucherUsers?
-                            .Where(vu => !vu.IsDeleted)
-                            .Select(vu => vu.UserId)
-                            .ToHashSet() ?? new HashSet<string>();
-
-                        if (!string.IsNullOrWhiteSpace(voucher.UserId))
+                        ModelState.AddModelError(string.Empty, limitError);
+                    }
+                    else
+                    {
+                        var calculationResult = TryCalculateVoucherDiscounts(appliedVouchers, filteredItems, subtotal, userId);
+                        if (!calculationResult.Success)
                         {
-                            allowedUserIds.Add(voucher.UserId);
-                        }
-
-                        var isPrivateVoucherAllowed = voucher.Type != VoucherType.Private ||
-                            (userId != null && allowedUserIds.Contains(userId));
-
-                        if (voucher.StartTime <= now &&
-                            (!voucher.EndTime.HasValue || voucher.EndTime.Value >= now || voucher.IsLifeTime) &&
-                            voucher.Quantity > voucher.Used &&
-                            isPrivateVoucherAllowed &&
-                            order.TotalPrice >= voucher.MinimumRequirements)
-                        {
-                            double discountBase = order.TotalPrice;
-                            var hasEligibleProducts = true;
-
-                            if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
-                            {
-                                var allowedProductIds = voucher.VoucherProducts?
-                                    .Where(vp => !vp.IsDeleted)
-                                    .Select(vp => vp.ProductId)
-                                    .ToHashSet() ?? new HashSet<long>();
-
-                                discountBase = orderItems
-                                    .Where(oi => oi.ProductId.HasValue && allowedProductIds.Contains(oi.ProductId.Value))
-                                    .Sum(oi => oi.Price * oi.Quantity);
-
-                                hasEligibleProducts = discountBase > 0;
-                            }
-
-                            if (!hasEligibleProducts)
-                            {
-                                order.VoucherId = null;
-                            }
-                            else
-                            {
-                                double discountAmount;
-                                if (voucher.DiscountType == VoucherDiscountType.Money)
-                                {
-                                    discountAmount = voucher.Discount;
-                                }
-                                else
-                                {
-                                    discountAmount = discountBase * (voucher.Discount / 100);
-                                    if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
-                                    {
-                                        discountAmount = voucher.MaximumPercentageReduction.Value;
-                                    }
-                                }
-
-                                order.Discount = Math.Min(discountAmount, discountBase);
-                                order.VoucherId = voucher.Id;
-
-                                voucher.Used += 1;
-                                _context.Vouchers.Update(voucher);
-                            }
+                            ModelState.AddModelError(string.Empty, calculationResult.ErrorMessage ?? "Không thể áp dụng voucher.");
                         }
                         else
                         {
-                            order.VoucherId = null;
+                            voucherSummaries = calculationResult.Summaries;
                         }
                     }
                 }
-
-                double priceAfterDiscount = order.TotalPrice - order.Discount;
-                order.Vat = priceAfterDiscount * 0.15;
-                order.TotalBill = priceAfterDiscount + order.Vat;
-
-                _context.Orders.Add(order);
-                _context.CartItems.RemoveRange(filteredItems);
-                await _context.SaveChangesAsync();
-
-                if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)
-                {
-                    var returnUrl = Url.Action(nameof(PayOsReturn), "Order", new { orderId = order.Id }, Request.Scheme) ?? string.Empty;
-                    var cancelUrl = Url.Action(nameof(PayOsCancel), "Order", new { orderId = order.Id }, Request.Scheme) ?? string.Empty;
-                    var description = $"Thanh toán đơn hàng #{order.Id}";
-
-                    try
-                    {
-                        var paymentLink = await _payOsService.CreatePaymentLinkAsync(order, description, returnUrl, cancelUrl);
-                        if (paymentLink != null && !string.IsNullOrWhiteSpace(paymentLink.CheckoutUrl))
-                        {
-                            return Redirect(paymentLink.CheckoutUrl);
-                        }
-
-                        TempData["Error"] = "Không thể tạo liên kết thanh toán PayOS. Đơn hàng của bạn vẫn đang chờ thanh toán.";
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Không thể tạo thanh toán PayOS cho đơn hàng {OrderId}", order.Id);
-                        TempData["Error"] = "Có lỗi xảy ra khi kết nối với PayOS. Đơn hàng của bạn vẫn đang chờ thanh toán.";
-                    }
-                }
-
-                return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
             }
 
-            cart.CartItems = filteredItems;
-            ViewBag.Cart = cart;
-            return View(order);
+            order.Discount = Math.Min(voucherSummaries.Sum(summary => summary.DiscountAmount), subtotal);
+            var previewPriceAfterDiscount = subtotal - order.Discount;
+            order.Vat = previewPriceAfterDiscount * 0.15;
+            order.TotalBill = previewPriceAfterDiscount + order.Vat;
+            order.AppliedVoucherIds = appliedVouchers.Select(v => v.Id).ToList();
+
+            if (!ModelState.IsValid)
+            {
+                PrepareCheckoutViewData(cart, filteredItems, voucherSummaries);
+                return View(order);
+            }
+
+            order.UserId = userId;
+            order.CreatedAt = DateTime.Now;
+            order.Status = OrderStatus.Pending;
+            order.VoucherId = voucherSummaries.Any() ? voucherSummaries.First().Id : (long?)null;
+            order.OrderVouchers = voucherSummaries
+                .Select(summary => new OrderVoucher
+                {
+                    VoucherId = summary.Id,
+                    DiscountAmount = summary.DiscountAmount
+                })
+                .ToList();
+
+            foreach (var voucher in appliedVouchers)
+            {
+                voucher.Used += 1;
+                _context.Vouchers.Update(voucher);
+            }
+
+            var priceAfterDiscount = subtotal - order.Discount;
+            order.Vat = priceAfterDiscount * 0.15;
+            order.TotalBill = priceAfterDiscount + order.Vat;
+
+            _context.Orders.Add(order);
+            _context.CartItems.RemoveRange(filteredItems);
+            await _context.SaveChangesAsync();
+
+            if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)
+            {
+                var returnUrl = Url.Action(nameof(PayOsReturn), "Order", new { orderId = order.Id }, Request.Scheme) ?? string.Empty;
+                var cancelUrl = Url.Action(nameof(PayOsCancel), "Order", new { orderId = order.Id }, Request.Scheme) ?? string.Empty;
+                var description = $"Thanh toán đơn hàng #{order.Id}";
+
+                try
+                {
+                    var paymentLink = await _payOsService.CreatePaymentLinkAsync(order, description, returnUrl, cancelUrl);
+                    if (paymentLink != null && !string.IsNullOrWhiteSpace(paymentLink.CheckoutUrl))
+                    {
+                        return Redirect(paymentLink.CheckoutUrl);
+                    }
+
+                    TempData["Error"] = "Không thể tạo liên kết thanh toán PayOS. Đơn hàng của bạn vẫn đang chờ thanh toán.";
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Không thể tạo thanh toán PayOS cho đơn hàng {OrderId}", order.Id);
+                    TempData["Error"] = "Có lỗi xảy ra khi kết nối với PayOS. Đơn hàng của bạn vẫn đang chờ thanh toán.";
+                }
+            }
+
+            return RedirectToAction(nameof(OrderConfirmation), new { id = order.Id });
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApplyVoucher(string voucherCode, string? selectedCartItemIds)
+        public async Task<IActionResult> ApplyVoucher(string voucherCode, string? selectedCartItemIds, List<long>? appliedVoucherIds)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -272,27 +248,18 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Giỏ hàng của bạn đang trống." });
             }
 
-            var voucher = await _context.Vouchers
-                .Include(v => v.VoucherUsers)
-                .Include(v => v.VoucherProducts)
-                .FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper());
-            var now = DateTime.Now;
-
-            if (voucher == null) return Json(new { success = false, error = "Mã voucher không hợp lệ." });
-            if (voucher.StartTime > now || (voucher.EndTime.HasValue && voucher.EndTime < now && !voucher.IsLifeTime)) return Json(new { success = false, error = "Voucher đã hết hạn hoặc chưa có hiệu lực." });
-            if (voucher.Quantity <= voucher.Used) return Json(new { success = false, error = "Voucher đã hết lượt sử dụng." });
-            var allowedUserIds = voucher.VoucherUsers?
-                .Where(vu => !vu.IsDeleted)
-                .Select(vu => vu.UserId)
-                .ToHashSet() ?? new HashSet<string>();
-            if (!string.IsNullOrWhiteSpace(voucher.UserId))
+            if (string.IsNullOrWhiteSpace(voucherCode))
             {
-                allowedUserIds.Add(voucher.UserId);
+                return Json(new { success = false, error = "Mã voucher không hợp lệ." });
             }
-            if (voucher.Type == VoucherType.Private && (userId == null || !allowedUserIds.Contains(userId))) return Json(new { success = false, error = "Bạn không thể sử dụng voucher này." });
+
+            var sanitizedVoucherIds = appliedVoucherIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<long>();
 
             var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
-            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds).ToList();
 
             if (!filteredItems.Any())
             {
@@ -300,52 +267,155 @@ namespace Assignment.Controllers
             }
 
             var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
-            double discountBase = subtotal;
 
-            if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
+            var existingVouchers = await _context.Vouchers
+                .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
+                .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted)
+                .ToListAsync();
+
+            existingVouchers = existingVouchers
+                .OrderBy(v => sanitizedVoucherIds.IndexOf(v.Id))
+                .ToList();
+
+            if (existingVouchers.Count != sanitizedVoucherIds.Count)
             {
-                var allowedProductIds = voucher.VoucherProducts?
-                    .Where(vp => !vp.IsDeleted)
-                    .Select(vp => vp.ProductId)
-                    .ToHashSet() ?? new HashSet<long>();
-
-                discountBase = filteredItems
-                    .Where(item => item.Product != null && allowedProductIds.Contains(item.Product.Id))
-                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
-
-                if (discountBase <= 0)
-                {
-                    return Json(new { success = false, error = "Voucher không áp dụng cho sản phẩm đã chọn." });
-                }
+                return Json(new { success = false, error = "Một hoặc nhiều voucher đã không còn hợp lệ." });
             }
 
-            if (subtotal < voucher.MinimumRequirements) return Json(new { success = false, error = $"Đơn hàng tối thiểu phải là {voucher.MinimumRequirements:N0}đ." });
-
-            double discountAmount = 0;
-            if (voucher.DiscountType == VoucherDiscountType.Money)
+            if (existingVouchers.Any(v => v.Code.Equals(voucherCode, StringComparison.OrdinalIgnoreCase)))
             {
-                discountAmount = voucher.Discount;
-            }
-            else
-            {
-                discountAmount = discountBase * (voucher.Discount / 100);
-                if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
-                {
-                    discountAmount = voucher.MaximumPercentageReduction.Value;
-                }
+                return Json(new { success = false, error = "Voucher đã được áp dụng." });
             }
 
-            discountAmount = Math.Min(discountAmount, discountBase);
+            var voucher = await _context.Vouchers
+                .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
+                .FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper() && !v.IsDeleted);
 
-            double priceAfterDiscount = subtotal - discountAmount;
-            double vatAmount = priceAfterDiscount * 0.15;
-            double totalBill = priceAfterDiscount + vatAmount;
+            if (voucher == null)
+            {
+                return Json(new { success = false, error = "Mã voucher không hợp lệ." });
+            }
+
+            var combinedVouchers = new List<Voucher>(existingVouchers) { voucher };
+            var limitError = ValidateCombinedVoucherLimits(combinedVouchers);
+            if (limitError != null)
+            {
+                return Json(new { success = false, error = limitError });
+            }
+
+            var calculationResult = TryCalculateVoucherDiscounts(combinedVouchers, filteredItems, subtotal, userId);
+            if (!calculationResult.Success)
+            {
+                return Json(new { success = false, error = calculationResult.ErrorMessage ?? "Không thể áp dụng voucher." });
+            }
+
+            var totalDiscount = Math.Min(calculationResult.TotalDiscount, subtotal);
+            var priceAfterDiscount = Math.Max(0, subtotal - totalDiscount);
+            var vatAmount = priceAfterDiscount * 0.15;
+            var totalBill = priceAfterDiscount + vatAmount;
 
             return Json(new
             {
                 success = true,
-                voucherId = voucher.Id.ToString(),
-                discountAmount,
+                vouchers = calculationResult.Summaries.Select(summary => new
+                {
+                    id = summary.Id,
+                    code = summary.Code,
+                    name = summary.Name,
+                    discountAmount = summary.DiscountAmount
+                }),
+                totalDiscount,
+                vatAmount,
+                totalBill
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RecalculateVouchers(List<long>? appliedVoucherIds, string? selectedCartItemIds)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
+
+            if (cart == null || !cart.CartItems.Any())
+            {
+                return Json(new { success = false, error = "Giỏ hàng của bạn đang trống." });
+            }
+
+            var sanitizedVoucherIds = appliedVoucherIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<long>();
+
+            var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds).ToList();
+
+            if (!filteredItems.Any())
+            {
+                return Json(new { success = false, error = "Các sản phẩm đã chọn không còn khả dụng." });
+            }
+
+            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+
+            if (!sanitizedVoucherIds.Any())
+            {
+                var vatAmount = subtotal * 0.15;
+                var totalBill = subtotal + vatAmount;
+                return Json(new
+                {
+                    success = true,
+                    vouchers = Array.Empty<object>(),
+                    totalDiscount = 0,
+                    vatAmount,
+                    totalBill
+                });
+            }
+
+            var vouchers = await _context.Vouchers
+                .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
+                .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted)
+                .ToListAsync();
+
+            vouchers = vouchers
+                .OrderBy(v => sanitizedVoucherIds.IndexOf(v.Id))
+                .ToList();
+
+            if (vouchers.Count != sanitizedVoucherIds.Count)
+            {
+                return Json(new { success = false, error = "Một hoặc nhiều voucher không còn hợp lệ." });
+            }
+
+            var limitError = ValidateCombinedVoucherLimits(vouchers);
+            if (limitError != null)
+            {
+                return Json(new { success = false, error = limitError });
+            }
+
+            var calculationResult = TryCalculateVoucherDiscounts(vouchers, filteredItems, subtotal, userId);
+            if (!calculationResult.Success)
+            {
+                return Json(new { success = false, error = calculationResult.ErrorMessage ?? "Không thể áp dụng voucher." });
+            }
+
+            var totalDiscount = Math.Min(calculationResult.TotalDiscount, subtotal);
+            var priceAfterDiscount = Math.Max(0, subtotal - totalDiscount);
+            var vatAmount = priceAfterDiscount * 0.15;
+            var totalBill = priceAfterDiscount + vatAmount;
+
+            return Json(new
+            {
+                success = true,
+                vouchers = calculationResult.Summaries.Select(summary => new
+                {
+                    id = summary.Id,
+                    code = summary.Code,
+                    name = summary.Name,
+                    discountAmount = summary.DiscountAmount
+                }),
+                totalDiscount,
                 vatAmount,
                 totalBill
             });
@@ -631,6 +701,184 @@ namespace Assignment.Controllers
 
             return result;
         }
+
+        private static string? ValidateCombinedVoucherLimits(IReadOnlyCollection<Voucher> vouchers)
+        {
+            if (vouchers == null)
+            {
+                return null;
+            }
+
+            var totalCount = vouchers.Count;
+            foreach (var voucher in vouchers)
+            {
+                if (voucher.HasCombinedUsageLimit && voucher.MaxCombinedUsageCount.HasValue && totalCount > voucher.MaxCombinedUsageCount.Value)
+                {
+                    return $"Voucher {voucher.Code} chỉ cho phép áp dụng tối đa {voucher.MaxCombinedUsageCount.Value} voucher.";
+                }
+            }
+
+            return null;
+        }
+
+        private (bool Success, string? ErrorMessage, double DiscountAmount) TryCalculateVoucherDiscount(
+            Voucher voucher,
+            IReadOnlyCollection<CartItem> filteredItems,
+            double subtotal,
+            string? userId)
+        {
+            if (voucher == null)
+            {
+                return (false, "Voucher không hợp lệ.", 0);
+            }
+
+            var now = DateTime.Now;
+            if (voucher.StartTime > now || (voucher.EndTime.HasValue && voucher.EndTime.Value < now && !voucher.IsLifeTime))
+            {
+                return (false, "Voucher đã hết hạn hoặc chưa có hiệu lực.", 0);
+            }
+
+            if (voucher.Quantity <= voucher.Used)
+            {
+                return (false, "Voucher đã hết lượt sử dụng.", 0);
+            }
+
+            var allowedUserIds = voucher.VoucherUsers?
+                .Where(vu => !vu.IsDeleted)
+                .Select(vu => vu.UserId)
+                .ToHashSet() ?? new HashSet<string>();
+
+            if (!string.IsNullOrWhiteSpace(voucher.UserId))
+            {
+                allowedUserIds.Add(voucher.UserId);
+            }
+
+            if (voucher.Type == VoucherType.Private && (userId == null || !allowedUserIds.Contains(userId)))
+            {
+                return (false, "Bạn không thể sử dụng voucher này.", 0);
+            }
+
+            if (subtotal < voucher.MinimumRequirements)
+            {
+                return (false, $"Đơn hàng tối thiểu phải là {voucher.MinimumRequirements:N0}đ.", 0);
+            }
+
+            var discountBase = subtotal;
+
+            if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
+            {
+                var allowedProductIds = voucher.VoucherProducts?
+                    .Where(vp => !vp.IsDeleted)
+                    .Select(vp => vp.ProductId)
+                    .ToHashSet() ?? new HashSet<long>();
+
+                discountBase = filteredItems
+                    .Where(item => item.Product != null && allowedProductIds.Contains(item.Product.Id))
+                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+
+                if (discountBase <= 0)
+                {
+                    return (false, "Voucher không áp dụng cho sản phẩm đã chọn.", 0);
+                }
+            }
+
+            double discountAmount;
+            if (voucher.DiscountType == VoucherDiscountType.Money)
+            {
+                discountAmount = voucher.Discount;
+            }
+            else
+            {
+                discountAmount = discountBase * (voucher.Discount / 100);
+                if (!voucher.UnlimitedPercentageDiscount && voucher.MaximumPercentageReduction.HasValue && discountAmount > voucher.MaximumPercentageReduction.Value)
+                {
+                    discountAmount = voucher.MaximumPercentageReduction.Value;
+                }
+            }
+
+            discountAmount = Math.Min(discountAmount, discountBase);
+            return (true, null, discountAmount);
+        }
+
+        private (bool Success, string? ErrorMessage, List<VoucherDiscountSummary> Summaries, double TotalDiscount) TryCalculateVoucherDiscounts(
+            IReadOnlyCollection<Voucher> vouchers,
+            IReadOnlyCollection<CartItem> filteredItems,
+            double subtotal,
+            string? userId)
+        {
+            var summaries = new List<VoucherDiscountSummary>();
+            double totalDiscount = 0;
+
+            if (vouchers == null || vouchers.Count == 0)
+            {
+                return (true, null, summaries, 0);
+            }
+
+            foreach (var voucher in vouchers)
+            {
+                var result = TryCalculateVoucherDiscount(voucher, filteredItems, subtotal, userId);
+                if (!result.Success)
+                {
+                    return (false, BuildVoucherErrorMessage(voucher, result.ErrorMessage), new List<VoucherDiscountSummary>(), 0);
+                }
+
+                totalDiscount += result.DiscountAmount;
+                summaries.Add(new VoucherDiscountSummary(voucher.Id, voucher.Code, voucher.Name, result.DiscountAmount));
+            }
+
+            return (true, null, summaries, totalDiscount);
+        }
+
+        private void PrepareCheckoutViewData(Cart cart, List<CartItem> filteredItems, IEnumerable<VoucherDiscountSummary> summaries)
+        {
+            cart.CartItems = filteredItems;
+            ViewBag.Cart = cart;
+
+            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            SetInitialVoucherViewData(summaries ?? Enumerable.Empty<VoucherDiscountSummary>(), subtotal);
+        }
+
+        private void SetInitialVoucherViewData(IEnumerable<VoucherDiscountSummary> summaries, double subtotal)
+        {
+            var summaryList = summaries?
+                .Select(summary => new
+                {
+                    summary.Id,
+                    summary.Code,
+                    summary.Name,
+                    summary.DiscountAmount
+                })
+                .Cast<object>()
+                .ToList() ?? new List<object>();
+
+            var totalDiscount = summaries?.Sum(summary => summary.DiscountAmount) ?? 0;
+            totalDiscount = Math.Min(totalDiscount, subtotal);
+            var priceAfterDiscount = Math.Max(0, subtotal - totalDiscount);
+            var vatAmount = priceAfterDiscount * 0.15;
+            var totalBill = priceAfterDiscount + vatAmount;
+
+            ViewBag.InitialAppliedVouchers = summaryList;
+            ViewBag.InitialVoucherTotals = new
+            {
+                totalDiscount,
+                vatAmount,
+                totalBill
+            };
+        }
+
+        private static string BuildVoucherErrorMessage(Voucher voucher, string? message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return $"Voucher {voucher?.Code ?? string.Empty} không hợp lệ.";
+            }
+
+            return voucher == null
+                ? message
+                : $"Voucher {voucher.Code}: {message}";
+        }
+
+        private record VoucherDiscountSummary(long Id, string Code, string Name, double DiscountAmount);
 
         private static List<CartItem> FilterCartItems(IEnumerable<CartItem> cartItems, ISet<long> selectedIds)
         {

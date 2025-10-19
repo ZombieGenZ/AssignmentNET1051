@@ -2,6 +2,7 @@
 @using Assignment.Enums;
 @using System.Collections.Generic;
 @using System.Linq;
+@using System.Text.Json;
 @{
     ViewData["Title"] = "Thanh Toán";
     var cart = ViewBag.Cart as Assignment.Models.Cart;
@@ -42,8 +43,8 @@
     <form asp-action="Checkout" method="post">
         @Html.AntiForgeryToken()
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
-        <input type="hidden" asp-for="VoucherId" id="appliedVoucherId" />
         @Html.HiddenFor(m => m.SelectedCartItemIds, new { id = "SelectedCartItemIds" })
+        <div id="appliedVoucherInputs"></div>
 
         <div class="row">
             <!-- Left Column: Customer Info & Payment Method -->
@@ -168,18 +169,25 @@
                             </ul>
 
                             <!-- Voucher Section -->
-                            <div class="input-group mb-3">
-                                <input type="text" id="voucherCode" class="form-control" placeholder="Nhập mã giảm giá">
-                                <button class="btn btn-outline-secondary" type="button" id="applyVoucherBtn">Áp dụng</button>
+                            <div class="mb-3">
+                                <div class="input-group">
+                                    <input type="text" id="voucherCode" class="form-control" placeholder="Nhập mã giảm giá">
+                                    <button class="btn btn-outline-secondary" type="button" id="applyVoucherBtn">Áp dụng</button>
+                                </div>
+                                <div id="voucher-result" class="mt-2"></div>
                             </div>
-                            <div id="voucher-result" class="mb-2"></div>
+
+                            <div id="applied-vouchers-wrapper" class="mb-3" style="display: none;">
+                                <h6 class="fw-semibold">Voucher đã áp dụng</h6>
+                                <ul class="list-group" id="applied-vouchers-list"></ul>
+                            </div>
 
                             <div class="d-flex justify-content-between mb-2">
                                 <span>Tạm tính</span>
                                 <strong id="subtotal">@totalPrice.ToString("N0") đ</strong>
                             </div>
 
-                            <div id="discount-row" class="d-flex justify-content-between mb-2 text-success" style="display: none!important;">
+                            <div id="discount-row" class="d-flex justify-content-between mb-2 text-success d-none">
                                 <span>Giảm giá</span>
                                 <strong id="discount-amount"></strong>
                             </div>
@@ -243,64 +251,206 @@
 
 
 
-            function applyVoucher() {
-                var voucherCode = $('#voucherCode').val();
-                var voucherResultDiv = $('#voucher-result');
-                var applyBtn = $('#applyVoucherBtn');
+            const voucherResultDiv = $('#voucher-result');
+            const applyBtn = $('#applyVoucherBtn');
+            const voucherCodeInput = $('#voucherCode');
+            const appliedVoucherInputs = $('#appliedVoucherInputs');
+            const appliedVouchersList = $('#applied-vouchers-list');
+            const appliedVouchersWrapper = $('#applied-vouchers-wrapper');
+            const selectedCartItemsInput = $('#SelectedCartItemIds');
+            const discountRow = $('#discount-row');
+            const discountAmountEl = $('#discount-amount');
+            const vatAmountEl = $('#vat-amount');
+            const totalBillEl = $('#total-bill');
+            const initialAppliedVouchers = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialAppliedVouchers ?? new List<object>()));
+            const initialTotalsData = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialVoucherTotals ?? new { totalDiscount = 0.0, vatAmount = initialSubtotal * 0.15, totalBill = initialSubtotal + (initialSubtotal * 0.15) }));
 
+            let appliedVouchers = [];
+
+            const initialTotals = {
+                totalDiscount: Number((initialTotalsData?.totalDiscount) || 0),
+                vatAmount: Number((initialTotalsData?.vatAmount) || (initialSubtotal * 0.15)),
+                totalBill: Number((initialTotalsData?.totalBill) || (initialSubtotal + (initialSubtotal * 0.15)))
+            };
+
+            function formatCurrency(value) {
+                return Number(value || 0).toLocaleString('vi-VN') + ' đ';
+            }
+
+            function updateTotals(totalDiscount, vatAmount, totalBill) {
+                const discountValue = Number(totalDiscount || 0);
+                if (discountValue > 0) {
+                    discountRow.removeClass('d-none').css('display', 'flex');
+                    discountAmountEl.text('-' + discountValue.toLocaleString('vi-VN') + ' đ');
+                } else {
+                    discountRow.addClass('d-none');
+                    discountAmountEl.text('');
+                }
+
+                vatAmountEl.text(formatCurrency(vatAmount));
+                totalBillEl.text(formatCurrency(totalBill));
+            }
+
+            function resetVoucherFeedback(message, type) {
+                if (!message) {
+                    voucherResultDiv.empty();
+                    return;
+                }
+
+                voucherResultDiv.html(`<div class="alert alert-${type} p-2">${message}</div>`);
+            }
+
+            function renderAppliedVouchers() {
+                appliedVoucherInputs.empty();
+                appliedVouchersList.empty();
+
+                if (!appliedVouchers.length) {
+                    appliedVouchersWrapper.hide();
+                    return;
+                }
+
+                appliedVouchersWrapper.show();
+
+                appliedVouchers.forEach(voucher => {
+                    appliedVoucherInputs.append(`<input type="hidden" name="AppliedVoucherIds" value="${voucher.id}" />`);
+
+                    const listItem = $(`
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-semibold">${voucher.code}</div>
+                                <small class="text-muted">${voucher.name}</small>
+                            </div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="text-success">-${Number(voucher.discountAmount).toLocaleString('vi-VN')} đ</span>
+                                <button type="button" class="btn btn-sm btn-outline-danger remove-voucher-btn" data-id="${voucher.id}">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </li>
+                    `);
+
+                    listItem.find('.remove-voucher-btn').on('click', function () {
+                        removeVoucher(voucher.id);
+                    });
+
+                    appliedVouchersList.append(listItem);
+                });
+            }
+
+            function handleVoucherResponse(response) {
+                if (!response || !response.success) {
+                    return false;
+                }
+
+                appliedVouchers = (response.vouchers || []).map(voucher => ({
+                    id: Number(voucher.id),
+                    code: voucher.code,
+                    name: voucher.name,
+                    discountAmount: Number(voucher.discountAmount || 0)
+                }));
+
+                updateTotals(response.totalDiscount || 0, response.vatAmount || 0, response.totalBill || 0);
+                renderAppliedVouchers();
+                return true;
+            }
+
+            function applyVoucher() {
+                const voucherCode = voucherCodeInput.val()?.trim();
                 if (!voucherCode) {
-                    voucherResultDiv.html('<div class="alert alert-warning p-2">Vui lòng nhập mã giảm giá.</div>');
+                    resetVoucherFeedback('Vui lòng nhập mã giảm giá.', 'warning');
                     return;
                 }
 
                 applyBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...');
-                voucherResultDiv.empty();
+                resetVoucherFeedback('', '');
 
                 $.ajax({
                     url: '@Url.Action("ApplyVoucher", "Order")',
                     type: 'POST',
-                    data: { voucherCode: voucherCode, selectedCartItemIds: $('#SelectedCartItemIds').val() },
-                    headers: { "RequestVerificationToken": $('input[name="__RequestVerificationToken"]').val() },
+                    data: {
+                        voucherCode: voucherCode,
+                        selectedCartItemIds: selectedCartItemsInput.val(),
+                        appliedVoucherIds: appliedVouchers.map(voucher => voucher.id)
+                    },
+                    headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
+                    traditional: true,
                     success: function (response) {
-                        if (response.success) {
-                            voucherResultDiv.html('<div class="alert alert-success p-2">Áp dụng voucher thành công!</div>');
-                            $('#discount-row').css('display', 'flex');
-                            $('#discount-amount').text('-' + response.discountAmount.toLocaleString('vi-VN') + ' đ');
-                            $('#vat-amount').text(response.vatAmount.toLocaleString('vi-VN') + ' đ');
-                            $('#total-bill').text(response.totalBill.toLocaleString('vi-VN') + ' đ');
-                            $('#appliedVoucherId').val(response.voucherId);
-
-                            $('#voucherCode').prop('disabled', true);
-                            applyBtn.prop('disabled', false).removeClass('btn-outline-secondary').addClass('btn-danger').html('<i class="fas fa-times"></i> Hủy').off('click').on('click', removeVoucher);
+                        if (handleVoucherResponse(response)) {
+                            resetVoucherFeedback('Áp dụng voucher thành công!', 'success');
+                            voucherCodeInput.val('').focus();
                         } else {
-                            voucherResultDiv.html('<div class="alert alert-danger p-2">' + response.error + '</div>');
-                            applyBtn.prop('disabled', false).html('Áp dụng');
+                            resetVoucherFeedback(response?.error || 'Voucher không hợp lệ.', 'danger');
                         }
                     },
                     error: function () {
-                        voucherResultDiv.html('<div class="alert alert-danger p-2">Có lỗi xảy ra. Vui lòng thử lại.</div>');
-                        applyBtn.prop('disabled', false).html('Áp dụng');
+                        resetVoucherFeedback('Có lỗi xảy ra. Vui lòng thử lại.', 'danger');
+                    },
+                    complete: function () {
+                        applyBtn.prop('disabled', false).removeClass('btn-danger').addClass('btn-outline-secondary').html('Áp dụng');
                     }
                 });
             }
 
-            function removeVoucher() {
-                $('#voucherCode').val('').prop('disabled', false);
-                $('#appliedVoucherId').val('');
-                $('#voucher-result').empty();
-                $('#discount-row').hide();
-                $('#discount-amount').text('');
+            function removeVoucher(voucherId) {
+                const updated = appliedVouchers.filter(voucher => voucher.id !== voucherId);
+                if (updated.length === appliedVouchers.length) {
+                    return;
+                }
 
-                var vat = initialSubtotal * 0.15;
-                var totalBill = initialSubtotal + vat;
-                $('#vat-amount').text(vat.toLocaleString('vi-VN') + ' đ');
-                $('#total-bill').text(totalBill.toLocaleString('vi-VN') + ' đ');
+                applyBtn.prop('disabled', true);
+                resetVoucherFeedback('', '');
 
-                var applyBtn = $('#applyVoucherBtn');
-                applyBtn.removeClass('btn-danger').addClass('btn-outline-secondary').html('Áp dụng').off('click').on('click', applyVoucher);
+                $.ajax({
+                    url: '@Url.Action("RecalculateVouchers", "Order")',
+                    type: 'POST',
+                    data: {
+                        appliedVoucherIds: updated.map(voucher => voucher.id),
+                        selectedCartItemIds: selectedCartItemsInput.val()
+                    },
+                    headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
+                    traditional: true,
+                    success: function (response) {
+                        if (handleVoucherResponse(response)) {
+                            resetVoucherFeedback('Đã cập nhật danh sách voucher.', 'success');
+                        } else {
+                            resetVoucherFeedback(response?.error || 'Không thể cập nhật voucher.', 'danger');
+                        }
+                    },
+                    error: function () {
+                        resetVoucherFeedback('Có lỗi xảy ra khi cập nhật voucher.', 'danger');
+                    },
+                    complete: function () {
+                        applyBtn.prop('disabled', false).addClass('btn-outline-secondary').removeClass('btn-danger').html('Áp dụng');
+                    }
+                });
             }
 
-            $('#applyVoucherBtn').on('click', applyVoucher);
+            function initializeFromServer() {
+                if (Array.isArray(initialAppliedVouchers) && initialAppliedVouchers.length) {
+                    appliedVouchers = initialAppliedVouchers.map(voucher => ({
+                        id: Number(voucher.id),
+                        code: voucher.code,
+                        name: voucher.name,
+                        discountAmount: Number(voucher.discountAmount || 0)
+                    }));
+                    updateTotals(initialTotals.totalDiscount, initialTotals.vatAmount, initialTotals.totalBill);
+                } else {
+                    appliedVouchers = [];
+                    updateTotals(0, initialTotals.vatAmount, initialTotals.totalBill);
+                }
+
+                renderAppliedVouchers();
+            }
+
+            initializeFromServer();
+
+            applyBtn.on('click', applyVoucher);
+            voucherCodeInput.on('keypress', function (event) {
+                if (event.which === 13) {
+                    event.preventDefault();
+                    applyVoucher();
+                }
+            });
         });
     </script>
 }

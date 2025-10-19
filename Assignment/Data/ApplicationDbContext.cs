@@ -29,5 +29,6 @@ namespace Assignment.Data
         public DbSet<VoucherProduct> VoucherProducts { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<OrderVoucher> OrderVouchers { get; set; }
     }
 }
