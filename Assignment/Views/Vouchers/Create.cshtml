@@ -90,10 +90,19 @@
                         <div class="mb-3" id="ProductSelectionSection" style="display: none;">
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
                                 <h5 class="mb-0">Sản phẩm áp dụng</h5>
-                                <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllVoucherProducts()">
-                                    <i class="fas fa-trash me-1"></i>Xóa toàn bộ
-                                </button>
+                                <div class="btn-group" role="group" aria-label="Voucher product helpers">
+                                    <a class="btn btn-outline-primary btn-sm" asp-action="DownloadVoucherProductTemplate">
+                                        <i class="fas fa-file-download me-1"></i>Tải file mẫu
+                                    </a>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" onclick="triggerVoucherProductImport()">
+                                        <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" onclick="clearAllVoucherProducts()">
+                                        <i class="fas fa-trash me-1"></i>Xóa toàn bộ
+                                    </button>
+                                </div>
                             </div>
+                            <input type="file" id="voucherProductImportInput" class="d-none" accept=".xlsx,.xls,.csv" />
                             <div id="voucherProductsContainer" class="mt-2">
                                 @for (var index = 0; index < selectedProductIds.Count; index++)
                                 {
@@ -506,6 +515,14 @@
             }
         }
 
+        function triggerVoucherProductImport() {
+            const input = document.getElementById('voucherProductImportInput');
+            if (input) {
+                input.value = '';
+                input.click();
+            }
+        }
+
         function handleVoucherImport(event) {
             const file = event.target?.files?.[0];
             if (!file) {
@@ -618,6 +635,118 @@
             reader.readAsArrayBuffer(file);
         }
 
+        function handleVoucherProductImport(event) {
+            const file = event.target?.files?.[0];
+            if (!file) {
+                return;
+            }
+
+            const extension = (file.name.split('.').pop() ?? '').toLowerCase();
+
+            const processRows = (rows) => {
+                if (!Array.isArray(rows) || !rows.length) {
+                    alert('Không tìm thấy dữ liệu sản phẩm hợp lệ trong file.');
+                    return;
+                }
+
+                const productsToAdd = [];
+                const seen = new Set();
+                let headerSkipped = false;
+
+                rows.forEach(row => {
+                    if (!Array.isArray(row) || !row.length) {
+                        return;
+                    }
+
+                    const rawProductId = row[0];
+                    const productId = rawProductId == null ? '' : String(rawProductId).trim();
+                    if (!productId) {
+                        return;
+                    }
+
+                    if (!headerSkipped && productId.toLowerCase().includes('product')) {
+                        headerSkipped = true;
+                        return;
+                    }
+
+                    if (seen.has(productId)) {
+                        return;
+                    }
+
+                    if (!allProducts.some(product => product.value === productId)) {
+                        return;
+                    }
+
+                    productsToAdd.push(productId);
+                    seen.add(productId);
+                });
+
+                if (!productsToAdd.length) {
+                    alert('Không tìm thấy sản phẩm hợp lệ trong file.');
+                    return;
+                }
+
+                clearAllVoucherProducts(false);
+                productsToAdd.forEach(id => addVoucherProduct(id));
+                updateVoucherProductDropdowns();
+                toggleProductScopeField();
+            };
+
+            if (extension === 'csv') {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const content = e.target?.result;
+                    if (typeof content !== 'string') {
+                        alert('Không thể đọc dữ liệu từ file.');
+                        return;
+                    }
+
+                    const rows = content
+                        .split(/\r?\n/)
+                        .map(line => line.trim())
+                        .filter(line => line.length > 0)
+                        .map(line => line.split(/[;,\t]/).map(part => part.trim()));
+
+                    processRows(rows);
+                };
+
+                reader.readAsText(file);
+                return;
+            }
+
+            if (typeof XLSX === 'undefined') {
+                alert('Không thể đọc file Excel trên trình duyệt này.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const data = e.target?.result;
+                if (!data) {
+                    alert('Không thể đọc dữ liệu từ file.');
+                    return;
+                }
+
+                try {
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    if (!firstSheetName) {
+                        alert('File không có dữ liệu.');
+                        return;
+                    }
+
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '', blankrows: false });
+                    processRows(rows);
+                } catch (error) {
+                    console.error(error);
+                    alert('Không thể đọc dữ liệu từ file. Vui lòng kiểm tra lại định dạng.');
+                }
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
         document.addEventListener('change', event => {
             if (event.target.classList.contains('voucher-user-select')) {
                 updateVoucherUserDropdowns();
@@ -633,6 +762,7 @@
         document.getElementById('DiscountType').addEventListener('change', updatePercentDiscountVisibility);
         document.getElementById('UnlimitedPercentageDiscount').addEventListener('change', updatePercentDiscountVisibility);
         document.getElementById('voucherImportInput')?.addEventListener('change', handleVoucherImport);
+        document.getElementById('voucherProductImportInput')?.addEventListener('change', handleVoucherProductImport);
 
         document.addEventListener('DOMContentLoaded', () => {
             toggleVoucherTypeField();
