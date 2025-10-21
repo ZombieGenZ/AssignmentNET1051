@@ -8,20 +8,55 @@
 
 <h3>@ViewData["Title"]</h3>
 <partial name="_StatusMessage" for="StatusMessage" />
-<div class="row">
+<div class="row g-4">
     <div class="col-md-6">
-        <form id="profile-form" method="post">
+        <form id="profile-form" method="post" asp-page-handler="Profile">
             <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
             <div class="form-floating mb-3">
-                <input asp-for="Username" class="form-control" placeholder="Vui lòng chọn tên người dùng." disabled />
+                <input asp-for="Username" class="form-control" placeholder="Tên đăng nhập" readonly />
                 <label asp-for="Username" class="form-label"></label>
             </div>
             <div class="form-floating mb-3">
-                <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Vui lòng nhập số điện thoại."/>
+                <input asp-for="Email" class="form-control" placeholder="Email" readonly />
+                <label asp-for="Email" class="form-label"></label>
+            </div>
+            <div class="form-floating mb-3">
+                <input asp-for="Input.FullName" class="form-control" placeholder="Nhập họ và tên" />
+                <label asp-for="Input.FullName" class="form-label"></label>
+                <span asp-validation-for="Input.FullName" class="text-danger"></span>
+            </div>
+            <div class="form-floating mb-3">
+                <input asp-for="Input.DateOfBirth" class="form-control" />
+                <label asp-for="Input.DateOfBirth" class="form-label"></label>
+                <span asp-validation-for="Input.DateOfBirth" class="text-danger"></span>
+            </div>
+            <div class="form-floating mb-3">
+                <input asp-for="Input.PhoneNumber" class="form-control" placeholder="Vui lòng nhập số điện thoại." />
                 <label asp-for="Input.PhoneNumber" class="form-label"></label>
                 <span asp-validation-for="Input.PhoneNumber" class="text-danger"></span>
             </div>
             <button id="update-profile-button" type="submit" class="w-100 btn btn-lg btn-primary">Lưu</button>
+        </form>
+    </div>
+    <div class="col-md-6">
+        <form id="change-password-form" method="post" asp-page-handler="ChangePassword">
+            <div asp-validation-summary="ModelOnly" class="text-danger" role="alert"></div>
+            <div class="form-floating mb-3">
+                <input asp-for="PasswordInput.OldPassword" class="form-control" autocomplete="current-password" placeholder="Nhập mật khẩu hiện tại" />
+                <label asp-for="PasswordInput.OldPassword" class="form-label"></label>
+                <span asp-validation-for="PasswordInput.OldPassword" class="text-danger"></span>
+            </div>
+            <div class="form-floating mb-3">
+                <input asp-for="PasswordInput.NewPassword" class="form-control" autocomplete="new-password" placeholder="Nhập mật khẩu mới" />
+                <label asp-for="PasswordInput.NewPassword" class="form-label"></label>
+                <span asp-validation-for="PasswordInput.NewPassword" class="text-danger"></span>
+            </div>
+            <div class="form-floating mb-3">
+                <input asp-for="PasswordInput.ConfirmPassword" class="form-control" autocomplete="new-password" placeholder="Xác nhận mật khẩu mới" />
+                <label asp-for="PasswordInput.ConfirmPassword" class="form-label"></label>
+                <span asp-validation-for="PasswordInput.ConfirmPassword" class="text-danger"></span>
+            </div>
+            <button id="change-password-button" type="submit" class="w-100 btn btn-lg btn-outline-primary">Đổi mật khẩu</button>
         </form>
     </div>
 </div>
