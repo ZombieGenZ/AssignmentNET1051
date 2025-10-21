@@ -288,9 +288,9 @@ using (var scope = app.Services.CreateScope())
             new Claim("UpdateVoucherAll", "true"),
             new Claim("DeleteVoucherAll", "true"),
             new Claim("GetOrderAll", "true"),
+            new Claim("ChangeOrderStatusAll", "true"),
             new Claim("ViewStatistics", "true"),
             new Claim("DeleteEvaluate", "true"),
-            new Claim("superadmin", "true"),
         };
 
         foreach (var claim in claims)
