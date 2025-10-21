@@ -22,23 +22,20 @@ namespace Assignment.Services.Payments
         [JsonPropertyName("items")]
         public List<PayOsItem>? Items { get; set; }
 
-        [JsonPropertyName("buyerInfo")]
-        public PayOsBuyerInfo? BuyerInfo { get; set; }
+        [JsonPropertyName("buyerName")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? BuyerName { get; set; }
+
+        [JsonPropertyName("buyerPhone")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? BuyerPhone { get; set; }
+
+        [JsonPropertyName("buyerEmail")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? BuyerEmail { get; set; }
 
         [JsonPropertyName("signature")]
         public string Signature { get; set; } = string.Empty;
-    }
-
-    public class PayOsBuyerInfo
-    {
-        [JsonPropertyName("name")]
-        public string? Name { get; set; }
-
-        [JsonPropertyName("phone")]
-        public string? Phone { get; set; }
-
-        [JsonPropertyName("email")]
-        public string? Email { get; set; }
     }
 
     public class PayOsItem

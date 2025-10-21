@@ -73,12 +73,9 @@ namespace Assignment.Services.Payments
                     Quantity = item.Quantity,
                     Price = Convert.ToInt64(Math.Round(item.Price, MidpointRounding.AwayFromZero))
                 }).ToList(),
-                BuyerInfo = new PayOsBuyerInfo
-                {
-                    Name = NormalizeInput(order.Name),
-                    Phone = NormalizeInput(order.Phone),
-                    Email = NormalizeInput(order.Email)
-                }
+                BuyerName = NormalizeInput(order.Name),
+                BuyerPhone = NormalizeInput(order.Phone),
+                BuyerEmail = NormalizeInput(order.Email)
             };
 
             request.Signature = GenerateSignature(request.OrderCode, request.Amount, request.Description, request.ReturnUrl, request.CancelUrl);
