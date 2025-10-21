@@ -1,0 +1,676 @@
+@{
+    ViewData["Title"] = "Quản lý người dùng";
+    Layout = "_AdminLayout";
+}
+
+<div class="container-fluid pt-4 px-4" id="user-management-app">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h4 class="mb-0 text-primary">
+                    <i class="fas fa-users-cog me-2"></i>@ViewData["Title"]
+                </h4>
+            </div>
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-outline-secondary" id="refreshUsersBtn">
+                    <i class="fas fa-rotate-right me-1"></i>Tải lại
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="userAlert"></div>
+            <div class="row g-3 mb-3 align-items-end">
+                <div class="col-12 col-md-4">
+                    <label class="form-label" for="userSearchInput">Tìm kiếm</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="search" class="form-control" id="userSearchInput" placeholder="Email, tên đăng nhập, họ tên" />
+                    </div>
+                </div>
+                <div class="col-6 col-md-3">
+                    <label class="form-label" for="userStatusFilter">Trạng thái</label>
+                    <select class="form-select" id="userStatusFilter">
+                        <option value="">Tất cả</option>
+                        <option value="active" selected>Đang hoạt động</option>
+                        <option value="locked">Đang khóa</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-2">
+                    <label class="form-label" for="userPageSize">Số dòng</label>
+                    <select class="form-select" id="userPageSize">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                        <option value="50">50</option>
+                    </select>
+                </div>
+                <div class="col-12 col-md-3 text-md-end">
+                    <span class="text-muted small" id="userTableStatus">Đang tải dữ liệu...</span>
+                </div>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="userTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Email</th>
+                            <th>Tên đăng nhập</th>
+                            <th>Họ tên</th>
+                            <th>Vai trò</th>
+                            <th style="width: 150px;">Trạng thái</th>
+                            <th style="width: 150px;">Khóa đến</th>
+                            <th style="width: 120px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
+                <div class="text-muted" id="userTableSummary"></div>
+                <nav>
+                    <ul class="pagination pagination-sm mb-0" id="userPagination"></ul>
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="userAntiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="userModalLabel">Chi tiết người dùng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="userModalAlert"></div>
+                <div class="mb-3">
+                    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+                        <div>
+                            <p class="mb-1"><strong>Email:</strong> <span id="userEmail"></span></p>
+                            <p class="mb-1"><strong>Tên đăng nhập:</strong> <span id="userUserName"></span></p>
+                            <p class="mb-0"><strong>Họ tên:</strong> <span id="userFullName"></span></p>
+                        </div>
+                        <div>
+                            <p class="mb-1"><strong>Trạng thái:</strong> <span id="userStatus"></span></p>
+                            <p class="mb-0"><strong>Khóa đến:</strong> <span id="userLockout"></span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="superAdminWarning" class="alert alert-warning d-none" role="alert">
+                    Người dùng này có quyền <strong>superadmin</strong>. Bạn không thể thay đổi vai trò, quyền hoặc trạng thái khóa của họ.
+                </div>
+
+                <div class="border rounded p-3 mb-4">
+                    <h6 class="text-primary"><i class="fas fa-user-tag me-2"></i>Vai trò</h6>
+                    <div id="roleCheckboxContainer" class="row g-2"></div>
+                </div>
+
+                <div class="border rounded p-3 mb-4">
+                    <h6 class="text-primary"><i class="fas fa-key me-2"></i>Quyền trực tiếp</h6>
+                    <div id="permissionCheckboxContainer"></div>
+                </div>
+
+                <div class="border rounded p-3">
+                    <h6 class="text-primary"><i class="fas fa-lock me-2"></i>Khóa tài khoản</h6>
+                    <div class="row g-3 align-items-end" id="lockSection">
+                        <div class="col-12 col-md-4">
+                            <label class="form-label" for="lockDurationValue">Thời gian</label>
+                            <input type="number" class="form-control" id="lockDurationValue" min="1" value="30" />
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label class="form-label" for="lockDurationUnit">Đơn vị</label>
+                            <select class="form-select" id="lockDurationUnit">
+                                <option value="minute">Phút</option>
+                                <option value="hour">Giờ</option>
+                                <option value="day">Ngày</option>
+                            </select>
+                        </div>
+                        <div class="col-12 col-md-5 d-flex gap-2">
+                            <button type="button" class="btn btn-outline-danger flex-fill" id="lockUserBtn">
+                                <i class="fas fa-lock me-1"></i>Khóa tài khoản
+                            </button>
+                            <button type="button" class="btn btn-outline-success flex-fill" id="unlockUserBtn">
+                                <i class="fas fa-unlock me-1"></i>Mở khóa
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="saveUserChangesBtn">
+                    <i class="fas fa-save me-1"></i>Lưu thay đổi
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('user-management-app');
+            if (!app) {
+                return;
+            }
+
+            const userTableBody = document.getElementById('userTableBody');
+            const paginationEl = document.getElementById('userPagination');
+            const tableSummary = document.getElementById('userTableSummary');
+            const statusText = document.getElementById('userTableStatus');
+            const alertPlaceholder = document.getElementById('userAlert');
+            const searchInput = document.getElementById('userSearchInput');
+            const statusFilter = document.getElementById('userStatusFilter');
+            const pageSizeSelect = document.getElementById('userPageSize');
+            const refreshBtn = document.getElementById('refreshUsersBtn');
+
+            const userModalEl = document.getElementById('userModal');
+            const userModal = new bootstrap.Modal(userModalEl);
+            const userModalAlert = document.getElementById('userModalAlert');
+            const userEmailEl = document.getElementById('userEmail');
+            const userUserNameEl = document.getElementById('userUserName');
+            const userFullNameEl = document.getElementById('userFullName');
+            const userStatusEl = document.getElementById('userStatus');
+            const userLockoutEl = document.getElementById('userLockout');
+            const superAdminWarning = document.getElementById('superAdminWarning');
+            const roleContainer = document.getElementById('roleCheckboxContainer');
+            const permissionContainer = document.getElementById('permissionCheckboxContainer');
+            const lockSection = document.getElementById('lockSection');
+            const lockDurationValue = document.getElementById('lockDurationValue');
+            const lockDurationUnit = document.getElementById('lockDurationUnit');
+            const lockUserBtn = document.getElementById('lockUserBtn');
+            const unlockUserBtn = document.getElementById('unlockUserBtn');
+            const saveUserChangesBtn = document.getElementById('saveUserChangesBtn');
+
+            const antiForgeryForm = document.getElementById('userAntiForgeryForm');
+            const requestToken = () => antiForgeryForm.querySelector('input[name="__RequestVerificationToken"]').value;
+
+            const state = {
+                page: 1,
+                pageSize: parseInt(pageSizeSelect.value, 10),
+                status: statusFilter.value,
+                keyword: '',
+                selectedUserId: null,
+                rolesCache: [],
+                currentPermissions: [],
+                isSuperAdmin: false,
+            };
+
+            const formatDateTime = (value) => {
+                if (!value) {
+                    return '<span class="text-muted">-</span>';
+                }
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    const fallback = new Date(value + 'Z');
+                    if (!Number.isNaN(fallback.getTime())) {
+                        return fallback.toLocaleString('vi-VN');
+                    }
+                    return '<span class="text-muted">-</span>';
+                }
+                return date.toLocaleString('vi-VN');
+            };
+
+            const renderAlert = (container, message, type = 'success') => {
+                container.innerHTML = `
+                    <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                        ${message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>`;
+            };
+
+            const clearAlert = (container) => {
+                container.innerHTML = '';
+            };
+
+            const buildQuery = () => {
+                const params = new URLSearchParams();
+                if (state.keyword) {
+                    params.append('keyword', state.keyword);
+                }
+                if (state.status) {
+                    params.append('status', state.status);
+                }
+                params.append('page', state.page);
+                params.append('pageSize', state.pageSize);
+                return params.toString();
+            };
+
+            const loadRoles = async () => {
+                if (state.rolesCache.length > 0) {
+                    return state.rolesCache;
+                }
+                const response = await fetch('/UserManagement/roles');
+                if (!response.ok) {
+                    throw new Error('Không thể tải danh sách vai trò.');
+                }
+                const json = await response.json();
+                if (!json.success) {
+                    throw new Error(json.message || 'Không thể tải danh sách vai trò.');
+                }
+                state.rolesCache = json.data || [];
+                return state.rolesCache;
+            };
+
+            const loadUsers = async () => {
+                clearAlert(alertPlaceholder);
+                userTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
+                    </tr>`;
+                statusText.textContent = 'Đang tải dữ liệu...';
+                try {
+                    const response = await fetch(`/UserManagement/users?${buildQuery()}`);
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách người dùng.');
+                    }
+                    const json = await response.json();
+                    if (!json.success) {
+                        throw new Error(json.message || 'Không thể tải danh sách người dùng.');
+                    }
+                    renderTable(json.data);
+                } catch (error) {
+                    userTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-danger">${error.message}</td>
+                        </tr>`;
+                    tableSummary.textContent = '';
+                    paginationEl.innerHTML = '';
+                }
+            };
+
+            const renderTable = (paged) => {
+                const items = paged.items ?? paged.Items ?? [];
+                const totalItems = paged.totalItems ?? paged.TotalItems ?? 0;
+                const currentPage = paged.currentPage ?? paged.CurrentPage ?? 1;
+                const totalPages = paged.totalPages ?? paged.TotalPages ?? 0;
+                const startItem = paged.startItem ?? paged.StartItem ?? 0;
+                const endItem = paged.endItem ?? paged.EndItem ?? 0;
+                const pageSize = paged.pageSize ?? paged.PageSize ?? state.pageSize;
+
+                state.page = currentPage;
+                state.pageSize = pageSize;
+
+                if (!items || items.length === 0) {
+                    userTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">Không có dữ liệu.</td>
+                        </tr>`;
+                    tableSummary.textContent = 'Không có dữ liệu để hiển thị.';
+                    paginationEl.innerHTML = '';
+                    return;
+                }
+
+                const rows = items.map(user => {
+                    const statusBadge = user.isLockedOut
+                        ? '<span class="badge bg-danger-subtle text-danger">Đang khóa</span>'
+                        : '<span class="badge bg-success-subtle text-success">Hoạt động</span>';
+                    const lockoutText = user.lockoutEnd
+                        ? formatDateTime(user.lockoutEnd)
+                        : '<span class="text-muted">Không</span>';
+                    const roles = (user.roles || []).join(', ') || '<span class="text-muted">Chưa gán</span>';
+                    const superAdminIcon = user.isSuperAdmin
+                        ? '<span class="badge bg-warning text-dark ms-1">Superadmin</span>'
+                        : '';
+                    return `
+                        <tr>
+                            <td>${user.email ?? ''}</td>
+                            <td>${user.userName ?? ''}</td>
+                            <td>${user.fullName ?? ''}</td>
+                            <td>${roles}${superAdminIcon}</td>
+                            <td>${statusBadge}</td>
+                            <td>${lockoutText}</td>
+                            <td class="text-center">
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-action="detail" data-id="${user.id}"><i class="fas fa-pen"></i></button>
+                            </td>
+                        </tr>`;
+                }).join('');
+
+                userTableBody.innerHTML = rows;
+                tableSummary.textContent = `Hiển thị ${startItem} - ${endItem} / ${totalItems} người dùng.`;
+                renderPagination(currentPage, totalPages);
+            };
+
+            const renderPagination = (currentPage, totalPages) => {
+                paginationEl.innerHTML = '';
+                if (!totalPages || totalPages <= 1) {
+                    return;
+                }
+
+                const createItem = (page, label, disabled = false, active = false) => {
+                    const li = document.createElement('li');
+                    li.className = `page-item${disabled ? ' disabled' : ''}${active ? ' active' : ''}`;
+                    const a = document.createElement('a');
+                    a.className = 'page-link';
+                    a.href = '#';
+                    a.dataset.page = page;
+                    a.textContent = label;
+                    li.appendChild(a);
+                    return li;
+                };
+
+                paginationEl.appendChild(createItem(currentPage - 1, '«', currentPage === 1));
+                for (let page = 1; page <= totalPages; page++) {
+                    paginationEl.appendChild(createItem(page, page, false, page === currentPage));
+                }
+                paginationEl.appendChild(createItem(currentPage + 1, '»', currentPage === totalPages));
+            };
+
+            const renderRoles = (roles, selectedRoles, disabled) => {
+                roleContainer.innerHTML = '';
+                if (!roles || roles.length === 0) {
+                    roleContainer.innerHTML = '<div class="text-muted">Không có vai trò nào.</div>';
+                    return;
+                }
+                const selectedSet = new Set(selectedRoles || []);
+                roles.forEach(role => {
+                    const col = document.createElement('div');
+                    col.className = 'col-12 col-sm-6 col-lg-4';
+                    const checkboxId = `userRole_${role.id}`;
+                    col.innerHTML = `
+                        <div class="form-check">
+                            <input class="form-check-input user-role-checkbox" type="checkbox" value="${role.name}" id="${checkboxId}" ${selectedSet.has(role.name) ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                            <label class="form-check-label" for="${checkboxId}">${role.name}</label>
+                        </div>`;
+                    roleContainer.appendChild(col);
+                });
+            };
+
+            const renderPermissions = (permissions, disabled) => {
+                permissionContainer.innerHTML = '';
+                if (!permissions || permissions.length === 0) {
+                    permissionContainer.innerHTML = '<div class="text-muted">Không có quyền khả dụng.</div>';
+                    return;
+                }
+
+                const groups = permissions.reduce((acc, permission) => {
+                    const group = permission.group ?? permission.Group;
+                    acc[group] = acc[group] || [];
+                    acc[group].push(permission);
+                    return acc;
+                }, {});
+
+                Object.entries(groups).forEach(([groupName, items]) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'mb-3';
+                    const title = document.createElement('div');
+                    title.className = 'fw-semibold mb-2';
+                    title.textContent = groupName;
+                    wrapper.appendChild(title);
+
+                    const row = document.createElement('div');
+                    row.className = 'row g-2';
+                    items.forEach(item => {
+                        const col = document.createElement('div');
+                        col.className = 'col-12 col-sm-6 col-lg-4';
+                        const checkboxId = `permission_${item.key ?? item.Key}`;
+                        const isSelected = item.isSelected ?? item.IsSelected;
+                        const isInherited = item.isInherited ?? item.IsInherited;
+                        col.innerHTML = `
+                            <div class="form-check ${isInherited ? 'text-muted' : ''}">
+                                <input class="form-check-input user-permission-checkbox" type="checkbox" value="${item.key ?? item.Key}" id="${checkboxId}" ${isSelected ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                                <label class="form-check-label" for="${checkboxId}">${item.displayName ?? item.DisplayName}${isInherited ? ' <span class="badge bg-light text-secondary ms-1">từ vai trò</span>' : ''}</label>
+                            </div>`;
+                        row.appendChild(col);
+                    });
+                    wrapper.appendChild(row);
+                    permissionContainer.appendChild(wrapper);
+                });
+            };
+
+            const openUserModal = async (userId) => {
+                state.selectedUserId = userId;
+                clearAlert(userModalAlert);
+                superAdminWarning.classList.add('d-none');
+                lockSection.classList.remove('disabled');
+                lockDurationValue.disabled = false;
+                lockDurationUnit.disabled = false;
+                lockUserBtn.disabled = false;
+                unlockUserBtn.disabled = false;
+                saveUserChangesBtn.disabled = false;
+
+                try {
+                    const [roles, userResponse] = await Promise.all([
+                        loadRoles(),
+                        fetch(`/UserManagement/users/${userId}`)
+                    ]);
+
+                    if (!userResponse.ok) {
+                        throw new Error('Không thể tải thông tin người dùng.');
+                    }
+
+                    const userJson = await userResponse.json();
+                    if (!userJson.success) {
+                        throw new Error(userJson.message || 'Không thể tải thông tin người dùng.');
+                    }
+
+                    const user = userJson.data;
+                    state.currentPermissions = user.permissions || [];
+                    state.isSuperAdmin = !!user.isSuperAdmin;
+
+                    userEmailEl.textContent = user.email ?? '';
+                    userUserNameEl.textContent = user.userName ?? '';
+                    userFullNameEl.textContent = user.fullName ?? '';
+                    userStatusEl.innerHTML = user.isLockedOut
+                        ? '<span class="badge bg-danger-subtle text-danger">Đang khóa</span>'
+                        : '<span class="badge bg-success-subtle text-success">Hoạt động</span>';
+                    userLockoutEl.innerHTML = user.lockoutEnd
+                        ? formatDateTime(user.lockoutEnd)
+                        : '<span class="text-muted">Không</span>';
+
+                    renderRoles(roles, user.roles, state.isSuperAdmin);
+                    renderPermissions(state.currentPermissions, state.isSuperAdmin);
+
+                    if (state.isSuperAdmin) {
+                        superAdminWarning.classList.remove('d-none');
+                        lockDurationValue.disabled = true;
+                        lockDurationUnit.disabled = true;
+                        lockUserBtn.disabled = true;
+                        unlockUserBtn.disabled = true;
+                        saveUserChangesBtn.disabled = true;
+                    }
+
+                    userModal.show();
+                } catch (error) {
+                    renderAlert(alertPlaceholder, error.message || 'Không thể tải thông tin người dùng.', 'danger');
+                }
+            };
+
+            const getSelectedRoles = () => Array.from(document.querySelectorAll('.user-role-checkbox:checked')).map(cb => cb.value);
+            const getSelectedPermissions = () => Array.from(document.querySelectorAll('.user-permission-checkbox:checked')).map(cb => cb.value);
+
+            const updateUserRoles = async () => {
+                const roles = getSelectedRoles();
+                const response = await fetch(`/UserManagement/users/${state.selectedUserId}/roles`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': requestToken()
+                    },
+                    body: JSON.stringify(roles)
+                });
+                const json = await response.json();
+                if (!response.ok || !json.success) {
+                    throw new Error(json.message || 'Không thể cập nhật vai trò.');
+                }
+                return json.message || 'Đã cập nhật vai trò.';
+            };
+
+            const updateUserPermissions = async () => {
+                const permissions = getSelectedPermissions();
+                const response = await fetch(`/UserManagement/users/${state.selectedUserId}/permissions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': requestToken()
+                    },
+                    body: JSON.stringify(permissions)
+                });
+                const json = await response.json();
+                if (!response.ok || !json.success) {
+                    throw new Error(json.message || 'Không thể cập nhật quyền.');
+                }
+                return json.message || 'Đã cập nhật quyền.';
+            };
+
+            saveUserChangesBtn.addEventListener('click', async () => {
+                if (!state.selectedUserId) {
+                    return;
+                }
+                clearAlert(userModalAlert);
+                saveUserChangesBtn.disabled = true;
+                saveUserChangesBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang lưu...';
+                try {
+                    const messages = [];
+                    messages.push(await updateUserRoles());
+                    messages.push(await updateUserPermissions());
+                    renderAlert(userModalAlert, messages.join('<br/>'));
+                    loadUsers();
+                } catch (error) {
+                    renderAlert(userModalAlert, error.message || 'Không thể lưu thay đổi.', 'danger');
+                } finally {
+                    saveUserChangesBtn.disabled = false;
+                    saveUserChangesBtn.innerHTML = '<i class="fas fa-save me-1"></i>Lưu thay đổi';
+                }
+            });
+
+            lockUserBtn.addEventListener('click', async () => {
+                if (!state.selectedUserId) {
+                    return;
+                }
+                clearAlert(userModalAlert);
+                const durationValue = parseInt(lockDurationValue.value, 10);
+                if (Number.isNaN(durationValue) || durationValue <= 0) {
+                    renderAlert(userModalAlert, 'Thời gian khóa phải lớn hơn 0.', 'danger');
+                    return;
+                }
+                lockUserBtn.disabled = true;
+                lockUserBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang khóa...';
+                try {
+                    const response = await fetch(`/UserManagement/users/${state.selectedUserId}/lock`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': requestToken()
+                        },
+                        body: JSON.stringify({
+                            userId: state.selectedUserId,
+                            durationValue,
+                            durationUnit: lockDurationUnit.value,
+                            unlock: false
+                        })
+                    });
+                    const json = await response.json();
+                    if (!response.ok || !json.success) {
+                        throw new Error(json.message || 'Không thể khóa tài khoản.');
+                    }
+                    renderAlert(userModalAlert, json.message || 'Đã khóa tài khoản.');
+                    await openUserModal(state.selectedUserId);
+                    loadUsers();
+                } catch (error) {
+                    renderAlert(userModalAlert, error.message || 'Không thể khóa tài khoản.', 'danger');
+                } finally {
+                    lockUserBtn.disabled = false;
+                    lockUserBtn.innerHTML = '<i class="fas fa-lock me-1"></i>Khóa tài khoản';
+                }
+            });
+
+            unlockUserBtn.addEventListener('click', async () => {
+                if (!state.selectedUserId) {
+                    return;
+                }
+                clearAlert(userModalAlert);
+                unlockUserBtn.disabled = true;
+                unlockUserBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang mở khóa...';
+                try {
+                    const response = await fetch(`/UserManagement/users/${state.selectedUserId}/lock`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': requestToken()
+                        },
+                        body: JSON.stringify({
+                            userId: state.selectedUserId,
+                            unlock: true,
+                            durationValue: 0,
+                            durationUnit: lockDurationUnit.value
+                        })
+                    });
+                    const json = await response.json();
+                    if (!response.ok || !json.success) {
+                        throw new Error(json.message || 'Không thể mở khóa tài khoản.');
+                    }
+                    renderAlert(userModalAlert, json.message || 'Đã mở khóa tài khoản.');
+                    await openUserModal(state.selectedUserId);
+                    loadUsers();
+                } catch (error) {
+                    renderAlert(userModalAlert, error.message || 'Không thể mở khóa tài khoản.', 'danger');
+                } finally {
+                    unlockUserBtn.disabled = false;
+                    unlockUserBtn.innerHTML = '<i class="fas fa-unlock me-1"></i>Mở khóa';
+                }
+            });
+
+            paginationEl.addEventListener('click', (event) => {
+                const link = event.target.closest('a.page-link');
+                if (!link) {
+                    return;
+                }
+                event.preventDefault();
+                const page = parseInt(link.dataset.page, 10);
+                if (Number.isNaN(page) || page < 1 || page === state.page) {
+                    return;
+                }
+                state.page = page;
+                loadUsers();
+            });
+
+            searchInput.addEventListener('input', () => {
+                state.keyword = searchInput.value.trim();
+                state.page = 1;
+                loadUsers();
+            });
+
+            statusFilter.addEventListener('change', () => {
+                state.status = statusFilter.value;
+                state.page = 1;
+                loadUsers();
+            });
+
+            pageSizeSelect.addEventListener('change', () => {
+                state.pageSize = parseInt(pageSizeSelect.value, 10);
+                state.page = 1;
+                loadUsers();
+            });
+
+            refreshBtn.addEventListener('click', loadUsers);
+
+            userTableBody.addEventListener('click', (event) => {
+                const button = event.target.closest('button[data-action="detail"]');
+                if (!button) {
+                    return;
+                }
+                const userId = button.dataset.id;
+                openUserModal(userId);
+            });
+
+            userModalEl.addEventListener('hidden.bs.modal', () => {
+                state.selectedUserId = null;
+                state.currentPermissions = [];
+            });
+
+            loadUsers();
+        })();
+    </script>
+}

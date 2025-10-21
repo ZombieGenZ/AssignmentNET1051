@@ -11,6 +11,7 @@ using System.Security.Claims;
 using Assignment.Extensions;
 using Assignment.Options;
 using Assignment.Services.Payments;
+using Assignment.Services.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +23,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddRazorPages();
 
-builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
+builder.Services.AddIdentity<ApplicationUser, ApplicationRole>(options =>
 {
     options.SignIn.RequireConfirmedAccount = false;
 })
@@ -30,6 +31,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
+
+builder.Services.AddScoped<IRoleManagementService, RoleManagementService>();
+builder.Services.AddScoped<IUserManagementService, UserManagementService>();
 
 builder.Services.Configure<PayOsOptions>(builder.Configuration.GetSection("PayOs"));
 builder.Services.AddHttpClient<IPayOsService, PayOsService>();
@@ -65,6 +69,9 @@ builder.Services.AddHttpClient("AssignmentApi", client =>
 
 builder.Services.AddAuthorization(options =>
 {
+    options.AddPolicy("SuperAdminOnly", policy =>
+        policy.RequireClaim("superadmin", "true"));
+
     options.AddPolicy("GetCategoryPolicy", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasPermission("GetCategoryAll") ||
@@ -245,12 +252,18 @@ using (var scope = app.Services.CreateScope())
         await userManager.UpdateSecurityStampAsync(user);
     }
 
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     var adminRole = "Admin";
 
     if (!await roleManager.RoleExistsAsync(adminRole))
     {
-        var role = new IdentityRole(adminRole);
+        var role = new ApplicationRole
+        {
+            Name = adminRole,
+            NormalizedName = adminRole.ToUpperInvariant(),
+            CreatedAt = DateTime.UtcNow,
+            CreatedBy = "System",
+        };
         await roleManager.CreateAsync(role);
 
         var claims = new List<Claim>
@@ -274,6 +287,7 @@ using (var scope = app.Services.CreateScope())
             new Claim("GetOrderAll", "true"),
             new Claim("ViewStatistics", "true"),
             new Claim("DeleteEvaluate", "true"),
+            new Claim("superadmin", "true"),
         };
 
         foreach (var claim in claims)

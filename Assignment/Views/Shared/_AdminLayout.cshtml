@@ -148,6 +148,21 @@
                     </a>
                 </li>
             }
+            @if (User.HasPermission("superadmin"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="RoleManagement" class="sidebar-menu-link">
+                        <i class="fa-solid fa-user-shield"></i>
+                        <span>Vai trò</span>
+                    </a>
+                </li>
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="UserManagement" class="sidebar-menu-link">
+                        <i class="fa-solid fa-users"></i>
+                        <span>Người dùng</span>
+                    </a>
+                </li>
+            }
 
         </ul>
     </aside>
