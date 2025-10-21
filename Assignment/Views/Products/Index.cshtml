@@ -110,12 +110,20 @@
         </div>
         <div class="card-body">
             <div id="alertPlaceholder"></div>
-            <div class="d-flex justify-content-between align-items-center flex-column flex-md-row gap-3 mb-3">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
                 <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu sản phẩm..." : "Bạn không có quyền xem danh sách sản phẩm.")</div>
-                <div>
+                <div class="d-flex gap-2">
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductsBtn">
                         <i class="fas fa-rotate-right me-1"></i>Tải lại
                     </button>
+                    @if (canDelete)
+                    {
+                        <div class="d-none" id="bulkActions">
+                            <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                                <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
+                            </button>
+                        </div>
+                    }
                 </div>
             </div>
             <div class="filter-toolbar mb-4" id="productFilters">
@@ -152,6 +160,12 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
+                            @if (canDelete)
+                            {
+                                <th style="width: 50px;" class="text-center">
+                                    <input type="checkbox" id="selectAllProducts" class="form-check-input" />
+                                </th>
+                            }
                             <th style="width: 80px;" class="text-center">Ảnh</th>
                             <th>Tên sản phẩm</th>
                             <th>Giá bán</th>
@@ -163,7 +177,7 @@
                     </thead>
                     <tbody id="productsTableBody">
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="@(canDelete ? 8 : 7)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -298,6 +312,24 @@
     </div>
 </div>
 
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkDeleteModalLabel">Xóa nhiều sản phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa <strong id="bulkDeleteCount"></strong> sản phẩm đã chọn? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmBulkDeleteBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="productDetailModal" tabindex="-1" aria-labelledby="productDetailModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -327,6 +359,7 @@
             const canUpdate = app.dataset.canUpdate === 'true';
             const canDelete = app.dataset.canDelete === 'true';
             const API_BASE_URL = '/api/products';
+            const columnCount = @(canDelete ? 8 : 7);
 
             const tableBody = document.getElementById('productsTableBody');
             const tableStatus = document.getElementById('tableStatus');
@@ -337,6 +370,9 @@
             const categoryFilterSelect = document.getElementById('productCategoryFilter');
             const statusFilterSelect = document.getElementById('productStatusFilter');
             const resetFiltersBtn = document.getElementById('productResetFilters');
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const selectAllCheckbox = document.getElementById('selectAllProducts');
             const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
 
@@ -350,6 +386,11 @@
             const deleteModal = new bootstrap.Modal(deleteModalEl);
             const deleteConfirmBtn = document.getElementById('confirmDeleteBtn');
             const deleteProductName = document.getElementById('deleteProductName');
+
+            const bulkDeleteModalEl = document.getElementById('bulkDeleteModal');
+            const bulkDeleteModal = bulkDeleteModalEl ? new bootstrap.Modal(bulkDeleteModalEl) : null;
+            const confirmBulkDeleteBtn = document.getElementById('confirmBulkDeleteBtn');
+            const bulkDeleteCount = document.getElementById('bulkDeleteCount');
 
             const detailModalEl = document.getElementById('productDetailModal');
             const detailModal = new bootstrap.Modal(detailModalEl);
@@ -389,6 +430,7 @@
             let cachedCategories = [];
             let allProducts = [];
             let filteredProducts = [];
+            const selectedProductIds = new Set();
 
             const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
             const DISCOUNT_NONE = @( (int)DiscountType.None );
@@ -490,7 +532,7 @@
                 const safeMessage = escapeHtml(message);
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">${safeMessage}</td>
+                        <td colspan="${columnCount}" class="text-center py-4 text-muted">${safeMessage}</td>
                     </tr>`;
             }
 
@@ -836,16 +878,54 @@
                         : 'Không tìm thấy sản phẩm phù hợp.';
                     tableBody.innerHTML = `
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">${message}</td>
+                            <td colspan="${columnCount}" class="text-center py-4 text-muted">${message}</td>
                         </tr>`;
                     updateProductTableStatus(0);
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    if (canDelete && bulkActions) {
+                        bulkActions.classList.add('d-none');
+                    }
                     return;
                 }
 
                 updateProductTableStatus(list.length);
 
+                if (canDelete) {
+                    const visibleIds = new Set(list.map(product => product.id));
+                    Array.from(selectedProductIds).forEach(id => {
+                        if (!visibleIds.has(id)) {
+                            selectedProductIds.delete(id);
+                        }
+                    });
+                }
+
                 list.forEach(product => {
                     const tr = document.createElement('tr');
+
+                    if (canDelete) {
+                        const selectCell = document.createElement('td');
+                        selectCell.className = 'text-center';
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'form-check-input product-select';
+                        checkbox.dataset.id = product.id;
+                        checkbox.checked = selectedProductIds.has(product.id);
+                        checkbox.addEventListener('change', () => {
+                            const id = Number(checkbox.dataset.id);
+                            if (checkbox.checked) {
+                                selectedProductIds.add(id);
+                            } else {
+                                selectedProductIds.delete(id);
+                            }
+                            syncSelectAllState();
+                            updateBulkActionsVisibility();
+                        });
+                        selectCell.appendChild(checkbox);
+                        tr.appendChild(selectCell);
+                    }
 
                     const imageCell = document.createElement('td');
                     imageCell.className = 'text-center';
@@ -982,6 +1062,53 @@
 
                     tableBody.appendChild(tr);
                 });
+
+                syncSelectAllState();
+                updateBulkActionsVisibility();
+            }
+
+            function syncSelectAllState() {
+                if (!selectAllCheckbox) {
+                    return;
+                }
+
+                const visibleCheckboxes = tableBody.querySelectorAll('.product-select');
+                const total = visibleCheckboxes.length;
+                const checked = tableBody.querySelectorAll('.product-select:checked').length;
+                selectAllCheckbox.checked = total > 0 && checked === total;
+                selectAllCheckbox.indeterminate = checked > 0 && checked < total;
+            }
+
+            function updateBulkActionsVisibility() {
+                if (!canDelete || !bulkActions) {
+                    return;
+                }
+
+                if (selectedProductIds.size > 0) {
+                    bulkActions.classList.remove('d-none');
+                } else {
+                    bulkActions.classList.add('d-none');
+                }
+            }
+
+            function handleSelectAllChange() {
+                if (!canDelete || !selectAllCheckbox) {
+                    return;
+                }
+
+                const checked = selectAllCheckbox.checked;
+                tableBody.querySelectorAll('.product-select').forEach(checkbox => {
+                    checkbox.checked = checked;
+                    const id = Number(checkbox.dataset.id);
+                    if (checked) {
+                        selectedProductIds.add(id);
+                    } else {
+                        selectedProductIds.delete(id);
+                    }
+                });
+
+                syncSelectAllState();
+                updateBulkActionsVisibility();
             }
 
             async function loadCategories(showError = true) {
@@ -1015,6 +1142,11 @@
                     setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
                     allProducts = [];
                     filteredProducts = [];
+                    if (canDelete) {
+                        selectedProductIds.clear();
+                        updateBulkActionsVisibility();
+                        syncSelectAllState();
+                    }
                     return;
                 }
 
@@ -1027,6 +1159,11 @@
                             setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
                             allProducts = [];
                             filteredProducts = [];
+                            if (canDelete) {
+                                selectedProductIds.clear();
+                                updateBulkActionsVisibility();
+                                syncSelectAllState();
+                            }
                             return;
                         }
                         throw new Error('Failed to load products');
@@ -1034,6 +1171,14 @@
 
                     const products = await response.json();
                     allProducts = Array.isArray(products) ? products : [];
+                    if (canDelete) {
+                        const validIds = new Set(allProducts.map(product => product.id));
+                        Array.from(selectedProductIds).forEach(id => {
+                            if (!validIds.has(id)) {
+                                selectedProductIds.delete(id);
+                            }
+                        });
+                    }
                     applyProductFilters();
                 } catch (error) {
                     setTableStatus('Không thể tải danh sách sản phẩm.');
@@ -1041,6 +1186,69 @@
                     allProducts = [];
                     filteredProducts = [];
                     showAlert('Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.', 'danger');
+                    if (canDelete) {
+                        selectedProductIds.clear();
+                        updateBulkActionsVisibility();
+                        syncSelectAllState();
+                    }
+                }
+            }
+
+            async function bulkDeleteSelectedProducts(ids = Array.from(selectedProductIds)) {
+                if (!canDelete || !Array.isArray(ids) || ids.length === 0) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-delete`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify({ ids })
+                    });
+
+                    if (response.status === 400) {
+                        const result = await response.json().catch(() => null);
+                        const message = result?.message || 'Không thể xóa các sản phẩm đã chọn.';
+                        showAlert(message, 'warning');
+                        return;
+                    }
+
+                    if (response.status === 403) {
+                        showAlert('Bạn không có quyền xóa các sản phẩm đã chọn.', 'warning');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Failed to bulk delete products');
+                    }
+
+                    const result = await response.json().catch(() => ({}));
+                    const deleted = Number(result.deleted || 0);
+                    const unauthorized = Number(result.unauthorized || 0);
+
+                    if (deleted > 0) {
+                        showAlert(`Đã xóa ${deleted} sản phẩm.`, 'success');
+                    }
+                    if (unauthorized > 0) {
+                        showAlert(`${unauthorized} sản phẩm không đủ quyền xóa.`, 'warning');
+                    }
+                    if (deleted === 0 && unauthorized === 0) {
+                        showAlert('Không có sản phẩm nào được xóa.', 'info');
+                    }
+
+                    selectedProductIds.clear();
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    updateBulkActionsVisibility();
+                    await loadProducts();
+                } catch (error) {
+                    showAlert('Không thể xóa sản phẩm đã chọn. Vui lòng thử lại sau.', 'danger');
                 }
             }
 
@@ -1462,6 +1670,38 @@
                 createBtn.addEventListener('click', () => openCreateModal());
             }
 
+            if (selectAllCheckbox && canDelete) {
+                selectAllCheckbox.addEventListener('change', handleSelectAllChange);
+            }
+
+            if (bulkDeleteBtn && canDelete) {
+                bulkDeleteBtn.addEventListener('click', () => {
+                    if (selectedProductIds.size === 0) {
+                        showAlert('Vui lòng chọn ít nhất một sản phẩm để xóa.', 'warning');
+                        return;
+                    }
+
+                    if (bulkDeleteCount) {
+                        bulkDeleteCount.textContent = selectedProductIds.size.toString();
+                    }
+
+                    bulkDeleteModal?.show();
+                });
+            }
+
+            if (confirmBulkDeleteBtn && canDelete) {
+                confirmBulkDeleteBtn.addEventListener('click', async () => {
+                    if (selectedProductIds.size === 0) {
+                        showAlert('Không có sản phẩm nào được chọn.', 'warning');
+                        bulkDeleteModal?.hide();
+                        return;
+                    }
+
+                    bulkDeleteModal?.hide();
+                    await bulkDeleteSelectedProducts();
+                });
+            }
+
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', () => loadProducts());
             }
@@ -1472,6 +1712,7 @@
                 });
             }
 
+            updateBulkActionsVisibility();
             loadCategories(false);
             loadProducts();
         })();

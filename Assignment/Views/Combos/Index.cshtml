@@ -310,6 +310,24 @@
     </div>
 </div>
 
+<div class="modal fade" id="bulkDeleteModal" tabindex="-1" aria-labelledby="bulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkDeleteModalLabel">Xóa nhiều combo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa <strong id="bulkDeleteCount"></strong> combo đã chọn? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmBulkDeleteBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="detailModal" tabindex="-1" aria-labelledby="detailModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -393,6 +411,11 @@
             const deleteModal = new bootstrap.Modal(deleteModalEl);
             const deleteComboName = document.getElementById('deleteComboName');
             const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+
+            const bulkDeleteModalEl = document.getElementById('bulkDeleteModal');
+            const bulkDeleteModal = bulkDeleteModalEl ? new bootstrap.Modal(bulkDeleteModalEl) : null;
+            const confirmBulkDeleteBtn = document.getElementById('confirmBulkDeleteBtn');
+            const bulkDeleteCount = document.getElementById('bulkDeleteCount');
 
             const detailModalEl = document.getElementById('detailModal');
             const detailModal = new bootstrap.Modal(detailModalEl);
@@ -1456,12 +1479,8 @@
                 }
             }
 
-            async function bulkDeleteCombos() {
-                if (!canDelete || selectedComboIds.size === 0) {
-                    return;
-                }
-
-                if (!confirm(`Bạn có chắc chắn muốn xóa ${selectedComboIds.size} combo đã chọn?`)) {
+            async function bulkDeleteCombos(ids = Array.from(selectedComboIds)) {
+                if (!canDelete || !Array.isArray(ids) || ids.length === 0) {
                     return;
                 }
 
@@ -1473,7 +1492,7 @@
                             'Accept': 'application/json',
                             ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
                         },
-                        body: JSON.stringify({ ids: Array.from(selectedComboIds) })
+                        body: JSON.stringify({ ids })
                     });
 
                     if (response.status === 400) {
@@ -1501,9 +1520,13 @@
                     if (unauthorized > 0) {
                         showAlert('warning', `${unauthorized} combo không đủ quyền xóa.`);
                     }
+                    if (deleted === 0 && unauthorized === 0) {
+                        showAlert('info', 'Không có combo nào được xóa.');
+                    }
 
                     selectedComboIds.clear();
                     selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
                     await fetchCombos();
                 } catch (error) {
                     showAlert('danger', error.message || 'Có lỗi xảy ra khi xóa combo.');
@@ -1627,7 +1650,29 @@
                 deleteModal.hide();
             });
 
-            bulkDeleteBtn?.addEventListener('click', bulkDeleteCombos);
+            bulkDeleteBtn?.addEventListener('click', () => {
+                if (selectedComboIds.size === 0) {
+                    showAlert('warning', 'Vui lòng chọn ít nhất một combo để xóa.');
+                    return;
+                }
+
+                if (bulkDeleteCount) {
+                    bulkDeleteCount.textContent = selectedComboIds.size.toString();
+                }
+
+                bulkDeleteModal?.show();
+            });
+
+            confirmBulkDeleteBtn?.addEventListener('click', async () => {
+                if (selectedComboIds.size === 0) {
+                    showAlert('warning', 'Không có combo nào được chọn.');
+                    bulkDeleteModal?.hide();
+                    return;
+                }
+
+                bulkDeleteModal?.hide();
+                await bulkDeleteCombos();
+            });
             selectAllCheckbox.addEventListener('change', handleSelectAllChange);
 
             comboModalEl.addEventListener('hidden.bs.modal', () => {

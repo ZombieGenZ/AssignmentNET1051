@@ -192,6 +192,78 @@ namespace Assignment.Controllers.Api
             return NoContent();
         }
 
+        [HttpPost("bulk-delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkDelete([FromBody] BulkDeleteRequest request)
+        {
+            if (request.Ids == null || request.Ids.Count == 0)
+            {
+                ModelState.AddModelError(nameof(request.Ids), "Vui lòng chọn ít nhất một danh mục để xóa.");
+                return ValidationProblem(ModelState);
+            }
+
+            var categories = await _context.Categories
+                .Where(c => request.Ids.Contains(c.Id) && !c.IsDeleted)
+                .Include(c => c.Products)
+                .ToListAsync();
+
+            if (!categories.Any())
+            {
+                return NotFound(new { message = "Không tìm thấy danh mục hợp lệ để xóa." });
+            }
+
+            var now = DateTime.Now;
+            var deletedCount = 0;
+            var unauthorizedCount = 0;
+            var blockedCount = 0;
+
+            foreach (var category in categories)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, category, "DeleteCategoryPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                if (category.Products != null && category.Products.Any(p => !p.IsDeleted))
+                {
+                    blockedCount++;
+                    continue;
+                }
+
+                category.IsDeleted = true;
+                category.DeletedAt = now;
+                category.UpdatedAt = now;
+                deletedCount++;
+            }
+
+            if (deletedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            if (deletedCount == 0 && unauthorizedCount > 0 && blockedCount == 0)
+            {
+                return Forbid();
+            }
+
+            if (deletedCount == 0 && blockedCount > 0 && unauthorizedCount == 0)
+            {
+                var message = blockedCount == 1
+                    ? "Không thể xóa danh mục đã chọn vì vẫn còn sản phẩm liên kết."
+                    : "Không thể xóa các danh mục đã chọn vì vẫn còn sản phẩm liên kết.";
+                return BadRequest(new { message, blocked = blockedCount });
+            }
+
+            return Ok(new
+            {
+                deleted = deletedCount,
+                unauthorized = unauthorizedCount,
+                blocked = blockedCount
+            });
+        }
+
         private async Task<bool> CategoryExists(long id)
         {
             return await _context.Categories.AnyAsync(c => c.Id == id && !c.IsDeleted);
@@ -228,6 +300,11 @@ namespace Assignment.Controllers.Api
             public DateTime CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
             public string? CreatedBy { get; set; }
+        }
+
+        public class BulkDeleteRequest
+        {
+            public List<long> Ids { get; set; } = new();
         }
     }
 }

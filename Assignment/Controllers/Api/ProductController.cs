@@ -180,6 +180,68 @@ namespace Assignment.Controllers.Api
             return NoContent();
         }
 
+        [HttpPost("bulk-delete")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkDelete([FromBody] BulkDeleteRequest request)
+        {
+            if (request.Ids == null || request.Ids.Count == 0)
+            {
+                ModelState.AddModelError(nameof(request.Ids), "Vui lòng chọn ít nhất một sản phẩm để xóa.");
+                return ValidationProblem(ModelState);
+            }
+
+            var products = await _context.Products
+                .Where(p => request.Ids.Contains(p.Id) && !p.IsDeleted)
+                .ToListAsync();
+
+            if (!products.Any())
+            {
+                return NotFound(new { message = "Không tìm thấy sản phẩm hợp lệ để xóa." });
+            }
+
+            var now = DateTime.Now;
+            var deletedCount = 0;
+            var unauthorizedCount = 0;
+            var affectedProductIds = new HashSet<long>();
+
+            foreach (var product in products)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, product, "DeleteProductPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                product.IsDeleted = true;
+                product.DeletedAt = now;
+                product.UpdatedAt = now;
+                deletedCount++;
+                affectedProductIds.Add(product.Id);
+            }
+
+            if (deletedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+
+                foreach (var productId in affectedProductIds)
+                {
+                    await UpdateRelatedComboPrices(productId);
+                }
+            }
+
+            if (deletedCount == 0 && unauthorizedCount > 0)
+            {
+                return Forbid();
+            }
+
+            return Ok(new
+            {
+                deleted = deletedCount,
+                unauthorized = unauthorizedCount
+            });
+        }
+
         [HttpGet("categories")]
         public async Task<IActionResult> GetCategories()
         {
@@ -385,6 +447,11 @@ namespace Assignment.Controllers.Api
             public string? CategoryName { get; set; }
             public DateTime CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
+        }
+
+        public class BulkDeleteRequest
+        {
+            public List<long> Ids { get; set; } = new();
         }
     }
 }
