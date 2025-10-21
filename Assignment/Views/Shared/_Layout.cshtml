@@ -58,18 +58,125 @@
             }
 
         .footer {
-            background-color: var(--dark-bg);
-            color: white;
+            background: linear-gradient(135deg, #1f1f1f 0%, #212529 55%, #141619 100%);
+            color: #f8f9fa;
         }
 
-            .footer a {
+        .footer-top {
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer a {
+            color: rgba(255, 255, 255, 0.85);
+            transition: color 0.2s ease, transform 0.2s ease;
+        }
+
+            .footer a:hover {
                 color: var(--primary-color);
                 text-decoration: none;
+                transform: translateY(-1px);
             }
 
-                .footer a:hover {
-                    text-decoration: underline;
-                }
+        .footer-title {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            font-weight: 600;
+            color: #f8f9fa;
+            margin-bottom: 1rem;
+        }
+
+        .footer-brand {
+            color: #f8f9fa;
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: 0.03em;
+        }
+
+            .footer-brand .footer-logo-icon {
+                width: 48px;
+                height: 48px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.08);
+                color: var(--primary-color);
+                font-size: 1.25rem;
+            }
+
+            .footer-brand:hover {
+                color: #f8f9fa;
+            }
+
+        .footer .list-unstyled li + li {
+            margin-top: 0.75rem;
+        }
+
+        .footer-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+            .footer-link .fas,
+            .footer-link .fa-solid {
+                font-size: 0.9rem;
+            }
+
+        .footer-social .social-link {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            color: #f8f9fa;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9rem;
+        }
+
+            .footer-social .social-link:hover {
+                background: rgba(255, 255, 255, 0.16);
+                color: var(--primary-color);
+                transform: translateY(-2px);
+            }
+
+        .footer-contact-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 1rem;
+            flex-shrink: 0;
+        }
+
+        .footer-contact li + li {
+            margin-top: 1rem;
+        }
+
+        .footer-contact small {
+            letter-spacing: 0.08em;
+        }
+
+        .footer-bottom {
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+            .footer-bottom .footer-bottom-links {
+                gap: 1rem;
+            }
+
+        .footer-separator {
+            color: rgba(255, 255, 255, 0.2);
+        }
+
+        @media (max-width: 767.98px) {
+            .footer-bottom .footer-bottom-links {
+                justify-content: center;
+            }
+        }
 
         .user-avatar {
             width: 32px;
@@ -247,9 +354,151 @@
         </main>
     </div>
 
-    <footer class="footer mt-auto py-3">
-        <div class="container text-center">
-            &copy; @DateTime.Now.Year - FoodApp Việt - <a asp-area="" asp-controller="Home" asp-action="Privacy">Chính sách bảo mật</a>
+    <footer class="footer mt-auto">
+        <div class="footer-top py-5">
+            <div class="container">
+                <div class="row gy-4">
+                    <div class="col-lg-4 col-md-6">
+                        <a class="footer-brand d-inline-flex align-items-center mb-3" asp-area="" asp-controller="Home" asp-action="Index">
+                            <span class="footer-logo-icon d-inline-flex align-items-center justify-content-center me-3">
+                                <i class="fas fa-utensils"></i>
+                            </span>
+                            <span>FoodApp Việt</span>
+                        </a>
+                        <p class="text-white-50 mb-4">
+                            Mang những món ăn Việt Nam chuẩn vị đến bàn ăn của bạn với nguồn nguyên liệu tươi và dịch vụ giao hàng tận tâm.
+                        </p>
+                        <div class="d-flex footer-social gap-3">
+                            <a class="social-link" href="https://www.facebook.com" target="_blank" rel="noopener" aria-label="Facebook">
+                                <i class="fab fa-facebook-f"></i>
+                            </a>
+                            <a class="social-link" href="https://www.instagram.com" target="_blank" rel="noopener" aria-label="Instagram">
+                                <i class="fab fa-instagram"></i>
+                            </a>
+                            <a class="social-link" href="https://www.youtube.com" target="_blank" rel="noopener" aria-label="YouTube">
+                                <i class="fab fa-youtube"></i>
+                            </a>
+                            <a class="social-link" href="https://www.tiktok.com" target="_blank" rel="noopener" aria-label="TikTok">
+                                <i class="fab fa-tiktok"></i>
+                            </a>
+                        </div>
+                    </div>
+                    <div class="col-lg-2 col-md-6">
+                        <h6 class="footer-title">Khám phá</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li>
+                                <a class="footer-link" asp-area="" asp-controller="Home" asp-action="Index">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Trang chủ</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="footer-link" asp-area="" asp-controller="Home" asp-action="Privacy">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Thực đơn</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="footer-link" asp-area="" asp-controller="CustomerVouchers" asp-action="Public">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Khuyến mãi</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="footer-link" asp-area="" asp-controller="Cart" asp-action="Index">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Giỏ hàng</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <h6 class="footer-title">Dành cho khách hàng</h6>
+                        <ul class="list-unstyled mb-0">
+                            <li>
+                                <a class="footer-link" asp-area="Identity" asp-page="/Account/Login">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Đăng nhập</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="footer-link" asp-area="Identity" asp-page="/Account/Register">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Đăng ký</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="footer-link" asp-area="" asp-controller="Order" asp-action="History">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Lịch sử đơn hàng</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a class="footer-link" asp-area="" asp-controller="CustomerVouchers" asp-action="Mine">
+                                    <i class="fas fa-angle-right"></i>
+                                    <span>Voucher của tôi</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-lg-3 col-md-6">
+                        <h6 class="footer-title">Liên hệ</h6>
+                        <ul class="list-unstyled footer-contact mb-0">
+                            <li class="d-flex align-items-start gap-3">
+                                <span class="footer-contact-icon">
+                                    <i class="fas fa-phone-alt"></i>
+                                </span>
+                                <div>
+                                    <small class="text-white-50 text-uppercase d-block">Hotline</small>
+                                    <a class="footer-link fw-semibold" href="tel:19001234">1900 1234</a>
+                                </div>
+                            </li>
+                            <li class="d-flex align-items-start gap-3">
+                                <span class="footer-contact-icon">
+                                    <i class="fas fa-envelope"></i>
+                                </span>
+                                <div>
+                                    <small class="text-white-50 text-uppercase d-block">Email</small>
+                                    <a class="footer-link" href="mailto:support@foodapp.vn">support@foodapp.vn</a>
+                                </div>
+                            </li>
+                            <li class="d-flex align-items-start gap-3">
+                                <span class="footer-contact-icon">
+                                    <i class="fas fa-map-marker-alt"></i>
+                                </span>
+                                <div>
+                                    <small class="text-white-50 text-uppercase d-block">Văn phòng</small>
+                                    <span class="d-block">268 Tô Hiến Thành, Q.10, TP.HCM</span>
+                                </div>
+                            </li>
+                            <li class="d-flex align-items-start gap-3">
+                                <span class="footer-contact-icon">
+                                    <i class="fas fa-clock"></i>
+                                </span>
+                                <div>
+                                    <small class="text-white-50 text-uppercase d-block">Giờ hoạt động</small>
+                                    <span class="d-block">08:00 - 22:00 (T2 - CN)</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="footer-bottom py-3">
+            <div class="container d-flex flex-column flex-md-row align-items-center justify-content-between gap-3">
+                <small class="text-white-50">&copy; @DateTime.Now.Year FoodApp Việt. Mọi quyền được bảo lưu.</small>
+                <div class="footer-bottom-links d-flex flex-wrap align-items-center">
+                    <a class="footer-link small" asp-area="" asp-controller="Home" asp-action="Privacy">Chính sách bảo mật</a>
+                    <span class="footer-separator" aria-hidden="true">•</span>
+                    <a class="footer-link small" href="mailto:partnership@foodapp.vn">Hợp tác kinh doanh</a>
+                    <span class="footer-separator" aria-hidden="true">•</span>
+                    <span class="text-white-50 small d-inline-flex align-items-center gap-2">
+                        <i class="fas fa-shield-alt"></i>
+                        An toàn thực phẩm 100%
+                    </span>
+                </div>
+            </div>
         </div>
     </footer>
 
