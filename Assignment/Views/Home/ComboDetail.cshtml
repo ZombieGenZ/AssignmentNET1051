@@ -1,4 +1,5 @@
 @model Assignment.ViewModels.Combos.ComboDetailViewModel
+@using Assignment.Services
 
 @{
     var combo = Model.Combo;
@@ -722,6 +723,7 @@
                         @{
                             var hasPercentDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue;
                             var hasFixedDiscount = combo.DiscountType == Assignment.Enums.DiscountType.FixedAmount && combo.Discount.HasValue;
+                            var hasAmountDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Amount && combo.Discount.HasValue;
                             var finalPrice = PriceCalculator.GetComboFinalPrice(combo);
                             var savings = Math.Max(combo.Price - finalPrice, 0);
                         }
@@ -751,6 +753,21 @@
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <span class="badge-large">Giá đặc biệt</span>
                                     <span class="text-muted small">Ưu đãi độc quyền</span>
+                                </div>
+                                <div class="original-price mb-2">@combo.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
+                                @if (savings > 0)
+                                {
+                                    <div class="price-subtext">
+                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @savings.ToString("N0") ₫
+                                    </div>
+                                }
+                            }
+                            else if (hasAmountDiscount)
+                            {
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge-large">Giảm @combo.Discount.Value.ToString("N0") ₫</span>
+                                    <span class="text-muted small">Ưu đãi theo tiền</span>
                                 </div>
                                 <div class="original-price mb-2">@combo.Price.ToString("N0") ₫</div>
                                 <div class="final-price">@finalPrice.ToString("N0") ₫</div>

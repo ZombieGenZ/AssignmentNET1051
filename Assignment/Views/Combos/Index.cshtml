@@ -168,11 +168,12 @@
                             <select id="comboDiscountType" class="form-select">
                                 <option value="@( (int)DiscountType.None )">Không áp dụng</option>
                                 <option value="@( (int)DiscountType.Percent )">Giảm theo %</option>
+                                <option value="@( (int)DiscountType.Amount )">Giảm theo tiền</option>
                             </select>
                         </div>
                         <div class="col-md-6" id="comboDiscountWrapper" style="display: none;">
-                            <label for="comboDiscount" class="form-label">Giá trị giảm (%)</label>
-                            <input type="number" class="form-control" id="comboDiscount" min="0" max="100" step="1" />
+                            <label for="comboDiscount" class="form-label" id="comboDiscountLabel">Giá trị giảm</label>
+                            <input type="number" class="form-control" id="comboDiscount" min="0" step="1" />
                         </div>
                     </div>
                     <hr class="my-4" />
@@ -279,6 +280,7 @@
             const discountTypeSelect = document.getElementById('comboDiscountType');
             const discountWrapper = document.getElementById('comboDiscountWrapper');
             const discountInput = document.getElementById('comboDiscount');
+            const discountLabel = document.getElementById('comboDiscountLabel');
             const itemsContainer = document.getElementById('comboItemsContainer');
             const addItemBtn = document.getElementById('addComboItemBtn');
             const importItemsBtn = document.getElementById('importComboItemsBtn');
@@ -298,9 +300,16 @@
             const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
 
+            const DISCOUNT_NONE = @( (int)DiscountType.None );
+            const DISCOUNT_PERCENT = @( (int)DiscountType.Percent );
+            const DISCOUNT_FIXED = @( (int)DiscountType.FixedAmount );
+            const DISCOUNT_AMOUNT = @( (int)DiscountType.Amount );
+
             const discountLabels = {
-                @( (int)DiscountType.None ): 'Không áp dụng',
-                @( (int)DiscountType.Percent ): 'Giảm theo %'
+                [DISCOUNT_NONE]: 'Không áp dụng',
+                [DISCOUNT_PERCENT]: 'Giảm theo %',
+                [DISCOUNT_FIXED]: 'Giá ưu đãi cố định',
+                [DISCOUNT_AMOUNT]: 'Giảm theo tiền'
             };
 
             let combos = [];
@@ -337,8 +346,44 @@
             }
 
             function toggleDiscountField() {
-                const selectedValue = Number(discountTypeSelect.value);
-                discountWrapper.style.display = selectedValue === @( (int)DiscountType.Percent ) ? 'block' : 'none';
+                if (!discountWrapper || !discountInput) {
+                    return;
+                }
+
+                const selectedValue = Number(discountTypeSelect.value || DISCOUNT_NONE);
+                const isNone = selectedValue === DISCOUNT_NONE;
+
+                discountWrapper.style.display = isNone ? 'none' : 'block';
+                discountInput.disabled = isNone;
+
+                if (isNone) {
+                    discountInput.value = '';
+                }
+
+                discountInput.min = '0';
+                discountInput.step = '1';
+
+                if (selectedValue === DISCOUNT_PERCENT) {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá trị giảm (%)';
+                    }
+                    discountInput.setAttribute('max', '100');
+                } else if (selectedValue === DISCOUNT_AMOUNT) {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá trị giảm (VND)';
+                    }
+                    discountInput.removeAttribute('max');
+                } else if (selectedValue === DISCOUNT_FIXED) {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá bán ưu đãi (VND)';
+                    }
+                    discountInput.removeAttribute('max');
+                } else {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá trị giảm';
+                    }
+                    discountInput.removeAttribute('max');
+                }
             }
 
             async function fetchProductsIfNeeded() {
@@ -596,12 +641,27 @@
 
                     const finalPriceCell = document.createElement('td');
                     finalPriceCell.className = 'text-end';
-                    if (combo.discountType === @( (int)DiscountType.Percent ) && combo.discount) {
+                    const comboDiscountType = Number(combo.discountType);
+                    if (comboDiscountType === DISCOUNT_PERCENT && combo.discount) {
                         finalPriceCell.innerHTML = `
                             <div class="d-flex flex-column align-items-end">
                                 <del class="text-muted small">${formatCurrency(combo.price)}</del>
                                 <span class="fw-semibold text-danger">${formatCurrency(combo.finalPrice)}</span>
                                 <span class="small text-muted">Giảm ${combo.discount}%</span>
+                            </div>`;
+                    } else if (comboDiscountType === DISCOUNT_AMOUNT && combo.discount) {
+                        finalPriceCell.innerHTML = `
+                            <div class="d-flex flex-column align-items-end">
+                                <del class="text-muted small">${formatCurrency(combo.price)}</del>
+                                <span class="fw-semibold text-danger">${formatCurrency(combo.finalPrice)}</span>
+                                <span class="small text-muted">Giảm ${formatCurrency(combo.discount)}</span>
+                            </div>`;
+                    } else if (comboDiscountType === DISCOUNT_FIXED && combo.discount) {
+                        finalPriceCell.innerHTML = `
+                            <div class="d-flex flex-column align-items-end">
+                                <del class="text-muted small">${formatCurrency(combo.price)}</del>
+                                <span class="fw-semibold text-danger">${formatCurrency(combo.finalPrice)}</span>
+                                <span class="small text-muted">Giá ưu đãi cố định</span>
                             </div>`;
                     } else {
                         finalPriceCell.innerHTML = `<span class="fw-semibold">${formatCurrency(combo.finalPrice)}</span>`;
@@ -855,6 +915,14 @@
                     }
 
                     const combo = await response.json();
+                    const detailDiscountType = Number(combo.discountType);
+                    let discountInfo = discountLabels[detailDiscountType] || 'Không áp dụng';
+                    if (detailDiscountType === DISCOUNT_PERCENT && combo.discount) {
+                        discountInfo += ` (${combo.discount}%)`;
+                    } else if ((detailDiscountType === DISCOUNT_AMOUNT || detailDiscountType === DISCOUNT_FIXED) && combo.discount) {
+                        discountInfo += ` (${formatCurrency(combo.discount)})`;
+                    }
+
                     detailContent.innerHTML = `
                         <div class="d-flex align-items-center gap-3">
                             <img src="${combo.imageUrl}" alt="${combo.name}" class="rounded" style="width: 80px; height: 80px; object-fit: cover;" />
@@ -874,7 +942,7 @@
                             </div>
                             <div class="col-md-3">
                                 <div class="small text-muted">Giảm giá</div>
-                                <div>${discountLabels[combo.discountType] || 'Không áp dụng'}${combo.discount ? ` (${combo.discount}%)` : ''}</div>
+                                <div>${discountInfo}</div>
                             </div>
                             <div class="col-md-3">
                                 <div class="small text-muted">Tồn kho</div>

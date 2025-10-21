@@ -24,6 +24,10 @@ namespace Assignment.Services
             {
                 price = product.Discount.Value;
             }
+            else if (product.DiscountType == DiscountType.Amount && product.Discount.HasValue)
+            {
+                price -= product.Discount.Value;
+            }
 
             return Math.Max(price, 0);
         }
@@ -63,6 +67,10 @@ namespace Assignment.Services
             else if (discountType == DiscountType.FixedAmount && discountValue.HasValue)
             {
                 finalPrice = discountValue.Value;
+            }
+            else if (discountType == DiscountType.Amount && discountValue.HasValue)
+            {
+                finalPrice = normalizedPrice - discountValue.Value;
             }
 
             return Math.Round(Math.Max(finalPrice, 0), 2);

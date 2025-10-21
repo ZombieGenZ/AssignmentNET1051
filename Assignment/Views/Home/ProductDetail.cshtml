@@ -1,4 +1,5 @@
 @model Assignment.ViewModels.Products.ProductDetailViewModel
+@using Assignment.Services
 
 @{
     var product = Model.Product;
@@ -677,15 +678,8 @@
                         @{
                             var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
                             var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
-                            double finalPrice = product.Price;
-                            if (hasPercentDiscount)
-                            {
-                                finalPrice = Math.Max(product.Price - (product.Price * product.Discount.Value / 100.0), 0);
-                            }
-                            else if (hasFixedDiscount)
-                            {
-                                finalPrice = product.Discount.Value;
-                            }
+                            var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
+                            var finalPrice = PriceCalculator.GetProductFinalPrice(product);
                             var savings = Math.Max(product.Price - finalPrice, 0);
                         }
 
@@ -714,6 +708,21 @@
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <span class="badge-large">Giá đặc biệt</span>
                                     <span class="text-muted small">Ưu đãi độc quyền</span>
+                                </div>
+                                <div class="original-price mb-2">@product.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
+                                @if (savings > 0)
+                                {
+                                    <div class="price-subtext">
+                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @savings.ToString("N0") ₫
+                                    </div>
+                                }
+                            }
+                            else if (product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue)
+                            {
+                                <div class="d-flex align-items-center gap-2 mb-2">
+                                    <span class="badge-large">Giảm @product.Discount.Value.ToString("N0") ₫</span>
+                                    <span class="text-muted small">Ưu đãi theo tiền</span>
                                 </div>
                                 <div class="original-price mb-2">@product.Price.ToString("N0") ₫</div>
                                 <div class="final-price">@finalPrice.ToString("N0") ₫</div>

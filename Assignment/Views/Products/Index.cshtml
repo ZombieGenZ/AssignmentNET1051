@@ -13,7 +13,8 @@
     {
         [DiscountType.None] = "Không áp dụng",
         [DiscountType.Percent] = "Giảm theo %",
-        [DiscountType.FixedAmount] = "Giảm giá cố định"
+        [DiscountType.FixedAmount] = "Giảm giá cố định",
+        [DiscountType.Amount] = "Giảm theo tiền"
     };
 }
 
@@ -144,7 +145,7 @@
                             </select>
                         </div>
                         <div class="col-md-4">
-                            <label for="productDiscount" class="form-label">Giá trị giảm</label>
+                            <label for="productDiscount" class="form-label" id="productDiscountLabel">Giá trị giảm</label>
                             <input type="number" class="form-control" id="productDiscount" min="0" step="1" />
                             <small class="text-muted">Bỏ trống nếu không áp dụng.</small>
                         </div>
@@ -270,6 +271,7 @@
             const stockInput = document.getElementById('productStock');
             const discountTypeSelect = document.getElementById('productDiscountType');
             const discountInput = document.getElementById('productDiscount');
+            const discountLabel = document.getElementById('productDiscountLabel');
             const publishCheckbox = document.getElementById('productIsPublish');
             const imageInput = document.getElementById('productImageUrl');
             const prepInput = document.getElementById('productPreparationTime');
@@ -285,10 +287,16 @@
             let cachedCategories = [];
 
             const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
+            const DISCOUNT_NONE = @( (int)DiscountType.None );
+            const DISCOUNT_PERCENT = @( (int)DiscountType.Percent );
+            const DISCOUNT_FIXED = @( (int)DiscountType.FixedAmount );
+            const DISCOUNT_AMOUNT = @( (int)DiscountType.Amount );
+
             const discountLabelMap = {
-                0: 'Không áp dụng',
-                1: 'Giảm theo %',
-                2: 'Giảm giá cố định'
+                [DISCOUNT_NONE]: 'Không áp dụng',
+                [DISCOUNT_PERCENT]: 'Giảm theo %',
+                [DISCOUNT_FIXED]: 'Giảm giá cố định',
+                [DISCOUNT_AMOUNT]: 'Giảm theo tiền'
             };
 
             function showAlert(message, type = 'success') {
@@ -355,11 +363,41 @@
             }
 
             function toggleDiscountField() {
-                const discountType = Number(discountTypeSelect.value);
-                const isNone = discountType === 0;
+                if (!discountInput) {
+                    return;
+                }
+
+                const discountType = Number(discountTypeSelect.value || DISCOUNT_NONE);
+                const isNone = discountType === DISCOUNT_NONE;
                 discountInput.disabled = isNone;
+
                 if (isNone) {
                     discountInput.value = '';
+                }
+
+                discountInput.min = '0';
+                discountInput.step = '1';
+
+                if (discountType === DISCOUNT_PERCENT) {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá trị giảm (%)';
+                    }
+                    discountInput.setAttribute('max', '100');
+                } else if (discountType === DISCOUNT_AMOUNT) {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá trị giảm (VND)';
+                    }
+                    discountInput.removeAttribute('max');
+                } else if (discountType === DISCOUNT_FIXED) {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá bán ưu đãi (VND)';
+                    }
+                    discountInput.removeAttribute('max');
+                } else {
+                    if (discountLabel) {
+                        discountLabel.textContent = 'Giá trị giảm';
+                    }
+                    discountInput.removeAttribute('max');
                 }
             }
 
@@ -423,7 +461,7 @@
                     const basePrice = Number(product.price ?? 0);
                     const discountValue = product.discount;
 
-                    if (discountType === 1 && discountValue !== null && discountValue !== undefined) {
+                    if (discountType === DISCOUNT_PERCENT && discountValue !== null && discountValue !== undefined) {
                         const discountedPrice = Math.max(basePrice - (basePrice * discountValue / 100), 0);
                         priceCell.innerHTML = `
                             <div class="d-flex flex-column">
@@ -431,12 +469,20 @@
                                 <span class="fw-semibold text-danger">${currencyFormatter.format(discountedPrice)}</span>
                                 <span class="small text-muted">Giảm ${discountValue}%</span>
                             </div>`;
-                    } else if (discountType === 2 && discountValue !== null && discountValue !== undefined) {
+                    } else if (discountType === DISCOUNT_FIXED && discountValue !== null && discountValue !== undefined) {
                         priceCell.innerHTML = `
                             <div class="d-flex flex-column">
                                 <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
                                 <span class="fw-semibold text-danger">${currencyFormatter.format(discountValue)}</span>
                                 <span class="small text-muted">Giá ưu đãi</span>
+                            </div>`;
+                    } else if (discountType === DISCOUNT_AMOUNT && discountValue !== null && discountValue !== undefined) {
+                        const discountedPrice = Math.max(basePrice - discountValue, 0);
+                        priceCell.innerHTML = `
+                            <div class="d-flex flex-column">
+                                <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
+                                <span class="fw-semibold text-danger">${currencyFormatter.format(discountedPrice)}</span>
+                                <span class="small text-muted">Giảm ${currencyFormatter.format(discountValue)}</span>
                             </div>`;
                     } else {
                         priceCell.innerHTML = `<span class="fw-semibold">${currencyFormatter.format(basePrice)}</span>`;
@@ -589,9 +635,9 @@
                     const product = await response.json();
                     const discountType = Number(product.discountType ?? 0);
                     let discountText = discountLabelMap[discountType] ?? 'Không xác định';
-                    if (discountType === 1 && product.discount) {
+                    if (discountType === DISCOUNT_PERCENT && product.discount) {
                         discountText += ` (${Number(product.discount).toLocaleString('vi-VN')}%)`;
-                    } else if (discountType === 2 && product.discount) {
+                    } else if ((discountType === DISCOUNT_FIXED || discountType === DISCOUNT_AMOUNT) && product.discount) {
                         discountText += ` (${currencyFormatter.format(Number(product.discount))})`;
                     }
 

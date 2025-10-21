@@ -3,6 +3,7 @@
 @using System.Globalization
 @using System.Linq
 @using System.Collections.Generic
+@using Assignment.Services
 
 @{
     ViewData["Title"] = "Trang chủ";
@@ -219,13 +220,29 @@
                 <div class="row g-4">
                     @foreach (var combo in Model.Combos)
                     {
+                        @{
+                            var hasPercentDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue;
+                            var hasAmountDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Amount && combo.Discount.HasValue;
+                            var hasFixedDiscount = combo.DiscountType == Assignment.Enums.DiscountType.FixedAmount && combo.Discount.HasValue;
+                            var comboFinalPrice = PriceCalculator.GetComboFinalPrice(combo);
+                            var comboHasDiscount = hasPercentDiscount || hasAmountDiscount || hasFixedDiscount;
+                            var comboSavings = comboHasDiscount ? Math.Max(combo.Price - comboFinalPrice, 0) : 0;
+                        }
                         <div class="col-md-4 col-lg-3">
                             <div class="product-card">
                                 <div class="position-relative">
                                     <img src="@combo.ImageUrl" class="product-image" alt="@combo.Name" />
-                                    @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue)
+                                    @if (hasPercentDiscount)
                                     {
                                         <span class="badge-discount">-@combo.Discount%</span>
+                                    }
+                                    else if (hasAmountDiscount)
+                                    {
+                                        <span class="badge-discount">-@combo.Discount.Value.ToString("N0") ₫</span>
+                                    }
+                                    else if (hasFixedDiscount)
+                                    {
+                                        <span class="badge-discount">Giá ưu đãi</span>
                                     }
                                 </div>
                                 <div class="product-info">
@@ -262,17 +279,28 @@
                                     </div>
 
                                     <div class="mb-3">
-                                        @{ var finalPrice = PriceCalculator.GetComboFinalPrice(combo); }
-                                        @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue)
+                                        @if (!comboHasDiscount)
+                                        {
+                                            <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                        }
+                                        else
                                         {
                                             <div>
                                                 <span class="original-price">@combo.Price.ToString("N0") ₫</span>
                                             </div>
-                                            <span class="final-price">@finalPrice.ToString("N0") ₫</span>
-                                        }
-                                        else
-                                        {
-                                            <span class="final-price">@finalPrice.ToString("N0") ₫</span>
+                                            <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                            @if (hasPercentDiscount && comboSavings > 0)
+                                            {
+                                                <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                            }
+                                            else if (hasAmountDiscount)
+                                            {
+                                                <div class="small text-muted">Giảm @combo.Discount.Value.ToString("N0") ₫</div>
+                                            }
+                                            else if (hasFixedDiscount && comboSavings > 0)
+                                            {
+                                                <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                            }
                                         }
                                     </div>
 
@@ -317,22 +345,29 @@
                     <div class="row g-4">
                         @foreach (var product in Model.Products)
                         {
+                            @{
+                                var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
+                                var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
+                                var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
+                                var hasDiscount = product.DiscountType != Assignment.Enums.DiscountType.None && product.Discount.HasValue;
+                                var finalPrice = PriceCalculator.GetProductFinalPrice(product);
+                                var savings = hasDiscount ? Math.Max(product.Price - finalPrice, 0) : 0;
+                            }
                             <div class="col-md-4 col-lg-3">
                                 <div class="product-card">
                                     <div class="position-relative">
                                         <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
-                                        @if (product.DiscountType != Assignment.Enums.DiscountType.None)
+                                        @if (hasPercentDiscount)
                                         {
-                                            <span class="badge-discount">
-                                                @if (product.DiscountType == Assignment.Enums.DiscountType.Percent)
-                                                {
-                                                    @:-@product.Discount%
-                                                }
-                                                else
-                                                {
-                                                    @:Giá sốc
-                                                }
-                                            </span>
+                                            <span class="badge-discount">-@product.Discount%</span>
+                                        }
+                                        else if (hasAmountDiscount)
+                                        {
+                                            <span class="badge-discount">-@product.Discount.Value.ToString("N0") ₫</span>
+                                        }
+                                        else if (hasFixedDiscount)
+                                        {
+                                            <span class="badge-discount">Giá ưu đãi</span>
                                         }
                                     </div>
                                     <div class="product-info">
@@ -369,23 +404,28 @@
                                         </div>
 
                                         <div class="mb-3">
-                                            @if (product.DiscountType == Assignment.Enums.DiscountType.None)
+                                            @if (!hasDiscount)
                                             {
                                                 <span class="final-price">@product.Price.ToString("N0") ₫</span>
-                                            }
-                                            else if (product.DiscountType == Assignment.Enums.DiscountType.Percent)
-                                            {
-                                                <div>
-                                                    <span class="original-price">@product.Price.ToString("N0") ₫</span>
-                                                </div>
-                                                <span class="final-price">@((product.Price - (product.Price * product.Discount.Value / 100)).ToString("N0")) ₫</span>
                                             }
                                             else
                                             {
                                                 <div>
                                                     <span class="original-price">@product.Price.ToString("N0") ₫</span>
                                                 </div>
-                                                <span class="final-price">@product.Discount.Value.ToString("N0") ₫</span>
+                                                <span class="final-price">@finalPrice.ToString("N0") ₫</span>
+                                                @if (hasPercentDiscount && savings > 0)
+                                                {
+                                                    <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                }
+                                                else if (hasAmountDiscount)
+                                                {
+                                                    <div class="small text-muted">Giảm @product.Discount.Value.ToString("N0") ₫</div>
+                                                }
+                                                else if (hasFixedDiscount && savings > 0)
+                                                {
+                                                    <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                }
                                             }
                                         </div>
 
@@ -415,22 +455,29 @@
                         <div class="row g-4">
                             @foreach (var product in categoryGroup)
                             {
+                                @{
+                                    var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
+                                    var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
+                                    var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
+                                    var hasDiscount = product.DiscountType != Assignment.Enums.DiscountType.None && product.Discount.HasValue;
+                                    var finalPrice = PriceCalculator.GetProductFinalPrice(product);
+                                    var savings = hasDiscount ? Math.Max(product.Price - finalPrice, 0) : 0;
+                                }
                                 <div class="col-md-4 col-lg-3">
                                     <div class="product-card">
                                         <div class="position-relative">
                                             <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
-                                            @if (product.DiscountType != Assignment.Enums.DiscountType.None)
+                                            @if (hasPercentDiscount)
                                             {
-                                                <span class="badge-discount">
-                                                    @if (product.DiscountType == Assignment.Enums.DiscountType.Percent)
-                                                    {
-                                                        @:-@product.Discount%
-                                                    }
-                                                    else
-                                                    {
-                                                        @:Giá sốc
-                                                    }
-                                                </span>
+                                                <span class="badge-discount">-@product.Discount%</span>
+                                            }
+                                            else if (hasAmountDiscount)
+                                            {
+                                                <span class="badge-discount">-@product.Discount.Value.ToString("N0") ₫</span>
+                                            }
+                                            else if (hasFixedDiscount)
+                                            {
+                                                <span class="badge-discount">Giá ưu đãi</span>
                                             }
                                         </div>
                                         <div class="product-info">
@@ -467,23 +514,28 @@
                                             </div>
 
                                             <div class="mb-3">
-                                                @if (product.DiscountType == Assignment.Enums.DiscountType.None)
+                                                @if (!hasDiscount)
                                                 {
                                                     <span class="final-price">@product.Price.ToString("N0") ₫</span>
-                                                }
-                                                else if (product.DiscountType == Assignment.Enums.DiscountType.Percent)
-                                                {
-                                                    <div>
-                                                        <span class="original-price">@product.Price.ToString("N0") ₫</span>
-                                                    </div>
-                                                    <span class="final-price">@((product.Price - (product.Price * product.Discount.Value / 100)).ToString("N0")) ₫</span>
                                                 }
                                                 else
                                                 {
                                                     <div>
                                                         <span class="original-price">@product.Price.ToString("N0") ₫</span>
                                                     </div>
-                                                    <span class="final-price">@product.Discount.Value.ToString("N0") ₫</span>
+                                                    <span class="final-price">@finalPrice.ToString("N0") ₫</span>
+                                                    @if (hasPercentDiscount && savings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                    }
+                                                    else if (hasAmountDiscount)
+                                                    {
+                                                        <div class="small text-muted">Giảm @product.Discount.Value.ToString("N0") ₫</div>
+                                                    }
+                                                    else if (hasFixedDiscount && savings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                    }
                                                 }
                                             </div>
 
