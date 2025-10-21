@@ -124,9 +124,9 @@
                                     @foreach (var permission in group.Permissions)
                                     {
                                         var checkboxId = $"permission_{permission.Key.Replace(" ", "_")}";
-                                        <div class="col-12 col-sm-6 col-lg-4">
+                                        <div class="col-12 col-sm-6 col-lg-4" data-permission-item>
                                             <div class="form-check">
-                                                <input class="form-check-input role-permission" type="checkbox" value="@permission.Key" id="@checkboxId" />
+                                                <input class="form-check-input role-permission" type="checkbox" value="@permission.Key" id="@checkboxId" data-permission-key="@permission.Key" />
                                                 <label class="form-check-label" for="@checkboxId">
                                                     @permission.DisplayName
                                                 </label>
@@ -233,6 +233,47 @@
                 alertPlaceholder.innerHTML = '';
             };
 
+            const updatePermissionVisibility = () => {
+                const checkboxes = Array.from(document.querySelectorAll('.role-permission'));
+                const map = new Map();
+                checkboxes.forEach(checkbox => {
+                    const container = checkbox.closest('[data-permission-item]');
+                    if (container) {
+                        container.style.display = '';
+                    }
+                    map.set(checkbox.value, checkbox);
+                });
+
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.value.endsWith('All')) {
+                        return;
+                    }
+
+                    const baseKey = checkbox.value.slice(0, -3);
+                    const baseCheckbox = map.get(baseKey);
+                    if (!baseCheckbox) {
+                        return;
+                    }
+
+                    const baseContainer = baseCheckbox.closest('[data-permission-item]');
+                    if (!baseContainer) {
+                        return;
+                    }
+
+                    const isInherited = checkbox.dataset.isInherited === 'true';
+                    const shouldHide = checkbox.checked || checkbox.indeterminate || isInherited;
+                    if (shouldHide) {
+                        if (baseCheckbox.dataset.isInherited !== 'true' && !baseCheckbox.disabled) {
+                            baseCheckbox.checked = false;
+                            baseCheckbox.indeterminate = false;
+                        }
+                        baseContainer.style.display = 'none';
+                    } else {
+                        baseContainer.style.display = '';
+                    }
+                });
+            };
+
             const renderPermissions = (permissions) => {
                 const entries = Array.isArray(permissions) ? permissions : [];
                 const byKey = new Map();
@@ -241,13 +282,19 @@
                 document.querySelectorAll('.role-permission').forEach(checkbox => {
                     checkbox.checked = false;
                     checkbox.indeterminate = false;
+                    checkbox.dataset.isInherited = 'false';
                     checkbox.closest('.form-check').classList.remove('text-muted');
+                    const container = checkbox.closest('[data-permission-item]');
+                    if (container) {
+                        container.style.display = '';
+                    }
                     const key = checkbox.value;
                     const info = byKey.get(key) || permissionsTemplate.find(p => p.Key === key);
                     if (info) {
                         const isSelected = info.isSelected ?? info.IsSelected;
                         const isInherited = info.isInherited ?? info.IsInherited;
                         checkbox.checked = !!isSelected;
+                        checkbox.dataset.isInherited = isInherited ? 'true' : 'false';
                         if (isInherited && !isSelected) {
                             checkbox.indeterminate = true;
                             checkbox.closest('.form-check').classList.add('text-muted');
@@ -256,7 +303,16 @@
                         }
                     }
                 });
+
+                updatePermissionVisibility();
             };
+
+            document.querySelectorAll('.role-permission').forEach(checkbox => {
+                checkbox.addEventListener('change', () => {
+                    checkbox.dataset.isInherited = 'false';
+                    updatePermissionVisibility();
+                });
+            });
 
             const openCreateModal = () => {
                 state.editingId = null;
