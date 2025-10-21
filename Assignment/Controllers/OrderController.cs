@@ -140,6 +140,7 @@ namespace Assignment.Controllers
                 appliedVouchers = await _context.Vouchers
                     .Include(v => v.VoucherUsers)
                     .Include(v => v.VoucherProducts)
+                    .Include(v => v.VoucherCombos)
                     .Where(v => appliedVoucherIds.Contains(v.Id) && !v.IsDeleted && v.IsPublish)
                     .ToListAsync();
 
@@ -272,6 +273,7 @@ namespace Assignment.Controllers
             var existingVouchers = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
                 .Include(v => v.VoucherProducts)
+                .Include(v => v.VoucherCombos)
                 .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted && v.IsPublish)
                 .ToListAsync();
 
@@ -292,6 +294,7 @@ namespace Assignment.Controllers
             var voucher = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
                 .Include(v => v.VoucherProducts)
+                .Include(v => v.VoucherCombos)
                 .FirstOrDefaultAsync(v => v.Code.ToUpper() == voucherCode.ToUpper() && !v.IsDeleted && v.IsPublish);
 
             if (voucher == null)
@@ -377,6 +380,7 @@ namespace Assignment.Controllers
             var vouchers = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
                 .Include(v => v.VoucherProducts)
+                .Include(v => v.VoucherCombos)
                 .Where(v => sanitizedVoucherIds.Contains(v.Id) && !v.IsDeleted && v.IsPublish)
                 .ToListAsync();
 
@@ -792,8 +796,10 @@ namespace Assignment.Controllers
                 return (false, $"Đơn hàng tối thiểu phải là {voucher.MinimumRequirements:N0}đ.", 0);
             }
 
-            var discountBase = subtotal;
+            var productItems = filteredItems.Where(item => item.Product != null).ToList();
+            var comboItems = filteredItems.Where(item => item.Combo != null).ToList();
 
+            double productBase;
             if (voucher.ProductScope == VoucherProductScope.SelectedProducts)
             {
                 var allowedProductIds = voucher.VoucherProducts?
@@ -801,14 +807,44 @@ namespace Assignment.Controllers
                     .Select(vp => vp.ProductId)
                     .ToHashSet() ?? new HashSet<long>();
 
-                discountBase = filteredItems
+                productBase = productItems
                     .Where(item => item.Product != null && allowedProductIds.Contains(item.Product.Id))
                     .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            }
+            else
+            {
+                productBase = productItems
+                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            }
 
-                if (discountBase <= 0)
-                {
-                    return (false, "Voucher không áp dụng cho sản phẩm đã chọn.", 0);
-                }
+            double comboBase;
+            if (voucher.ComboScope == VoucherComboScope.SelectedCombos)
+            {
+                var allowedComboIds = voucher.VoucherCombos?
+                    .Where(vc => !vc.IsDeleted)
+                    .Select(vc => vc.ComboId)
+                    .ToHashSet() ?? new HashSet<long>();
+
+                comboBase = comboItems
+                    .Where(item => item.Combo != null && allowedComboIds.Contains(item.Combo.Id))
+                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            }
+            else
+            {
+                comboBase = comboItems
+                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            }
+
+            var discountBase = productBase + comboBase;
+
+            if (discountBase <= 0)
+            {
+                var scopeMessage = voucher.ProductScope == VoucherProductScope.SelectedProducts ||
+                                   voucher.ComboScope == VoucherComboScope.SelectedCombos
+                    ? "Voucher không áp dụng cho sản phẩm hoặc combo đã chọn."
+                    : "Voucher không áp dụng cho giỏ hàng hiện tại.";
+
+                return (false, scopeMessage, 0);
             }
 
             double discountAmount;

@@ -10,6 +10,7 @@ namespace Assignment.ViewModels.Vouchers
         public string Name { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
         public VoucherProductScope ProductScope { get; set; }
+        public VoucherComboScope ComboScope { get; set; }
         public VoucherDiscountType DiscountType { get; set; }
         public double Discount { get; set; }
         public bool UnlimitedPercentageDiscount { get; set; }
