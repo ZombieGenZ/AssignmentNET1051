@@ -1099,17 +1099,28 @@
                     <div class="modal-body">
                         <div class="mb-3">
                             <label class="form-label">Điểm đánh giá</label>
-                            <div class="rating-stars" id="comboRatingStars" role="radiogroup" aria-label="Điểm đánh giá">
-                                @for (var score = 5; score >= 1; score--)
+                            @{ var comboInitialScore = Model.UserRating?.Score ?? 0; }
+                            <div class="rating-stars" id="comboRatingStars" role="radiogroup" aria-label="Điểm đánh giá" data-input-id="comboRatingScore">
+                                @for (var score = 1; score <= 5; score++)
                                 {
-                                    var id = $"combo-rating-score-{score}";
-                                    var isChecked = Model.UserRating?.Score == score;
-                                    <input type="radio" id="@id" name="Score" value="@score" @(isChecked ? "checked" : null) @(score == 5 ? "required" : null) />
-                                    <label for="@id" title="@score sao">
-                                        <span class="visually-hidden">@score sao</span>
-                                    </label>
+                                    var isActive = comboInitialScore >= score;
+                                    var isSelected = comboInitialScore == score;
+                                    <button type="button"
+                                            class="rating-star-button@(isActive ? " is-active" : string.Empty)@(isSelected ? " is-selected" : string.Empty)"
+                                            data-score="@score"
+                                            role="radio"
+                                            aria-label="@score sao"
+                                            aria-checked="@(isSelected ? "true" : "false")">
+                                        <span class="rating-star-glow" aria-hidden="true"></span>
+                                        <span class="rating-star-icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+                                                <path d="M12 3.25c.32 0 .62.17.78.45l2.06 3.74 4.15.7c.32.06.59.28.7.59.11.31.05.66-.15.92l-2.78 3.39.46 4.29c.04.33-.11.66-.39.85a.96.96 0 0 1-.98.05L12 16.91l-3.81 1.9a.96.96 0 0 1-.98-.05.93.93 0 0 1-.39-.85l.46-4.29-2.78-3.39a.9.9 0 0 1-.15-.92.95.95 0 0 1 .7-.59l4.15-.7 2.06-3.74c.16-.28.46-.45.78-.45Z" />
+                                            </svg>
+                                        </span>
+                                    </button>
                                 }
                             </div>
+                            <input type="number" class="visually-hidden rating-score-input" id="comboRatingScore" name="Score" min="1" max="5" value="@(Model.UserRating != null ? Model.UserRating.Score : (int?)null)" required />
                             <div class="form-text rating-hint" id="comboRatingHint" aria-live="polite">Chọn số sao tương ứng với trải nghiệm của bạn.</div>
                         </div>
                         <div class="mb-3">
@@ -1234,9 +1245,16 @@
 
         function setupRatingStars(containerId, hintId) {
             const container = document.getElementById(containerId);
-            const hint = document.getElementById(hintId);
+            if (!container) {
+                return;
+            }
 
-            if (!container || !hint) {
+            const hint = hintId ? document.getElementById(hintId) : null;
+            const scoreInputId = container.dataset.inputId;
+            const scoreInput = scoreInputId ? document.getElementById(scoreInputId) : null;
+            const buttons = Array.from(container.querySelectorAll('.rating-star-button'));
+
+            if (!scoreInput || buttons.length === 0) {
                 return;
             }
 
@@ -1248,58 +1266,137 @@
                 5: 'Tuyệt vời – vượt mong đợi của bạn!'
             };
 
-            const defaultHint = hint.textContent.trim();
-            let lockedScore = null;
+            const defaultHint = hint ? hint.textContent.trim() : '';
+            const scoreValues = buttons
+                .map((button) => Number.parseInt(button.dataset.score, 10))
+                .filter((value) => Number.isInteger(value));
+            const sortedScores = Array.from(new Set(scoreValues)).sort((a, b) => a - b);
+            const minScore = sortedScores[0] ?? 1;
+            const maxScore = sortedScores[sortedScores.length - 1] ?? 5;
 
-            const applyScore = (score) => {
-                const message = scoreMessages[score] ?? `${score} sao`;
-                hint.textContent = message;
-                container.dataset.currentScore = String(score);
+            const normalizeScore = (value) => {
+                if (!Number.isInteger(value)) {
+                    return null;
+                }
+                if (value < minScore || value > maxScore) {
+                    return null;
+                }
+                return value;
             };
 
-            const resetScore = () => {
-                if (lockedScore) {
-                    applyScore(lockedScore);
-                    hint.classList.add('is-active');
+            const findButtonByScore = (score) => buttons.find((button) => normalizeScore(Number.parseInt(button.dataset.score, 10)) === score);
+
+            let lockedScore = normalizeScore(Number.parseInt(scoreInput.value, 10));
+
+            const setHint = (score, isLocked) => {
+                if (!hint) {
+                    return;
+                }
+
+                if (score) {
+                    const message = scoreMessages[score] ?? `${score} sao`;
+                    hint.textContent = message;
+                    hint.classList.toggle('is-active', Boolean(isLocked));
                 } else {
                     hint.textContent = defaultHint;
-                    container.dataset.currentScore = '';
                     hint.classList.remove('is-active');
                 }
             };
 
-            const inputs = container.querySelectorAll('input[type="radio"]');
-
-            inputs.forEach((input) => {
-                const score = parseInt(input.value, 10);
-
-                if (input.checked) {
-                    lockedScore = score;
-                }
-
-                input.addEventListener('change', () => {
-                    lockedScore = score;
-                    applyScore(score);
-                    hint.classList.add('is-active');
+            const applyVisualState = (score) => {
+                buttons.forEach((button) => {
+                    const buttonScore = normalizeScore(Number.parseInt(button.dataset.score, 10));
+                    const isActive = Boolean(score && buttonScore && buttonScore <= score);
+                    const isSelected = Boolean(score && buttonScore === score);
+                    button.classList.toggle('is-active', isActive);
+                    button.classList.toggle('is-selected', isSelected);
+                    button.setAttribute('aria-checked', isSelected ? 'true' : 'false');
                 });
 
-                input.addEventListener('focus', () => applyScore(score));
+                container.dataset.currentScore = score ? String(score) : '';
+            };
 
-                const label = container.querySelector(`label[for="${input.id}"]`);
-                if (label) {
-                    label.addEventListener('mouseenter', () => applyScore(score));
-                    label.addEventListener('mouseleave', resetScore);
+            const lockScore = (score) => {
+                const normalized = normalizeScore(score);
+                if (!normalized) {
+                    scoreInput.value = '';
+                    lockedScore = null;
+                    applyVisualState(null);
+                    setHint(null, false);
+                    return;
                 }
+
+                scoreInput.value = String(normalized);
+                lockedScore = normalized;
+                applyVisualState(normalized);
+                setHint(normalized, true);
+            };
+
+            const previewScore = (score) => {
+                const normalized = normalizeScore(score);
+                if (!normalized) {
+                    applyVisualState(lockedScore);
+                    setHint(lockedScore, Boolean(lockedScore));
+                    return;
+                }
+
+                applyVisualState(normalized);
+                setHint(normalized, false);
+            };
+
+            const resetPreview = () => {
+                applyVisualState(lockedScore);
+                setHint(lockedScore, Boolean(lockedScore));
+            };
+
+            buttons.forEach((button) => {
+                const buttonScore = normalizeScore(Number.parseInt(button.dataset.score, 10));
+                if (!buttonScore) {
+                    return;
+                }
+
+                button.addEventListener('mouseenter', () => previewScore(buttonScore));
+                button.addEventListener('focus', () => previewScore(buttonScore));
+                button.addEventListener('mouseleave', resetPreview);
+                button.addEventListener('blur', (event) => {
+                    if (!container.contains(event.relatedTarget)) {
+                        resetPreview();
+                    }
+                });
+                button.addEventListener('click', () => lockScore(buttonScore));
+                button.addEventListener('keydown', (event) => {
+                    if (!['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown'].includes(event.key)) {
+                        return;
+                    }
+
+                    event.preventDefault();
+                    const current = normalizeScore(lockedScore ?? buttonScore) ?? buttonScore;
+                    const currentIndex = Math.max(0, sortedScores.indexOf(current));
+                    let targetIndex = currentIndex;
+
+                    if (event.key === 'ArrowRight' || event.key === 'ArrowUp') {
+                        targetIndex = Math.min(sortedScores.length - 1, currentIndex + 1);
+                    } else if (event.key === 'ArrowLeft' || event.key === 'ArrowDown') {
+                        targetIndex = Math.max(0, currentIndex - 1);
+                    }
+
+                    const targetScore = sortedScores[targetIndex];
+                    const targetButton = findButtonByScore(targetScore);
+                    if (targetButton) {
+                        targetButton.focus();
+                        lockScore(targetScore);
+                    }
+                });
             });
 
-            container.addEventListener('mouseleave', resetScore);
+            container.addEventListener('mouseleave', resetPreview);
             container.addEventListener('focusout', (event) => {
                 if (!container.contains(event.relatedTarget)) {
-                    resetScore();
+                    resetPreview();
                 }
             });
 
-            resetScore();
+            resetPreview();
         }
 
         setupRatingStars('comboRatingStars', 'comboRatingHint');

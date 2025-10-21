@@ -1229,6 +1229,8 @@
                     const result = await response.json().catch(() => ({}));
                     const deleted = Number(result.deleted || 0);
                     const unauthorized = Number(result.unauthorized || 0);
+                    const blocked = Number(result.blocked || 0);
+                    const blockedProducts = Array.isArray(result.blockedProducts) ? result.blockedProducts : [];
 
                     if (deleted > 0) {
                         showAlert(`Đã xóa ${deleted} sản phẩm.`, 'success');
@@ -1236,7 +1238,20 @@
                     if (unauthorized > 0) {
                         showAlert(`${unauthorized} sản phẩm không đủ quyền xóa.`, 'warning');
                     }
-                    if (deleted === 0 && unauthorized === 0) {
+                    if (blocked > 0) {
+                        const blockedNames = blockedProducts
+                            .slice(0, 2)
+                            .map(item => escapeHtml(item?.productName || 'sản phẩm'));
+                        let blockedMessage;
+                        if (blocked === 1) {
+                            blockedMessage = `Không thể xóa ${blockedNames[0]} vì sản phẩm đang thuộc combo khác.`;
+                        } else {
+                            const suffix = blocked > 2 ? ` và ${blocked - 2} sản phẩm khác` : '';
+                            blockedMessage = `Không thể xóa ${blockedNames.join(' và ')}${suffix} vì các sản phẩm này đang thuộc combo khác.`;
+                        }
+                        showAlert(blockedMessage, 'warning');
+                    }
+                    if (deleted === 0 && unauthorized === 0 && blocked === 0) {
                         showAlert('Không có sản phẩm nào được xóa.', 'info');
                     }
 
@@ -1576,7 +1591,11 @@
                     });
 
                     if (!response.ok) {
-                        if (response.status === 403) {
+                        if (response.status === 400) {
+                            const result = await response.json().catch(() => null);
+                            const message = escapeHtml(result?.message || 'Không thể xóa sản phẩm vì đang thuộc combo khác.');
+                            showAlert(message, 'warning');
+                        } else if (response.status === 403) {
                             showAlert('Bạn không có quyền xóa sản phẩm này.', 'warning');
                         } else if (response.status === 404) {
                             showAlert('Sản phẩm đã bị xóa hoặc không tồn tại.', 'warning');
