@@ -1602,6 +1602,7 @@
                         } else {
                             throw new Error('Failed to delete product');
                         }
+                        deleteModal.hide();
                         return;
                     }
 
@@ -1610,9 +1611,11 @@
                     showAlert('Đã xóa sản phẩm thành công.');
                 } catch (error) {
                     showAlert('Không thể xóa sản phẩm. Vui lòng thử lại sau.', 'danger');
+                    deleteModal.hide();
                 } finally {
                     deleteConfirmBtn.disabled = false;
                     deleteConfirmBtn.innerHTML = 'Xóa';
+                    deleteProductId = null;
                 }
             }
 

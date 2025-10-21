@@ -854,6 +854,7 @@
                         } else {
                             throw new Error('Failed to delete category');
                         }
+                        deleteModal.hide();
                         return;
                     }
 
@@ -862,6 +863,7 @@
                     showAlert('Đã xóa danh mục thành công.');
                 } catch (error) {
                     showAlert('Không thể xóa danh mục. Vui lòng thử lại sau.', 'danger');
+                    deleteModal.hide();
                 } finally {
                     deleteConfirmBtn.disabled = false;
                     deleteConfirmBtn.innerHTML = 'Xóa';
