@@ -541,7 +541,7 @@ namespace Assignment.Controllers
 
             ViewBag.StatusFilter = status;
             ViewBag.SearchTerm = search;
-            ViewBag.CanUpdateStatus = CanManageOrders();
+            ViewBag.CanUpdateStatus = CanUpdateOrderStatus();
 
             return View(viewModel.EnsureValidPage());
         }
@@ -573,7 +573,7 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateStatus(long id, OrderStatus status, OrderStatus? statusFilter, string? search, int page = 1, int pageSize = 25)
         {
-            if (!CanManageOrders())
+            if (!CanManageOrders() || !CanUpdateOrderStatus())
             {
                 return Forbid();
             }
@@ -604,7 +604,7 @@ namespace Assignment.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> BulkUpdateStatus([FromForm] List<long> selectedIds, OrderStatus status, OrderStatus? statusFilter, string? search, int page = 1, int pageSize = 25)
         {
-            if (!CanManageOrders())
+            if (!CanManageOrders() || !CanUpdateOrderStatus())
             {
                 return Forbid();
             }
@@ -1218,6 +1218,9 @@ namespace Assignment.Controllers
 
         private bool CanManageOrders()
             => User.HasPermission("GetOrderAll");
+
+        private bool CanUpdateOrderStatus()
+            => User.HasPermission("ChangeOrderStatusAll");
     }
 }
 
