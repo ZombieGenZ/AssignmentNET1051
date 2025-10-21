@@ -103,19 +103,19 @@ namespace Assignment.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostProfileAsync()
         {
-            // Ignore change-password validation rules when only the profile form is submitted.
-            // Without removing the password entries, ModelState stays invalid because of the
-            // [Required] attributes on PasswordInput, preventing the profile update from running.
-            ModelState.Remove(nameof(PasswordInput));
-            ModelState.Remove($"{nameof(PasswordInput)}.{nameof(PasswordInputModel.OldPassword)}");
-            ModelState.Remove($"{nameof(PasswordInput)}.{nameof(PasswordInputModel.NewPassword)}");
-            ModelState.Remove($"{nameof(PasswordInput)}.{nameof(PasswordInputModel.ConfirmPassword)}");
+            SuppressPasswordValidation();
 
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
             {
                 return NotFound($"Không thể tải người dùng với ID '{_userManager.GetUserId(User)}'.");
             }
+
+            var sanitizedFullName = NormalizeInputString(Input.FullName);
+            var sanitizedPhoneNumber = NormalizeInputString(Input.PhoneNumber);
+
+            Input.FullName = sanitizedFullName;
+            Input.PhoneNumber = sanitizedPhoneNumber;
 
             if (!ModelState.IsValid)
             {
@@ -124,9 +124,9 @@ namespace Assignment.Areas.Identity.Pages.Account.Manage
             }
 
             var phoneNumber = await _userManager.GetPhoneNumberAsync(user);
-            if (Input.PhoneNumber != phoneNumber)
+            if (!string.Equals(sanitizedPhoneNumber, phoneNumber, StringComparison.Ordinal))
             {
-                var setPhoneResult = await _userManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
+                var setPhoneResult = await _userManager.SetPhoneNumberAsync(user, sanitizedPhoneNumber);
                 if (!setPhoneResult.Succeeded)
                 {
                     StatusMessage = "Đã xảy ra lỗi khi cập nhật số điện thoại.";
@@ -134,9 +134,7 @@ namespace Assignment.Areas.Identity.Pages.Account.Manage
                 }
             }
 
-            var trimmedFullName = string.IsNullOrWhiteSpace(Input.FullName)
-                ? null
-                : Input.FullName.Trim();
+            var trimmedFullName = sanitizedFullName;
 
             var hasUserInfoChanged = false;
 
@@ -174,9 +172,7 @@ namespace Assignment.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostChangePasswordAsync()
         {
-            ModelState.Remove("Input.FullName");
-            ModelState.Remove("Input.DateOfBirth");
-            ModelState.Remove("Input.PhoneNumber");
+            SuppressProfileValidation();
 
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
@@ -208,6 +204,41 @@ namespace Assignment.Areas.Identity.Pages.Account.Manage
             await _signInManager.SignOutAsync();
 
             return RedirectToPage("/Account/Login", new { area = "Identity" });
+        }
+
+        private void SuppressPasswordValidation()
+        {
+            foreach (var key in new[]
+            {
+                nameof(PasswordInput),
+                $"{nameof(PasswordInput)}.{nameof(PasswordInputModel.OldPassword)}",
+                $"{nameof(PasswordInput)}.{nameof(PasswordInputModel.NewPassword)}",
+                $"{nameof(PasswordInput)}.{nameof(PasswordInputModel.ConfirmPassword)}"
+            })
+            {
+                ModelState.ClearValidationState(key);
+                ModelState.MarkFieldSkipped(key);
+            }
+        }
+
+        private void SuppressProfileValidation()
+        {
+            foreach (var key in new[]
+            {
+                nameof(Input),
+                $"{nameof(Input)}.{nameof(InputModel.FullName)}",
+                $"{nameof(Input)}.{nameof(InputModel.DateOfBirth)}",
+                $"{nameof(Input)}.{nameof(InputModel.PhoneNumber)}"
+            })
+            {
+                ModelState.ClearValidationState(key);
+                ModelState.MarkFieldSkipped(key);
+            }
+        }
+
+        private static string? NormalizeInputString(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
     }
 }
