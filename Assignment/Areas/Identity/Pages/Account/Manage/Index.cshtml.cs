@@ -103,9 +103,13 @@ namespace Assignment.Areas.Identity.Pages.Account.Manage
 
         public async Task<IActionResult> OnPostProfileAsync()
         {
-            ModelState.Remove("PasswordInput.OldPassword");
-            ModelState.Remove("PasswordInput.NewPassword");
-            ModelState.Remove("PasswordInput.ConfirmPassword");
+            // Ignore change-password validation rules when only the profile form is submitted.
+            // Without removing the password entries, ModelState stays invalid because of the
+            // [Required] attributes on PasswordInput, preventing the profile update from running.
+            ModelState.Remove(nameof(PasswordInput));
+            ModelState.Remove($"{nameof(PasswordInput)}.{nameof(PasswordInputModel.OldPassword)}");
+            ModelState.Remove($"{nameof(PasswordInput)}.{nameof(PasswordInputModel.NewPassword)}");
+            ModelState.Remove($"{nameof(PasswordInput)}.{nameof(PasswordInputModel.ConfirmPassword)}");
 
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
