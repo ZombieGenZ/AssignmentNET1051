@@ -164,16 +164,20 @@ namespace Assignment.Services.Payments
         private string GenerateSignature(long orderCode, long amount, string description, string returnUrl, string cancelUrl)
         {
             var checksumKey = NormalizeInput(_options.ChecksumKey) ?? string.Empty;
-            var data = new SortedDictionary<string, string>(StringComparer.Ordinal)
-            {
-                ["amount"] = amount.ToString(CultureInfo.InvariantCulture),
-                ["cancelUrl"] = cancelUrl ?? string.Empty,
-                ["description"] = description ?? string.Empty,
-                ["orderCode"] = orderCode.ToString(CultureInfo.InvariantCulture),
-                ["returnUrl"] = returnUrl ?? string.Empty
-            };
 
-            var rawData = string.Join("&", data.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+            var rawDataBuilder = new StringBuilder();
+            rawDataBuilder.Append("amount=")
+                .Append(amount.ToString(CultureInfo.InvariantCulture))
+                .Append("&cancelUrl=")
+                .Append(cancelUrl ?? string.Empty)
+                .Append("&description=")
+                .Append(description ?? string.Empty)
+                .Append("&orderCode=")
+                .Append(orderCode.ToString(CultureInfo.InvariantCulture))
+                .Append("&returnUrl=")
+                .Append(returnUrl ?? string.Empty);
+
+            var rawData = rawDataBuilder.ToString();
 
             using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(checksumKey));
             var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawData));
