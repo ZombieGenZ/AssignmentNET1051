@@ -22,6 +22,10 @@ namespace Assignment.Models
         [Required]
         [DisplayName("Phạm vi sản phẩm")]
         public VoucherProductScope ProductScope { get; set; } = VoucherProductScope.AllProducts;
+
+        [Required]
+        [DisplayName("Phạm vi combo")]
+        public VoucherComboScope ComboScope { get; set; } = VoucherComboScope.AllCombos;
         public string? UserId { get; set; }
         [Required]
         [Range(0, double.MaxValue)]
@@ -67,6 +71,7 @@ namespace Assignment.Models
         public bool IsShow { get; set; } = false;
         public virtual ICollection<VoucherUser>? VoucherUsers { get; set; }
         public virtual ICollection<VoucherProduct>? VoucherProducts { get; set; }
+        public virtual ICollection<VoucherCombo>? VoucherCombos { get; set; }
         public virtual ICollection<OrderVoucher>? OrderVouchers { get; set; }
     }
 }

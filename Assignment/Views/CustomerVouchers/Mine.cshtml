@@ -55,7 +55,8 @@
                                         }
                                     </li>
                                     <li><i class="fas fa-wallet me-2"></i>Đơn tối thiểu: @voucher.MinimumRequirements.ToString("N0") đ</li>
-                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi: @(voucher.ProductScope == Assignment.Enums.VoucherProductScope.AllProducts ? "Tất cả sản phẩm" : "Một số sản phẩm")</li>
+                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @(voucher.ProductScope == Assignment.Enums.VoucherProductScope.AllProducts ? "Tất cả sản phẩm" : "Một số sản phẩm")</li>
+                                    <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @(voucher.ComboScope == Assignment.Enums.VoucherComboScope.AllCombos ? "Tất cả combo" : "Một số combo")</li>
                                     <li><i class="fas fa-ticket-alt me-2"></i>Lượt sử dụng: @voucher.Used.ToString("N0")/@(voucher.Quantity > 0 ? voucher.Quantity.ToString("N0") : "Không giới hạn")</li>
                                     <li>
                                         <i class="fas fa-clock me-2"></i>
@@ -114,7 +115,8 @@
                                         }
                                     </li>
                                     <li><i class="fas fa-wallet me-2"></i>Đơn tối thiểu: @voucher.MinimumRequirements.ToString("N0") đ</li>
-                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi: @(voucher.ProductScope == Assignment.Enums.VoucherProductScope.AllProducts ? "Tất cả sản phẩm" : "Một số sản phẩm")</li>
+                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @(voucher.ProductScope == Assignment.Enums.VoucherProductScope.AllProducts ? "Tất cả sản phẩm" : "Một số sản phẩm")</li>
+                                    <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @(voucher.ComboScope == Assignment.Enums.VoucherComboScope.AllCombos ? "Tất cả combo" : "Một số combo")</li>
                                     <li><i class="fas fa-ticket-alt me-2"></i>Lượt sử dụng: @voucher.Used.ToString("N0")/@(voucher.Quantity > 0 ? voucher.Quantity.ToString("N0") : "Không giới hạn")</li>
                                     <li>
                                         <i class="fas fa-clock me-2"></i>
