@@ -220,14 +220,12 @@
                 <div class="row g-4">
                     @foreach (var combo in Model.Combos)
                     {
-                        @{
-                            var hasPercentDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue;
-                            var hasAmountDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Amount && combo.Discount.HasValue;
-                            var hasFixedDiscount = combo.DiscountType == Assignment.Enums.DiscountType.FixedAmount && combo.Discount.HasValue;
-                            var comboFinalPrice = PriceCalculator.GetComboFinalPrice(combo);
-                            var comboHasDiscount = hasPercentDiscount || hasAmountDiscount || hasFixedDiscount;
-                            var comboSavings = comboHasDiscount ? Math.Max(combo.Price - comboFinalPrice, 0) : 0;
-                        }
+                        var hasPercentDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue;
+                        var hasAmountDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Amount && combo.Discount.HasValue;
+                        var hasFixedDiscount = combo.DiscountType == Assignment.Enums.DiscountType.FixedAmount && combo.Discount.HasValue;
+                        var comboFinalPrice = PriceCalculator.GetComboFinalPrice(combo);
+                        var comboHasDiscount = hasPercentDiscount || hasAmountDiscount || hasFixedDiscount;
+                        var comboSavings = comboHasDiscount ? Math.Max(combo.Price - comboFinalPrice, 0) : 0;
                         <div class="col-md-4 col-lg-3">
                             <div class="product-card">
                                 <div class="position-relative">
@@ -345,14 +343,12 @@
                     <div class="row g-4">
                         @foreach (var product in Model.Products)
                         {
-                            @{
-                                var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
-                                var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
-                                var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
-                                var hasDiscount = product.DiscountType != Assignment.Enums.DiscountType.None && product.Discount.HasValue;
-                                var finalPrice = PriceCalculator.GetProductFinalPrice(product);
-                                var savings = hasDiscount ? Math.Max(product.Price - finalPrice, 0) : 0;
-                            }
+                            var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
+                            var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
+                            var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
+                            var hasDiscount = product.DiscountType != Assignment.Enums.DiscountType.None && product.Discount.HasValue;
+                            var finalPrice = PriceCalculator.GetProductFinalPrice(product);
+                            var savings = hasDiscount ? Math.Max(product.Price - finalPrice, 0) : 0;
                             <div class="col-md-4 col-lg-3">
                                 <div class="product-card">
                                     <div class="position-relative">
@@ -455,14 +451,12 @@
                         <div class="row g-4">
                             @foreach (var product in categoryGroup)
                             {
-                                @{
-                                    var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
-                                    var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
-                                    var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
-                                    var hasDiscount = product.DiscountType != Assignment.Enums.DiscountType.None && product.Discount.HasValue;
-                                    var finalPrice = PriceCalculator.GetProductFinalPrice(product);
-                                    var savings = hasDiscount ? Math.Max(product.Price - finalPrice, 0) : 0;
-                                }
+                                var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
+                                var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
+                                var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
+                                var hasDiscount = product.DiscountType != Assignment.Enums.DiscountType.None && product.Discount.HasValue;
+                                var finalPrice = PriceCalculator.GetProductFinalPrice(product);
+                                var savings = hasDiscount ? Math.Max(product.Price - finalPrice, 0) : 0;
                                 <div class="col-md-4 col-lg-3">
                                     <div class="product-card">
                                         <div class="position-relative">
