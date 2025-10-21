@@ -242,6 +242,9 @@ app.MapControllerRoute(
 
 using (var scope = app.Services.CreateScope())
 {
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await EnsureRoleMetadataColumnsAsync(dbContext);
+
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var usersWithoutSecurityStamp = await userManager.Users
         .Where(u => string.IsNullOrEmpty(u.SecurityStamp))
@@ -298,3 +301,41 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static async Task EnsureRoleMetadataColumnsAsync(ApplicationDbContext context)
+{
+    const string ensureRoleMetadataSql = @"
+IF COL_LENGTH(N'dbo.AspNetRoles', N'CreatedAt') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[AspNetRoles]
+    ADD [CreatedAt] datetime2 NOT NULL
+        CONSTRAINT [DF_AspNetRoles_CreatedAt] DEFAULT (SYSUTCDATETIME()) WITH VALUES;
+END
+
+IF COL_LENGTH(N'dbo.AspNetRoles', N'CreatedBy') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[AspNetRoles]
+    ADD [CreatedBy] nvarchar(450) NULL;
+END
+
+IF COL_LENGTH(N'dbo.AspNetRoles', N'IsDeleted') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[AspNetRoles]
+    ADD [IsDeleted] bit NOT NULL
+        CONSTRAINT [DF_AspNetRoles_IsDeleted] DEFAULT ((0)) WITH VALUES;
+END
+
+IF COL_LENGTH(N'dbo.AspNetRoles', N'UpdatedAt') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[AspNetRoles]
+    ADD [UpdatedAt] datetime2 NULL;
+END
+
+IF COL_LENGTH(N'dbo.AspNetRoles', N'UpdatedBy') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[AspNetRoles]
+    ADD [UpdatedBy] nvarchar(450) NULL;
+END";
+
+    await context.Database.ExecuteSqlRawAsync(ensureRoleMetadataSql);
+}
