@@ -60,6 +60,34 @@
                     }
                 </div>
             </div>
+            <div class="row g-2 align-items-end mb-3" id="voucherFilters">
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label mb-1" for="voucherSearchInput">Tìm kiếm</label>
+                    <input type="search" class="form-control" id="voucherSearchInput" placeholder="Mã hoặc tên voucher" />
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label mb-1" for="voucherTypeFilter">Loại voucher</label>
+                    <select id="voucherTypeFilter" class="form-select">
+                        <option value="">Tất cả</option>
+                        <option value="@((int)VoucherType.Public)">Công khai</option>
+                        <option value="@((int)VoucherType.Private)">Riêng tư</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-lg-2">
+                    <label class="form-label mb-1" for="voucherStatusFilter">Trạng thái</label>
+                    <select id="voucherStatusFilter" class="form-select">
+                        <option value="">Tất cả</option>
+                        <option value="true">Cho phép</option>
+                        <option value="false">Tạm khóa</option>
+                    </select>
+                </div>
+                <div class="col-md-2 col-lg-2">
+                    <label class="form-label mb-1" for="voucherResetFilters" style="visibility: hidden;">Xóa lọc</label>
+                    <button type="button" class="btn btn-outline-secondary w-100" id="voucherResetFilters">
+                        <i class="fas fa-eraser me-1"></i>Xóa lọc
+                    </button>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
@@ -338,6 +366,10 @@
             const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
             const selectAllCheckbox = document.getElementById('selectAllVouchers');
             const createBtn = document.getElementById('createVoucherBtn');
+            const searchInput = document.getElementById('voucherSearchInput');
+            const typeFilterSelect = document.getElementById('voucherTypeFilter');
+            const statusFilterSelect = document.getElementById('voucherStatusFilter');
+            const resetFiltersBtn = document.getElementById('voucherResetFilters');
 
             const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
@@ -409,6 +441,19 @@
                 '@((int)VoucherDiscountType.Percent)': 'Phần trăm'
             };
 
+            const debounce = (fn, delay = 300) => {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+
+                    timeoutId = window.setTimeout(() => {
+                        fn(...args);
+                    }, delay);
+                };
+            };
+
             const state = {
                 items: [],
                 page: 1,
@@ -423,6 +468,11 @@
                 formOptions: {
                     users: [],
                     products: []
+                },
+                filters: {
+                    search: '',
+                    type: '',
+                    isPublish: ''
                 }
             };
 
@@ -608,7 +658,11 @@
                 });
 
                 tableBody.innerHTML = rows.join('');
-                tableStatus.textContent = 'Đã tải dữ liệu voucher.';
+                if (state.totalItems === 0) {
+                    tableStatus.textContent = 'Không có voucher nào để hiển thị.';
+                } else {
+                    tableStatus.textContent = `Hiển thị ${state.items.length.toLocaleString('vi-VN')} / ${state.totalItems.toLocaleString('vi-VN')} voucher.`;
+                }
 
                 if (canDelete) {
                     tableBody.querySelectorAll('.voucher-select').forEach(checkbox => {
@@ -670,6 +724,18 @@
                     page: String(state.page),
                     pageSize: String(state.pageSize)
                 });
+
+                if (state.filters.search) {
+                    params.set('search', state.filters.search);
+                }
+
+                if (state.filters.type) {
+                    params.set('type', state.filters.type);
+                }
+
+                if (state.filters.isPublish !== '') {
+                    params.set('isPublish', state.filters.isPublish);
+                }
 
                 try {
                     const response = await fetch(`${API_BASE_URL}?${params.toString()}`, {
@@ -1581,6 +1647,53 @@
             formFields.unlimitedPercentageSwitch.addEventListener('change', updateDynamicFields);
             formFields.isLifeTimeSwitch.addEventListener('change', updateDynamicFields);
             formFields.hasCombinedLimitSwitch.addEventListener('change', updateDynamicFields);
+
+            if (searchInput) {
+                const triggerSearch = debounce(async () => {
+                    state.filters.search = searchInput.value.trim();
+                    state.page = 1;
+                    await loadVouchers();
+                });
+
+                searchInput.addEventListener('input', () => {
+                    triggerSearch();
+                });
+            }
+
+            if (typeFilterSelect) {
+                typeFilterSelect.addEventListener('change', async () => {
+                    state.filters.type = typeFilterSelect.value || '';
+                    state.page = 1;
+                    await loadVouchers();
+                });
+            }
+
+            if (statusFilterSelect) {
+                statusFilterSelect.addEventListener('change', async () => {
+                    state.filters.isPublish = statusFilterSelect.value || '';
+                    state.page = 1;
+                    await loadVouchers();
+                });
+            }
+
+            if (resetFiltersBtn) {
+                resetFiltersBtn.addEventListener('click', async () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    if (typeFilterSelect) {
+                        typeFilterSelect.value = '';
+                    }
+                    if (statusFilterSelect) {
+                        statusFilterSelect.value = '';
+                    }
+                    state.filters.search = '';
+                    state.filters.type = '';
+                    state.filters.isPublish = '';
+                    state.page = 1;
+                    await loadVouchers();
+                });
+            }
 
             if (refreshBtn) {
                 refreshBtn.addEventListener('click', async () => {

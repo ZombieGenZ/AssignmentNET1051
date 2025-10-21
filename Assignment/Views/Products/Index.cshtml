@@ -49,7 +49,8 @@
          data-can-create="@(canCreate ? "true" : "false")"
          data-can-update="@(canUpdate ? "true" : "false")"
          data-can-delete="@(canDelete ? "true" : "false")"
-         data-can-view="@(canView ? "true" : "false")">
+         data-can-view="@(canView ? "true" : "false")"
+         data-detail-url-template="@Url.Action("ProductDetail", "Home", new { id = "__ID__" })">
         <div class="card-header bg-light">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
@@ -75,10 +76,37 @@
                     </button>
                 </div>
             </div>
+            <div class="row g-2 align-items-end mb-3" id="productFilters">
+                <div class="col-md-4">
+                    <label class="form-label mb-1" for="productSearchInput">Tìm kiếm</label>
+                    <input type="search" class="form-control" id="productSearchInput" placeholder="Tên, mô tả hoặc danh mục" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1" for="productCategoryFilter">Danh mục</label>
+                    <select id="productCategoryFilter" class="form-select">
+                        <option value="">Tất cả danh mục</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1" for="productStatusFilter">Trạng thái</label>
+                    <select id="productStatusFilter" class="form-select">
+                        <option value="">Tất cả</option>
+                        <option value="published">Đã xuất bản</option>
+                        <option value="draft">Bản nháp</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1" for="productResetFilters" style="visibility: hidden;">Xóa lọc</label>
+                    <button type="button" class="btn btn-outline-secondary w-100" id="productResetFilters">
+                        <i class="fas fa-eraser me-1"></i>Xóa lọc
+                    </button>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
+                            <th style="width: 80px;" class="text-center">Ảnh</th>
                             <th>Tên sản phẩm</th>
                             <th>Giá bán</th>
                             <th>Tồn kho</th>
@@ -89,7 +117,7 @@
                     </thead>
                     <tbody id="productsTableBody">
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="7" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -247,6 +275,10 @@
             const alertPlaceholder = document.getElementById('alertPlaceholder');
             const refreshBtn = document.getElementById('refreshProductsBtn');
             const createBtn = document.getElementById('createProductBtn');
+            const searchInput = document.getElementById('productSearchInput');
+            const categoryFilterSelect = document.getElementById('productCategoryFilter');
+            const statusFilterSelect = document.getElementById('productStatusFilter');
+            const resetFiltersBtn = document.getElementById('productResetFilters');
             const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
 
@@ -264,6 +296,7 @@
             const detailModalEl = document.getElementById('productDetailModal');
             const detailModal = new bootstrap.Modal(detailModalEl);
             const detailBody = document.getElementById('productDetailBody');
+            const detailUrlTemplate = app.dataset.detailUrlTemplate || '';
 
             const nameInput = document.getElementById('productName');
             const descriptionInput = document.getElementById('productDescription');
@@ -285,6 +318,8 @@
             let editingProductId = null;
             let deleteProductId = null;
             let cachedCategories = [];
+            let allProducts = [];
+            let filteredProducts = [];
 
             const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
             const DISCOUNT_NONE = @( (int)DiscountType.None );
@@ -298,6 +333,69 @@
                 [DISCOUNT_FIXED]: 'Giảm giá cố định',
                 [DISCOUNT_AMOUNT]: 'Giảm theo tiền'
             };
+
+            const debounce = (fn, delay = 300) => {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+
+                    timeoutId = window.setTimeout(() => {
+                        fn(...args);
+                    }, delay);
+                };
+            };
+
+            function updateProductTableStatus(count) {
+                if (!tableStatus || !canView) {
+                    return;
+                }
+
+                const total = allProducts.length;
+                if (total === 0) {
+                    tableStatus.textContent = 'Không có sản phẩm nào để hiển thị.';
+                    return;
+                }
+
+                if (count === total) {
+                    tableStatus.textContent = `Đang hiển thị ${count} sản phẩm.`;
+                } else {
+                    tableStatus.textContent = `Tìm thấy ${count}/${total} sản phẩm.`;
+                }
+            }
+
+            function applyProductFilters() {
+                if (!Array.isArray(allProducts)) {
+                    filteredProducts = [];
+                } else {
+                    const searchTerm = (searchInput?.value || '').trim().toLowerCase();
+                    const categoryFilterValue = categoryFilterSelect?.value || '';
+                    const statusFilterValue = statusFilterSelect?.value || '';
+
+                    filteredProducts = allProducts.filter(product => {
+                        const name = (product.name || '').toString().toLowerCase();
+                        const description = (product.description || '').toString().toLowerCase();
+                        const categoryName = (product.categoryName || '').toString().toLowerCase();
+
+                        const matchesSearch = !searchTerm
+                            || name.includes(searchTerm)
+                            || description.includes(searchTerm)
+                            || categoryName.includes(searchTerm);
+
+                        const matchesCategory = !categoryFilterValue
+                            || String(product.categoryId ?? '') === categoryFilterValue;
+
+                        const matchesStatus = !statusFilterValue
+                            || (statusFilterValue === 'published' && product.isPublish)
+                            || (statusFilterValue === 'draft' && !product.isPublish);
+
+                        return matchesSearch && matchesCategory && matchesStatus;
+                    });
+                }
+
+                renderProducts(filteredProducts);
+            }
 
             function showAlert(message, type = 'success') {
                 if (!alertPlaceholder) {
@@ -320,9 +418,10 @@
             }
 
             function setTableLoading(message = 'Đang tải dữ liệu...') {
+                const safeMessage = escapeHtml(message);
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="6" class="text-center py-4 text-muted">${message}</td>
+                        <td colspan="7" class="text-center py-4 text-muted">${safeMessage}</td>
                     </tr>`;
             }
 
@@ -407,16 +506,27 @@
                 }
 
                 const previousValue = categorySelect.value;
+                const previousFilterValue = categoryFilterSelect ? categoryFilterSelect.value : '';
                 categorySelect.innerHTML = '<option value="">-- Chọn danh mục --</option>';
+                if (categoryFilterSelect) {
+                    categoryFilterSelect.innerHTML = '<option value="">Tất cả danh mục</option>';
+                }
                 cachedCategories.forEach(category => {
                     const option = document.createElement('option');
                     option.value = category.id;
                     option.textContent = category.name;
                     categorySelect.appendChild(option);
+                    if (categoryFilterSelect) {
+                        const filterOption = option.cloneNode(true);
+                        categoryFilterSelect.appendChild(filterOption);
+                    }
                 });
 
                 if (previousValue) {
                     categorySelect.value = previousValue;
+                }
+                if (categoryFilterSelect && previousFilterValue) {
+                    categoryFilterSelect.value = previousFilterValue;
                 }
             }
 
@@ -436,24 +546,66 @@
             function renderProducts(products) {
                 tableBody.innerHTML = '';
 
-                if (!Array.isArray(products) || products.length === 0) {
+                const list = Array.isArray(products) ? products : [];
+
+                if (list.length === 0) {
+                    const message = allProducts.length === 0
+                        ? 'Chưa có sản phẩm nào.'
+                        : 'Không tìm thấy sản phẩm phù hợp.';
                     tableBody.innerHTML = `
                         <tr>
-                            <td colspan="6" class="text-center py-4 text-muted">Chưa có sản phẩm nào.</td>
+                            <td colspan="7" class="text-center py-4 text-muted">${message}</td>
                         </tr>`;
-                    setTableStatus('Không có sản phẩm nào để hiển thị.');
+                    updateProductTableStatus(0);
                     return;
                 }
 
-                setTableStatus(`Đang hiển thị ${products.length} sản phẩm.`);
+                updateProductTableStatus(list.length);
 
-                products.forEach(product => {
+                list.forEach(product => {
                     const tr = document.createElement('tr');
 
+                    const imageCell = document.createElement('td');
+                    imageCell.className = 'text-center';
+                    if (product.productImageUrl) {
+                        const img = document.createElement('img');
+                        img.src = product.productImageUrl;
+                        img.alt = product.name ?? '';
+                        img.className = 'rounded';
+                        img.style.width = '48px';
+                        img.style.height = '48px';
+                        img.style.objectFit = 'cover';
+                        imageCell.appendChild(img);
+                    } else {
+                        const placeholder = document.createElement('div');
+                        placeholder.className = 'bg-light border rounded d-inline-flex align-items-center justify-content-center text-muted';
+                        placeholder.style.width = '48px';
+                        placeholder.style.height = '48px';
+                        placeholder.innerHTML = '<i class="fas fa-image"></i>';
+                        imageCell.appendChild(placeholder);
+                    }
+                    tr.appendChild(imageCell);
+
                     const nameCell = document.createElement('td');
-                    nameCell.innerHTML = `
-                        <div class="fw-semibold">${escapeHtml(product.name)}</div>
-                        <div class="text-muted small">${escapeHtml(product.description)}</div>`;
+                    const nameWrapper = document.createElement('div');
+                    nameWrapper.className = 'fw-semibold';
+                    if (product.isPublish && detailUrlTemplate) {
+                        const detailUrl = detailUrlTemplate.replace('__ID__', encodeURIComponent(product.id));
+                        const link = document.createElement('a');
+                        link.href = detailUrl;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.textContent = product.name ?? '';
+                        link.className = 'text-decoration-none link-primary';
+                        nameWrapper.appendChild(link);
+                    } else {
+                        nameWrapper.textContent = product.name ?? '';
+                    }
+                    nameCell.appendChild(nameWrapper);
+                    const descriptionWrapper = document.createElement('div');
+                    descriptionWrapper.className = 'text-muted small';
+                    descriptionWrapper.textContent = product.description ?? '';
+                    nameCell.appendChild(descriptionWrapper);
                     tr.appendChild(nameCell);
 
                     const priceCell = document.createElement('td');
@@ -579,6 +731,8 @@
                 if (!canView) {
                     setTableStatus('Bạn không có quyền xem danh sách sản phẩm.');
                     setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
+                    allProducts = [];
+                    filteredProducts = [];
                     return;
                 }
 
@@ -589,16 +743,21 @@
                         if (response.status === 403) {
                             setTableStatus('Bạn không có quyền xem danh sách sản phẩm.');
                             setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
+                            allProducts = [];
+                            filteredProducts = [];
                             return;
                         }
                         throw new Error('Failed to load products');
                     }
 
                     const products = await response.json();
-                    renderProducts(products);
+                    allProducts = Array.isArray(products) ? products : [];
+                    applyProductFilters();
                 } catch (error) {
                     setTableStatus('Không thể tải danh sách sản phẩm.');
                     setTableLoading('Có lỗi xảy ra khi tải dữ liệu.');
+                    allProducts = [];
+                    filteredProducts = [];
                     showAlert('Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.', 'danger');
                 }
             }
@@ -951,6 +1110,39 @@
                     openDeleteModal(productId, productName);
                 }
             });
+
+            const debouncedProductFilter = debounce(() => {
+                applyProductFilters();
+            }, 300);
+
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    debouncedProductFilter();
+                });
+            }
+
+            if (categoryFilterSelect) {
+                categoryFilterSelect.addEventListener('change', () => applyProductFilters());
+            }
+
+            if (statusFilterSelect) {
+                statusFilterSelect.addEventListener('change', () => applyProductFilters());
+            }
+
+            if (resetFiltersBtn) {
+                resetFiltersBtn.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    if (categoryFilterSelect) {
+                        categoryFilterSelect.value = '';
+                    }
+                    if (statusFilterSelect) {
+                        statusFilterSelect.value = '';
+                    }
+                    applyProductFilters();
+                });
+            }
 
             if (discountTypeSelect) {
                 discountTypeSelect.addEventListener('change', toggleDiscountField);

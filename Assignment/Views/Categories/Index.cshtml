@@ -39,6 +39,26 @@
                     </button>
                 </div>
             </div>
+            <div class="row g-2 align-items-end mb-3" id="categoryFilters">
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label mb-1" for="categorySearchInput">Tìm kiếm</label>
+                    <input type="search" class="form-control" id="categorySearchInput" placeholder="Tên danh mục" />
+                </div>
+                <div class="col-md-4 col-lg-3">
+                    <label class="form-label mb-1" for="categoryUpdateFilter">Trạng thái cập nhật</label>
+                    <select id="categoryUpdateFilter" class="form-select">
+                        <option value="">Tất cả</option>
+                        <option value="updated">Đã cập nhật</option>
+                        <option value="never">Chưa cập nhật</option>
+                    </select>
+                </div>
+                <div class="col-md-2 col-lg-2">
+                    <label class="form-label mb-1" for="categoryResetFilters" style="visibility: hidden;">Xóa lọc</label>
+                    <button type="button" class="btn btn-outline-secondary w-100" id="categoryResetFilters">
+                        <i class="fas fa-eraser me-1"></i>Xóa lọc
+                    </button>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
@@ -146,6 +166,9 @@
             const alertPlaceholder = document.getElementById('alertPlaceholder');
             const refreshBtn = document.getElementById('refreshCategoriesBtn');
             const createBtn = document.getElementById('createCategoryBtn');
+            const searchInput = document.getElementById('categorySearchInput');
+            const updateFilterSelect = document.getElementById('categoryUpdateFilter');
+            const resetFiltersBtn = document.getElementById('categoryResetFilters');
             const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
 
@@ -169,6 +192,8 @@
 
             let editingCategoryId = null;
             let deleteCategoryId = null;
+            let allCategories = [];
+            let filteredCategories = [];
 
             function escapeHtml(value) {
                 if (!value) {
@@ -221,6 +246,62 @@
                 }
             }
 
+            const debounce = (fn, delay = 300) => {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+
+                    timeoutId = window.setTimeout(() => {
+                        fn(...args);
+                    }, delay);
+                };
+            };
+
+            function updateCategoryTableStatus(count) {
+                if (!tableStatus || !canView) {
+                    return;
+                }
+
+                const total = allCategories.length;
+                if (total === 0) {
+                    tableStatus.textContent = 'Không có danh mục nào để hiển thị.';
+                    return;
+                }
+
+                if (count === total) {
+                    tableStatus.textContent = `Đang hiển thị ${count} danh mục.`;
+                } else {
+                    tableStatus.textContent = `Tìm thấy ${count}/${total} danh mục.`;
+                }
+            }
+
+            function applyCategoryFilters() {
+                if (!Array.isArray(allCategories)) {
+                    filteredCategories = [];
+                } else {
+                    const searchTerm = (searchInput?.value || '').trim().toLowerCase();
+                    const updateValue = updateFilterSelect?.value || '';
+
+                    filteredCategories = allCategories.filter(category => {
+                        const name = (category.name || '').toString().toLowerCase();
+                        const matchesSearch = !searchTerm || name.includes(searchTerm);
+
+                        let matchesUpdate = true;
+                        if (updateValue === 'updated') {
+                            matchesUpdate = Boolean(category.updatedAt);
+                        } else if (updateValue === 'never') {
+                            matchesUpdate = !category.updatedAt;
+                        }
+
+                        return matchesSearch && matchesUpdate;
+                    });
+                }
+
+                renderCategories(filteredCategories);
+            }
+
             function setTableLoading(message = 'Đang tải dữ liệu...') {
                 tableBody.innerHTML = `
                     <tr>
@@ -231,18 +312,23 @@
             function renderCategories(categories) {
                 tableBody.innerHTML = '';
 
-                if (!categories || categories.length === 0) {
-                    setTableStatus('Không có danh mục nào để hiển thị.');
+                const list = Array.isArray(categories) ? categories : [];
+
+                if (list.length === 0) {
+                    const message = allCategories.length === 0
+                        ? 'Không có dữ liệu để hiển thị.'
+                        : 'Không tìm thấy danh mục phù hợp.';
                     tableBody.innerHTML = `
                         <tr>
-                            <td colspan="3" class="text-center py-4 text-muted">Không có dữ liệu để hiển thị.</td>
+                            <td colspan="3" class="text-center py-4 text-muted">${message}</td>
                         </tr>`;
+                    updateCategoryTableStatus(list.length);
                     return;
                 }
 
-                setTableStatus(`Đang hiển thị ${categories.length} danh mục.`);
+                updateCategoryTableStatus(list.length);
 
-                categories.forEach(category => {
+                list.forEach(category => {
                     const tr = document.createElement('tr');
 
                     const nameCell = document.createElement('td');
@@ -305,6 +391,8 @@
                 if (!canView) {
                     setTableStatus('Bạn không có quyền xem danh sách danh mục.');
                     setTableLoading('Không có dữ liệu để hiển thị.');
+                    allCategories = [];
+                    filteredCategories = [];
                     return;
                 }
 
@@ -316,16 +404,21 @@
                         if (response.status === 403) {
                             setTableStatus('Bạn không có quyền xem danh sách danh mục.');
                             setTableLoading('Bạn không có quyền xem danh sách danh mục.');
+                            allCategories = [];
+                            filteredCategories = [];
                             return;
                         }
                         throw new Error('Failed to load categories');
                     }
 
                     const categories = await response.json();
-                    renderCategories(categories);
+                    allCategories = Array.isArray(categories) ? categories : [];
+                    applyCategoryFilters();
                 } catch (error) {
                     setTableStatus('Không thể tải danh sách danh mục.');
                     setTableLoading('Có lỗi xảy ra khi tải dữ liệu.');
+                    allCategories = [];
+                    filteredCategories = [];
                     if (showError) {
                         showAlert('Không thể tải danh sách danh mục. Vui lòng thử lại sau.', 'danger');
                     }
@@ -583,6 +676,32 @@
                     openDeleteModal(categoryId, categoryName);
                 }
             });
+
+            const debouncedCategoryFilter = debounce(() => {
+                applyCategoryFilters();
+            }, 300);
+
+            if (searchInput) {
+                searchInput.addEventListener('input', () => {
+                    debouncedCategoryFilter();
+                });
+            }
+
+            if (updateFilterSelect) {
+                updateFilterSelect.addEventListener('change', () => applyCategoryFilters());
+            }
+
+            if (resetFiltersBtn) {
+                resetFiltersBtn.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    if (updateFilterSelect) {
+                        updateFilterSelect.value = '';
+                    }
+                    applyCategoryFilters();
+                });
+            }
 
             if (categoryForm) {
                 categoryForm.addEventListener('submit', submitCategory);

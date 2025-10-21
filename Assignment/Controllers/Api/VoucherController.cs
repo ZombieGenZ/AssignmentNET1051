@@ -37,7 +37,12 @@ namespace Assignment.Controllers.Api
         private string? CurrentUserId => User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
         [HttpGet]
-        public async Task<IActionResult> GetVouchers([FromQuery] int page = 1, [FromQuery] int pageSize = PaginationDefaults.DefaultPageSize)
+        public async Task<IActionResult> GetVouchers(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = PaginationDefaults.DefaultPageSize,
+            [FromQuery] string? search = null,
+            [FromQuery] VoucherType? type = null,
+            [FromQuery] bool? isPublish = null)
         {
             var canGetAll = User.HasPermission("GetVoucherAll");
             var canGetOwn = User.HasPermission("GetVoucher");
@@ -57,6 +62,26 @@ namespace Assignment.Controllers.Api
             if (!canGetAll)
             {
                 query = query.Where(v => v.CreateBy == CurrentUserId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                var likeTerm = $"%{term}%";
+                query = query.Where(v =>
+                    EF.Functions.Like(v.Code, likeTerm) ||
+                    EF.Functions.Like(v.Name, likeTerm) ||
+                    EF.Functions.Like(v.Description ?? string.Empty, likeTerm));
+            }
+
+            if (type.HasValue)
+            {
+                query = query.Where(v => v.Type == type.Value);
+            }
+
+            if (isPublish.HasValue)
+            {
+                query = query.Where(v => v.IsPublish == isPublish.Value);
             }
 
             var totalItems = await query.CountAsync();

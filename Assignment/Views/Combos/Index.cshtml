@@ -60,7 +60,8 @@
          data-can-create="@(canCreate ? "true" : "false")"
          data-can-update="@(canUpdate ? "true" : "false")"
          data-can-delete="@(canDelete ? "true" : "false")"
-         data-can-view="@(canView ? "true" : "false")">
+         data-can-view="@(canView ? "true" : "false")"
+         data-detail-url-template="@Url.Action("ComboDetail", "Home", new { id = "__ID__" })">
         <div class="card-header bg-light">
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
                 <div>
@@ -94,6 +95,36 @@
                             <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
                         </button>
                     </div>
+                </div>
+            </div>
+            <div class="row g-2 align-items-end mb-3" id="comboFilters">
+                <div class="col-md-4">
+                    <label class="form-label mb-1" for="comboSearchInput">Tìm kiếm</label>
+                    <input type="search" class="form-control" id="comboSearchInput" placeholder="Tên hoặc mô tả combo" />
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1" for="comboStatusFilter">Trạng thái</label>
+                    <select id="comboStatusFilter" class="form-select">
+                        <option value="">Tất cả</option>
+                        <option value="published">Đã xuất bản</option>
+                        <option value="draft">Nháp</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label mb-1" for="comboDiscountFilter">Loại giảm giá</label>
+                    <select id="comboDiscountFilter" class="form-select">
+                        <option value="">Tất cả</option>
+                        <option value="none">Không áp dụng</option>
+                        <option value="percent">Giảm theo %</option>
+                        <option value="amount">Giảm theo tiền</option>
+                        <option value="fixed">Giá ưu đãi cố định</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label mb-1" for="comboResetFilters" style="visibility: hidden;">Xóa lọc</label>
+                    <button type="button" class="btn btn-outline-secondary w-100" id="comboResetFilters">
+                        <i class="fas fa-eraser me-1"></i>Xóa lọc
+                    </button>
                 </div>
             </div>
             <div class="table-responsive">
@@ -263,6 +294,10 @@
             const bulkActions = document.getElementById('bulkActions');
             const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
             const createBtn = document.getElementById('createComboBtn');
+            const searchInput = document.getElementById('comboSearchInput');
+            const statusFilterSelect = document.getElementById('comboStatusFilter');
+            const discountFilterSelect = document.getElementById('comboDiscountFilter');
+            const resetFiltersBtn = document.getElementById('comboResetFilters');
 
             const comboModalEl = document.getElementById('comboModal');
             const comboModal = new bootstrap.Modal(comboModalEl);
@@ -296,6 +331,7 @@
             const detailModalEl = document.getElementById('detailModal');
             const detailModal = new bootstrap.Modal(detailModalEl);
             const detailContent = document.getElementById('comboDetailContent');
+            const detailUrlTemplate = app.dataset.detailUrlTemplate || '';
 
             const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
@@ -312,7 +348,79 @@
                 [DISCOUNT_AMOUNT]: 'Giảm theo tiền'
             };
 
+            const debounce = (fn, delay = 300) => {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+
+                    timeoutId = window.setTimeout(() => {
+                        fn(...args);
+                    }, delay);
+                };
+            };
+
+            function updateComboTableStatus(count) {
+                if (!tableStatus || !canView) {
+                    return;
+                }
+
+                const total = combos.length;
+                if (total === 0) {
+                    tableStatus.textContent = 'Không có combo nào để hiển thị.';
+                    return;
+                }
+
+                if (count === total) {
+                    tableStatus.textContent = `Hiển thị ${count} combo.`;
+                } else {
+                    tableStatus.textContent = `Tìm thấy ${count}/${total} combo.`;
+                }
+            }
+
+            function applyComboFilters() {
+                if (!Array.isArray(combos)) {
+                    filteredCombos = [];
+                    renderCombos();
+                    return;
+                }
+
+                const searchTerm = (searchInput?.value || '').trim().toLowerCase();
+                const statusValue = statusFilterSelect?.value || '';
+                const discountValue = discountFilterSelect?.value || '';
+
+                filteredCombos = combos.filter(combo => {
+                    const name = (combo.name || '').toString().toLowerCase();
+                    const description = (combo.description || '').toString().toLowerCase();
+                    const matchesSearch = !searchTerm
+                        || name.includes(searchTerm)
+                        || description.includes(searchTerm);
+
+                    const matchesStatus = !statusValue
+                        || (statusValue === 'published' && combo.isPublish)
+                        || (statusValue === 'draft' && !combo.isPublish);
+
+                    const discountType = Number(combo.discountType);
+                    let matchesDiscount = true;
+                    if (discountValue === 'none') {
+                        matchesDiscount = discountType === DISCOUNT_NONE;
+                    } else if (discountValue === 'percent') {
+                        matchesDiscount = discountType === DISCOUNT_PERCENT;
+                    } else if (discountValue === 'amount') {
+                        matchesDiscount = discountType === DISCOUNT_AMOUNT;
+                    } else if (discountValue === 'fixed') {
+                        matchesDiscount = discountType === DISCOUNT_FIXED;
+                    }
+
+                    return matchesSearch && matchesStatus && matchesDiscount;
+                });
+
+                renderCombos();
+            }
+
             let combos = [];
+            let filteredCombos = [];
             let productsCache = null;
             let editingComboId = null;
             let deleteComboId = null;
@@ -589,20 +697,32 @@
                 toggleDiscountField();
             }
 
-            function renderCombos() {
+            function renderCombos(list = filteredCombos) {
                 if (!canView) {
                     tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách combo.</td></tr>';
                     tableStatus.textContent = 'Không thể tải dữ liệu combo.';
                     return;
                 }
 
-                if (!combos || combos.length === 0) {
-                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Chưa có combo nào.</td></tr>';
-                    tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
+                const data = Array.isArray(list) ? list : [];
+
+                if (data.length === 0) {
+                    const message = combos.length === 0
+                        ? 'Chưa có combo nào.'
+                        : 'Không tìm thấy combo phù hợp.';
+                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">${message}</td></tr>`;
+                    updateComboTableStatus(data.length);
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    updateBulkActions();
                     return;
                 }
 
-                const rows = combos.map(combo => {
+                updateComboTableStatus(data.length);
+
+                const rows = data.map(combo => {
                     const row = document.createElement('tr');
 
                     const checkboxCell = document.createElement('td');
@@ -624,14 +744,43 @@
                     row.appendChild(checkboxCell);
 
                     const nameCell = document.createElement('td');
-                    nameCell.innerHTML = `
-                        <div class="d-flex align-items-center gap-3">
-                            <img src="${combo.imageUrl}" alt="${combo.name}" class="rounded" style="width: 48px; height: 48px; object-fit: cover;" />
-                            <div>
-                                <div class="fw-semibold">${combo.name}</div>
-                                <div class="text-muted small">${combo.items.length} sản phẩm</div>
-                            </div>
-                        </div>`;
+                    const nameWrapper = document.createElement('div');
+                    nameWrapper.className = 'd-flex align-items-center gap-3';
+
+                    const image = document.createElement('img');
+                    image.src = combo.imageUrl;
+                    image.alt = combo.name;
+                    image.className = 'rounded';
+                    image.style.width = '48px';
+                    image.style.height = '48px';
+                    image.style.objectFit = 'cover';
+                    nameWrapper.appendChild(image);
+
+                    const textContainer = document.createElement('div');
+                    const nameLine = document.createElement('div');
+                    nameLine.className = 'fw-semibold';
+                    if (combo.isPublish && detailUrlTemplate) {
+                        const detailUrl = detailUrlTemplate.replace('__ID__', encodeURIComponent(combo.id));
+                        const link = document.createElement('a');
+                        link.href = detailUrl;
+                        link.target = '_blank';
+                        link.rel = 'noopener noreferrer';
+                        link.textContent = combo.name;
+                        link.className = 'text-decoration-none link-primary';
+                        nameLine.appendChild(link);
+                    } else {
+                        nameLine.textContent = combo.name;
+                    }
+                    textContainer.appendChild(nameLine);
+
+                    const itemsCount = Array.isArray(combo.items) ? combo.items.length : 0;
+                    const metaLine = document.createElement('div');
+                    metaLine.className = 'text-muted small';
+                    metaLine.textContent = `${itemsCount} sản phẩm`;
+                    textContainer.appendChild(metaLine);
+
+                    nameWrapper.appendChild(textContainer);
+                    nameCell.appendChild(nameWrapper);
                     row.appendChild(nameCell);
 
                     const priceCell = document.createElement('td');
@@ -721,7 +870,12 @@
 
                 tableBody.innerHTML = '';
                 rows.forEach(row => tableBody.appendChild(row));
-                tableStatus.textContent = `Hiển thị ${combos.length} combo.`;
+                if (selectAllCheckbox) {
+                    const visibleCheckboxes = tableBody.querySelectorAll('.combo-select');
+                    const checkedCount = tableBody.querySelectorAll('.combo-select:checked').length;
+                    selectAllCheckbox.checked = visibleCheckboxes.length > 0 && checkedCount === visibleCheckboxes.length;
+                    selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < visibleCheckboxes.length;
+                }
                 updateBulkActions();
             }
 
@@ -753,7 +907,7 @@
 
                 selectedComboIds.clear();
                 selectAllCheckbox.checked = false;
-                renderCombos();
+                applyComboFilters();
             }
 
             function gatherComboFormData() {
@@ -1097,6 +1251,35 @@
                 });
                 updateBulkActions();
             }
+
+            const debouncedComboFilter = debounce(() => {
+                applyComboFilters();
+            }, 300);
+
+            searchInput?.addEventListener('input', () => {
+                debouncedComboFilter();
+            });
+
+            statusFilterSelect?.addEventListener('change', () => {
+                applyComboFilters();
+            });
+
+            discountFilterSelect?.addEventListener('change', () => {
+                applyComboFilters();
+            });
+
+            resetFiltersBtn?.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                }
+                if (statusFilterSelect) {
+                    statusFilterSelect.value = '';
+                }
+                if (discountFilterSelect) {
+                    discountFilterSelect.value = '';
+                }
+                applyComboFilters();
+            });
 
             refreshBtn?.addEventListener('click', async () => {
                 clearAlerts();
