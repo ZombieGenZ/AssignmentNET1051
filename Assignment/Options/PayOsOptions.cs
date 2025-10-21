@@ -8,6 +8,6 @@ namespace Assignment.Options
 
         public string ChecksumKey { get; set; } = string.Empty;
 
-        public string BaseUrl { get; set; } = "https://api.payos.vn/v2/";
+        public string BaseUrl { get; set; } = "https://api-merchant.payos.vn/v2/";
     }
 }
