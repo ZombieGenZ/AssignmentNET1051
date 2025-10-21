@@ -68,13 +68,14 @@
     <div class="col-md-3">
         <label asp-for="Filter.CompareStart" class="form-label">Bắt đầu (so sánh)</label>
         <input asp-for="Filter.CompareStart" class="form-control" type="date" />
+        <div class="form-text">Để trống nếu không cần so sánh.</div>
     </div>
     <div class="col-md-3">
         <label asp-for="Filter.CompareEnd" class="form-label">Kết thúc (so sánh)</label>
         <input asp-for="Filter.CompareEnd" class="form-control" type="date" />
     </div>
     <div class="col-md-3 d-flex align-items-end">
-        <div class="form-text">Để trống nếu không cần so sánh.</div>
+        <button type="submit" class="btn btn-primary w-100"><i class="fas fa-chart-line me-2"></i>Áp dụng so sánh</button>
     </div>
     <div class="col-md-3 d-flex align-items-end">
         <button type="button" class="btn btn-outline-secondary w-100" id="resetCompareFilters"><i class="fas fa-rotate-left me-2"></i>Đặt lại so sánh</button>

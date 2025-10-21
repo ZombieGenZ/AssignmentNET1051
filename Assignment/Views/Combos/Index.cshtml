@@ -97,34 +97,38 @@
                     </div>
                 </div>
             </div>
-            <div class="row g-2 align-items-end mb-3" id="comboFilters">
-                <div class="col-md-4">
-                    <label class="form-label mb-1" for="comboSearchInput">Tìm kiếm</label>
-                    <input type="search" class="form-control" id="comboSearchInput" placeholder="Tên hoặc mô tả combo" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label mb-1" for="comboStatusFilter">Trạng thái</label>
-                    <select id="comboStatusFilter" class="form-select">
-                        <option value="">Tất cả</option>
-                        <option value="published">Đã xuất bản</option>
-                        <option value="draft">Nháp</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label mb-1" for="comboDiscountFilter">Loại giảm giá</label>
-                    <select id="comboDiscountFilter" class="form-select">
-                        <option value="">Tất cả</option>
-                        <option value="none">Không áp dụng</option>
-                        <option value="percent">Giảm theo %</option>
-                        <option value="amount">Giảm theo tiền</option>
-                        <option value="fixed">Giá ưu đãi cố định</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label mb-1" for="comboResetFilters" style="visibility: hidden;">Xóa lọc</label>
-                    <button type="button" class="btn btn-outline-secondary w-100" id="comboResetFilters">
-                        <i class="fas fa-eraser me-1"></i>Xóa lọc
-                    </button>
+            <div class="filter-toolbar mb-4" id="comboFilters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-xl-4">
+                        <label class="form-label filter-label" for="comboSearchInput">Tìm kiếm</label>
+                        <div class="filter-input-icon">
+                            <i class="fas fa-search filter-icon"></i>
+                            <input type="search" class="form-control" id="comboSearchInput" placeholder="Tên hoặc mô tả combo" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <label class="form-label filter-label" for="comboStatusFilter">Trạng thái</label>
+                        <select id="comboStatusFilter" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option value="published">Đã xuất bản</option>
+                            <option value="draft">Nháp</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <label class="form-label filter-label" for="comboDiscountFilter">Loại giảm giá</label>
+                        <select id="comboDiscountFilter" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option value="none">Không áp dụng</option>
+                            <option value="percent">Giảm theo %</option>
+                            <option value="amount">Giảm theo tiền</option>
+                            <option value="fixed">Giá ưu đãi cố định</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-2 ms-xl-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="comboResetFilters">
+                            <i class="fas fa-eraser me-1"></i>Xóa lọc
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="table-responsive">

@@ -323,6 +323,68 @@ body {
     }
 }
 
+.filter-toolbar {
+    background: #f8fafc;
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    border-radius: 16px;
+    padding: 1.5rem;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.filter-toolbar .form-control,
+.filter-toolbar .form-select {
+    border-radius: 0.75rem;
+    border-color: rgba(148, 163, 184, 0.45);
+    padding-top: 0.65rem;
+    padding-bottom: 0.65rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.filter-toolbar .form-control:focus,
+.filter-toolbar .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(78, 115, 223, 0.15);
+}
+
+.filter-toolbar .filter-label {
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    font-weight: 600;
+    color: #64748b;
+    margin-bottom: 0.4rem;
+}
+
+.filter-input-icon {
+    position: relative;
+}
+
+.filter-input-icon .filter-icon {
+    position: absolute;
+    top: 50%;
+    left: 0.9rem;
+    transform: translateY(-50%);
+    color: #94a3b8;
+    font-size: 0.9rem;
+}
+
+.filter-input-icon .form-control {
+    padding-left: 2.5rem;
+}
+
+.filter-toolbar .btn {
+    border-radius: 0.75rem;
+    font-weight: 600;
+    padding-top: 0.6rem;
+    padding-bottom: 0.6rem;
+}
+
+@media (max-width: 576px) {
+    .filter-toolbar {
+        padding: 1.1rem;
+    }
+}
+
 .overlay {
     display: none;
     position: fixed;

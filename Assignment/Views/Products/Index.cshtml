@@ -76,30 +76,34 @@
                     </button>
                 </div>
             </div>
-            <div class="row g-2 align-items-end mb-3" id="productFilters">
-                <div class="col-md-4">
-                    <label class="form-label mb-1" for="productSearchInput">Tìm kiếm</label>
-                    <input type="search" class="form-control" id="productSearchInput" placeholder="Tên, mô tả hoặc danh mục" />
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label mb-1" for="productCategoryFilter">Danh mục</label>
-                    <select id="productCategoryFilter" class="form-select">
-                        <option value="">Tất cả danh mục</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label mb-1" for="productStatusFilter">Trạng thái</label>
-                    <select id="productStatusFilter" class="form-select">
-                        <option value="">Tất cả</option>
-                        <option value="published">Đã xuất bản</option>
-                        <option value="draft">Bản nháp</option>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label mb-1" for="productResetFilters" style="visibility: hidden;">Xóa lọc</label>
-                    <button type="button" class="btn btn-outline-secondary w-100" id="productResetFilters">
-                        <i class="fas fa-eraser me-1"></i>Xóa lọc
-                    </button>
+            <div class="filter-toolbar mb-4" id="productFilters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-xl-4">
+                        <label class="form-label filter-label" for="productSearchInput">Tìm kiếm</label>
+                        <div class="filter-input-icon">
+                            <i class="fas fa-search filter-icon"></i>
+                            <input type="search" class="form-control" id="productSearchInput" placeholder="Tên, mô tả hoặc danh mục" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <label class="form-label filter-label" for="productCategoryFilter">Danh mục</label>
+                        <select id="productCategoryFilter" class="form-select">
+                            <option value="">Tất cả danh mục</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <label class="form-label filter-label" for="productStatusFilter">Trạng thái</label>
+                        <select id="productStatusFilter" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option value="published">Đã xuất bản</option>
+                            <option value="draft">Bản nháp</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-2 ms-xl-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="productResetFilters">
+                            <i class="fas fa-eraser me-1"></i>Xóa lọc
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="table-responsive">
