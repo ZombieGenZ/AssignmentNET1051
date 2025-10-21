@@ -4,6 +4,7 @@
     {
         None,
         Percent,
-        FixedAmount
+        FixedAmount,
+        Amount
     }
 }

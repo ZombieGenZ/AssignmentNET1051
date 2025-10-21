@@ -526,7 +526,12 @@ namespace Assignment.Controllers.Api
         {
             if (request.DiscountType == DiscountType.FixedAmount)
             {
-                ModelState.AddModelError(nameof(request.DiscountType), "Combo không hỗ trợ giảm giá cố định.");
+                ModelState.AddModelError(nameof(request.DiscountType), "Combo không hỗ trợ giá ưu đãi cố định.");
+            }
+
+            if (request.DiscountType != DiscountType.None && !request.Discount.HasValue)
+            {
+                ModelState.AddModelError(nameof(request.Discount), "Vui lòng nhập giá trị giảm giá.");
             }
 
             if (request.DiscountType == DiscountType.Percent && request.Discount.HasValue)
