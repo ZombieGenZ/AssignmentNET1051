@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.Linq;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text;
@@ -42,31 +44,43 @@ namespace Assignment.Services.Payments
 
         public async Task<PayOsPaymentLink?> CreatePaymentLinkAsync(Order order, string description, string returnUrl, string cancelUrl, CancellationToken cancellationToken = default)
         {
-            var amount = (long)Math.Round(order.TotalBill);
+            if (!AreCredentialsConfigured())
+            {
+                _logger.LogError("PayOS credentials are not fully configured. Cannot create payment link for order {OrderId}.", order.Id);
+                return null;
+            }
+
+            var amount = Convert.ToInt64(Math.Round(order.TotalBill, MidpointRounding.AwayFromZero));
             if (amount <= 0)
             {
                 _logger.LogWarning("Attempted to create PayOS payment link for order {OrderId} with invalid amount {Amount}", order.Id, amount);
                 return null;
             }
 
+            var sanitizedDescription = string.IsNullOrWhiteSpace(description)
+                ? $"Thanh toán đơn hàng #{order.Id}"
+                : description.Trim();
+            var normalizedReturnUrl = NormalizeUrl(returnUrl);
+            var normalizedCancelUrl = NormalizeUrl(cancelUrl);
+
             var request = new PayOsCreatePaymentRequest
             {
                 OrderCode = order.Id,
                 Amount = amount,
-                Description = description,
-                ReturnUrl = returnUrl,
-                CancelUrl = cancelUrl,
+                Description = sanitizedDescription,
+                ReturnUrl = normalizedReturnUrl,
+                CancelUrl = normalizedCancelUrl,
                 Items = order.OrderItems?.Select(item => new PayOsItem
                 {
-                    Name = item.Product?.Name ?? item.Combo?.Name ?? $"Sản phẩm #{item.ProductId ?? item.ComboId}",
+                    Name = NormalizeItemName(item),
                     Quantity = item.Quantity,
-                    Price = (long)Math.Round(item.Price)
+                    Price = Convert.ToInt64(Math.Round(item.Price, MidpointRounding.AwayFromZero))
                 }).ToList(),
                 BuyerInfo = new PayOsBuyerInfo
                 {
-                    Name = order.Name,
-                    Phone = order.Phone,
-                    Email = order.Email
+                    Name = NormalizeInput(order.Name),
+                    Phone = NormalizeInput(order.Phone),
+                    Email = NormalizeInput(order.Email)
                 }
             };
 
@@ -77,17 +91,31 @@ namespace Assignment.Services.Payments
                 var response = await _httpClient.PostAsJsonAsync(PaymentRequestEndpoint, request, cancellationToken);
                 if (!response.IsSuccessStatusCode)
                 {
-                    _logger.LogError("PayOS create payment request failed for order {OrderId} with status code {StatusCode}", order.Id, response.StatusCode);
+                    var responseContent = await SafeReadContentAsync(response, cancellationToken);
+                    _logger.LogError("PayOS create payment request failed for order {OrderId} with status code {StatusCode}. Response: {Response}", order.Id, response.StatusCode, responseContent);
                     return null;
                 }
 
                 var payload = await response.Content.ReadFromJsonAsync<PayOsResponse<PayOsPaymentLink>>(cancellationToken: cancellationToken);
-                if (payload?.Data == null)
+                if (payload == null)
                 {
-                    _logger.LogError("PayOS create payment request returned no data for order {OrderId}", order.Id);
+                    _logger.LogError("PayOS create payment request returned an empty payload for order {OrderId}", order.Id);
+                    return null;
                 }
 
-                return payload?.Data;
+                if (payload.Code != 0)
+                {
+                    _logger.LogError("PayOS create payment request returned error code {Code} for order {OrderId}: {Message}", payload.Code, order.Id, payload.Message ?? payload.Description);
+                    return null;
+                }
+
+                if (payload.Data == null)
+                {
+                    _logger.LogError("PayOS create payment request returned no data for order {OrderId}", order.Id);
+                    return null;
+                }
+
+                return payload.Data;
             }
             catch (Exception ex)
             {
@@ -122,32 +150,84 @@ namespace Assignment.Services.Payments
             _httpClient.DefaultRequestHeaders.Remove("x-client-id");
             _httpClient.DefaultRequestHeaders.Remove("x-api-key");
 
-            if (!string.IsNullOrWhiteSpace(_options.ClientId))
+            var clientId = NormalizeInput(_options.ClientId);
+            var apiKey = NormalizeInput(_options.ApiKey);
+
+            if (!string.IsNullOrEmpty(clientId))
             {
-                _httpClient.DefaultRequestHeaders.Add("x-client-id", _options.ClientId);
+                _httpClient.DefaultRequestHeaders.Add("x-client-id", clientId);
             }
 
-            if (!string.IsNullOrWhiteSpace(_options.ApiKey))
+            if (!string.IsNullOrEmpty(apiKey))
             {
-                _httpClient.DefaultRequestHeaders.Add("x-api-key", _options.ApiKey);
+                _httpClient.DefaultRequestHeaders.Add("x-api-key", apiKey);
             }
         }
 
         private string GenerateSignature(long orderCode, long amount, string description, string returnUrl, string cancelUrl)
         {
-            var data = new SortedDictionary<string, string>
+            var checksumKey = NormalizeInput(_options.ChecksumKey) ?? string.Empty;
+            var data = new SortedDictionary<string, string>(StringComparer.Ordinal)
             {
-                { "amount", amount.ToString() },
-                { "cancelUrl", cancelUrl },
-                { "description", description },
-                { "orderCode", orderCode.ToString() },
-                { "returnUrl", returnUrl }
+                ["amount"] = amount.ToString(CultureInfo.InvariantCulture),
+                ["cancelUrl"] = cancelUrl ?? string.Empty,
+                ["description"] = description ?? string.Empty,
+                ["orderCode"] = orderCode.ToString(CultureInfo.InvariantCulture),
+                ["returnUrl"] = returnUrl ?? string.Empty
             };
 
-            var rawData = string.Join("&", data.Select(kvp => $"{kvp.Key}={kvp.Value}"));
-            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(_options.ChecksumKey ?? string.Empty));
+            var rawData = string.Join("&", data.Select(kvp => $"{kvp.Key}={Uri.EscapeDataString(kvp.Value)}"));
+
+            using var hmac = new HMACSHA256(Encoding.UTF8.GetBytes(checksumKey));
             var hashBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(rawData));
-            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+
+            var builder = new StringBuilder(hashBytes.Length * 2);
+            foreach (var b in hashBytes)
+            {
+                builder.Append(b.ToString("x2", CultureInfo.InvariantCulture));
+            }
+
+            return builder.ToString();
+        }
+
+        private static string? NormalizeInput(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static string NormalizeItemName(OrderItem item)
+        {
+            if (item == null)
+            {
+                return "";
+            }
+
+            var name = item.Product?.Name ?? item.Combo?.Name ?? $"Sản phẩm #{item.ProductId ?? item.ComboId}";
+            return NormalizeInput(name) ?? string.Empty;
+        }
+
+        private static string NormalizeUrl(string url)
+        {
+            return string.IsNullOrWhiteSpace(url) ? string.Empty : url.Trim();
+        }
+
+        private bool AreCredentialsConfigured()
+        {
+            return !string.IsNullOrWhiteSpace(_options.ClientId)
+                   && !string.IsNullOrWhiteSpace(_options.ApiKey)
+                   && !string.IsNullOrWhiteSpace(_options.ChecksumKey);
+        }
+
+        private static async Task<string?> SafeReadContentAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await response.Content.ReadAsStringAsync(cancellationToken);
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }
