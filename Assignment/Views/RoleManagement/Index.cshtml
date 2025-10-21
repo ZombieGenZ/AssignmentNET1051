@@ -123,7 +123,7 @@
                                 <div class="row g-2">
                                     @foreach (var permission in group.Permissions)
                                     {
-                                        var checkboxId = $"permission_{permission.Key.Replace(\" \", \"_\")}";
+                                        var checkboxId = $"permission_{permission.Key.Replace(" ", "_")}";
                                         <div class="col-12 col-sm-6 col-lg-4">
                                             <div class="form-check">
                                                 <input class="form-check-input role-permission" type="checkbox" value="@permission.Key" id="@checkboxId" />
