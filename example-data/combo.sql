@@ -10,7 +10,7 @@ VALUES
     (2, N'Combo Trà Trái Cây Mát Lạnh', N'Combo trái cây thanh mát cho ngày hè sảng khoái.', 92000.0, 70, 2, 0, 1, 10, 1,
      N'https://images.unsplash.com/photo-1546027658-7aa750153465?auto=format&fit=crop&w=800&q=80', 0, 0.0, N'seed', SYSUTCDATETIME(), NULL, 0, NULL),
     (3, N'Combo Năng Lượng Cà Phê', N'Cặp đôi cà phê và bánh ngọt giúp bạn tỉnh táo cả ngày.', 96000.0, 65, 3, 0, 0, NULL, 1,
-     N'https://images.unsplash.com/photo-1485808191679-3c23690f3156?auto=format&fit=crop&w=800&q=80', 0, 0.0, N'seed', SYSUTCDATETIME(), NULL, 0, NULL),
+     N'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSgaEl2oNgXugd4sSDHi7TOL2YlS65jWPLtRw&s', 0, 0.0, N'seed', SYSUTCDATETIME(), NULL, 0, NULL),
     (4, N'Combo Ăn Nhẹ No Bụng', N'Bữa ăn nhẹ đầy đặn với bánh mì kẹp và món tráng miệng.', 105000.0, 60, 4, 0, 2, 8000, 1,
      N'https://images.unsplash.com/photo-1540189549336-e6e99c3679fe?auto=format&fit=crop&w=800&q=80', 0, 0.0, N'seed', SYSUTCDATETIME(), NULL, 0, NULL),
     (5, N'Combo Tea & Snack', N'Sự kết hợp giữa trà trái cây và snack giòn tan.', 78000.0, 75, 5, 0, 0, NULL, 1,
