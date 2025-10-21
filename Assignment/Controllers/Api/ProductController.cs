@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Linq;
 using System.Security.Claims;
 using Assignment.Data;
 using Assignment.Enums;
@@ -169,6 +171,16 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
+            var comboLookup = await GetActiveComboNamesByProductIds(new[] { product.Id });
+            if (comboLookup.TryGetValue(product.Id, out var combos) && combos.Any())
+            {
+                return BadRequest(new
+                {
+                    message = BuildComboDependencyMessage(product.Name, combos),
+                    combos
+                });
+            }
+
             product.IsDeleted = true;
             product.DeletedAt = DateTime.Now;
             product.UpdatedAt = DateTime.Now;
@@ -199,10 +211,13 @@ namespace Assignment.Controllers.Api
                 return NotFound(new { message = "Không tìm thấy sản phẩm hợp lệ để xóa." });
             }
 
+            var productIds = products.Select(p => p.Id).ToList();
+            var comboLookup = await GetActiveComboNamesByProductIds(productIds);
             var now = DateTime.Now;
             var deletedCount = 0;
             var unauthorizedCount = 0;
             var affectedProductIds = new HashSet<long>();
+            var blockedProducts = new List<object>();
 
             foreach (var product in products)
             {
@@ -210,6 +225,17 @@ namespace Assignment.Controllers.Api
                 if (!authResult.Succeeded)
                 {
                     unauthorizedCount++;
+                    continue;
+                }
+
+                if (comboLookup.TryGetValue(product.Id, out var combos) && combos.Any())
+                {
+                    blockedProducts.Add(new
+                    {
+                        productId = product.Id,
+                        productName = product.Name,
+                        combos
+                    });
                     continue;
                 }
 
@@ -238,7 +264,9 @@ namespace Assignment.Controllers.Api
             return Ok(new
             {
                 deleted = deletedCount,
-                unauthorized = unauthorizedCount
+                unauthorized = unauthorizedCount,
+                blocked = blockedProducts.Count,
+                blockedProducts
             });
         }
 
@@ -309,6 +337,60 @@ namespace Assignment.Controllers.Api
         private async Task<bool> ProductExists(long id)
         {
             return await _context.Products.AnyAsync(p => p.Id == id && !p.IsDeleted);
+        }
+
+        private async Task<Dictionary<long, List<string>>> GetActiveComboNamesByProductIds(IReadOnlyCollection<long> productIds)
+        {
+            if (productIds == null || productIds.Count == 0)
+            {
+                return new Dictionary<long, List<string>>();
+            }
+
+            var activeCombos = await _context.ComboItems
+                .Where(ci => !ci.IsDeleted && productIds.Contains(ci.ProductId))
+                .Join(
+                    _context.Combos.Where(c => !c.IsDeleted),
+                    ci => ci.ComboId,
+                    c => c.Id,
+                    (ci, combo) => new { ci.ProductId, combo.Name })
+                .ToListAsync();
+
+            return activeCombos
+                .GroupBy(item => item.ProductId)
+                .ToDictionary(
+                    group => group.Key,
+                    group => group
+                        .Select(item => item.Name)
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .Distinct()
+                        .ToList());
+        }
+
+        private static string BuildComboDependencyMessage(string productName, IReadOnlyCollection<string> comboNames)
+        {
+            if (comboNames == null || comboNames.Count == 0)
+            {
+                return $"Không thể xóa sản phẩm \"{productName}\" vì đang được sử dụng trong combo khác.";
+            }
+
+            var formattedNames = comboNames
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Select(name => $"\"{name.Trim()}\"")
+                .ToList();
+
+            if (formattedNames.Count == 0)
+            {
+                return $"Không thể xóa sản phẩm \"{productName}\" vì đang được sử dụng trong combo khác.";
+            }
+
+            var preview = string.Join(", ", formattedNames.Take(3));
+            if (formattedNames.Count > 3)
+            {
+                preview += $" và {formattedNames.Count - 3} combo khác";
+            }
+
+            var combosLabel = formattedNames.Count > 1 ? "các combo" : "combo";
+            return $"Không thể xóa sản phẩm \"{productName}\" vì đang được sử dụng trong {combosLabel} {preview}.";
         }
 
         private static ProductResponse MapToResponse(Product product)

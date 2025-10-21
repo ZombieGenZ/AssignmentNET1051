@@ -164,174 +164,124 @@
 }
 
 .rating-stars {
-<<<<<<< HEAD
-    --star-size: 2.4rem;
-    --star-gap: 0.6rem;
-    --star-inactive: rgba(255, 255, 255, 0.45);
-    --star-active: #ffb224;
-    --star-glow: rgba(255, 179, 71, 0.35);
-    --star-hover: #ffd789;
+    --rating-star-size: 2.75rem;
+    --rating-star-gap: 0.75rem;
+    --rating-star-inactive: rgba(148, 163, 184, 0.45);
+    --rating-star-active: #ffb347;
+    --rating-star-selected: #ff7a3d;
+    --rating-star-hover: #ffd27f;
+    --rating-star-ring: rgba(255, 158, 69, 0.22);
     position: relative;
     display: inline-flex;
-    flex-direction: row-reverse;
     align-items: center;
-    gap: var(--star-gap);
-    padding: 0.85rem 1.25rem;
-    border-radius: 999px;
+    gap: var(--rating-star-gap);
+    padding: 1rem 1.25rem;
+    border-radius: 20px;
     background: rgba(15, 23, 42, 0.08);
     backdrop-filter: blur(18px);
-    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+    box-shadow: 0 14px 32px rgba(15, 23, 42, 0.12);
 }
 
-.rating-stars::after {
+.rating-stars::before {
     content: "";
     position: absolute;
     inset: 0;
     border-radius: inherit;
-    border: 1px solid rgba(255, 143, 0, 0.45);
+    border: 1px solid rgba(255, 158, 69, 0.35);
     pointer-events: none;
 }
 
-.rating-stars > input {
-    position: absolute;
-    opacity: 0;
-    width: 1px;
-    height: 1px;
-    margin: 0;
-    pointer-events: none;
-}
-
-.rating-stars > label {
-    float: right;
+.rating-star-button {
+    position: relative;
+    width: var(--rating-star-size);
+    height: var(--rating-star-size);
+    border: none;
+    background: transparent;
+    padding: 0;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     transition: transform 0.25s ease, filter 0.25s ease;
+    color: var(--rating-star-inactive);
 }
 
-.rating-stars > label > svg {
-    width: var(--star-size);
-    height: var(--star-size);
-    fill: var(--star-inactive);
-    filter: drop-shadow(0 10px 18px rgba(15, 23, 42, 0.18));
+.rating-star-button .rating-star-icon {
+    width: 100%;
+    height: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.rating-star-button .rating-star-icon svg {
+    width: 100%;
+    height: 100%;
+    fill: currentColor;
+    filter: drop-shadow(0 12px 24px rgba(15, 23, 42, 0.18));
     transition: fill 0.25s ease, transform 0.25s ease, filter 0.25s ease;
 }
 
-.rating-stars > label::after {
-    content: attr(title);
+.rating-star-button .rating-star-glow {
     position: absolute;
-    bottom: -2.2rem;
-    left: 50%;
-    transform: translateX(-50%) scale(0.85);
-    transform-origin: top center;
-    background: rgba(15, 23, 42, 0.82);
-    color: #ffffff;
-    font-size: 0.8rem;
-    font-weight: 600;
-    letter-spacing: 0.01em;
-    padding: 0.25rem 0.6rem;
-    border-radius: 999px;
-    white-space: nowrap;
+    inset: -0.45rem;
+    border-radius: 50%;
+    background: radial-gradient(circle at center, rgba(255, 183, 77, 0.55) 0%, rgba(255, 145, 71, 0) 70%);
     opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease, transform 0.2s ease;
-=======
-    display: inline-flex;
-    flex-direction: row-reverse;
-    justify-content: flex-end;
-    gap: 0.65rem;
+    transform: scale(0.8);
+    transition: opacity 0.3s ease, transform 0.3s ease;
 }
 
-.rating-stars input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
+.rating-star-button:is(:hover, :focus-visible) {
+    transform: translateY(-2px) scale(1.04);
+    color: var(--rating-star-hover);
 }
 
-.rating-stars label {
-    font-size: 1.9rem;
-    line-height: 1;
-    color: #d3cfe0;
-    cursor: pointer;
-    transition: color 0.2s ease, transform 0.2s ease, text-shadow 0.2s ease;
+.rating-star-button:is(:hover, :focus-visible) .rating-star-icon svg {
+    filter: drop-shadow(0 16px 28px rgba(255, 175, 76, 0.35));
 }
 
-.rating-stars label::before {
-    content: "★";
-    display: block;
->>>>>>> parent of 34be735 (Improve rating star selection UI)
+.rating-star-button:is(:hover, :focus-visible) .rating-star-glow {
+    opacity: 0.8;
+    transform: scale(1);
 }
 
-.rating-stars input:checked ~ label,
-.rating-stars label:hover,
-.rating-stars label:hover ~ label {
-    color: #ffb545;
-    text-shadow: 0 8px 16px rgba(255, 181, 69, 0.35);
+.rating-star-button.is-active {
+    color: var(--rating-star-active);
 }
 
-<<<<<<< HEAD
-.rating-stars > label:hover::before,
-.rating-stars > input:checked + label::before {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
+.rating-star-button.is-selected {
+    color: var(--rating-star-selected);
 }
 
-.rating-stars > label:hover > svg,
-.rating-stars > label:hover ~ label > svg {
-    fill: var(--star-hover);
-    filter: drop-shadow(0 14px 24px var(--star-glow));
-    transform: translateY(-2px) scale(1.05);
+.rating-star-button.is-active .rating-star-glow {
+    opacity: 0.65;
+    transform: scale(1);
 }
 
-.rating-stars > input:checked ~ label > svg {
-    fill: var(--star-active);
-    filter: drop-shadow(0 14px 24px var(--star-glow));
+.rating-star-button.is-selected .rating-star-glow {
+    opacity: 0.85;
+    transform: scale(1.05);
+    background: radial-gradient(circle at center, rgba(255, 142, 82, 0.6) 0%, rgba(255, 127, 80, 0) 75%);
 }
 
-.rating-stars > input[id$='star1']:checked ~ label > svg {
-    fill: #f87171;
-}
-
-.rating-stars > input[id$='star2']:checked ~ label > svg {
-    fill: #fb923c;
-}
-
-.rating-stars > input[id$='star3']:checked ~ label > svg {
-    fill: #facc15;
-}
-
-.rating-stars > input[id$='star4']:checked ~ label > svg {
-    fill: #34d399;
-}
-
-.rating-stars > input[id$='star5']:checked ~ label > svg {
-    fill: #c084fc;
-}
-
-.rating-stars > input:focus-visible + label {
-    outline: 3px solid rgba(255, 180, 0, 0.35);
-    outline-offset: 6px;
-    border-radius: 12px;
+.rating-star-button:focus-visible {
+    outline: 3px solid rgba(255, 158, 69, 0.45);
+    outline-offset: 4px;
+    border-radius: 50%;
 }
 
 .rating-stars:focus-within {
-    box-shadow: 0 0 0 4px rgba(255, 180, 0, 0.18), 0 12px 28px rgba(15, 23, 42, 0.14);
-=======
-.rating-stars label:hover {
-    transform: translateY(-3px);
+    box-shadow: 0 0 0 4px var(--rating-star-ring), 0 16px 32px rgba(15, 23, 42, 0.14);
 }
 
-.rating-stars label:hover ~ label {
-    transform: translateY(-1px);
+.rating-hint {
+    transition: color 0.2s ease;
 }
 
-.rating-stars input:checked + label {
-    transform: translateY(-2px);
-}
-
-.rating-stars input:focus-visible + label {
-    outline: 2px solid #ffb545;
-    outline-offset: 4px;
-    border-radius: 6px;
->>>>>>> parent of 34be735 (Improve rating star selection UI)
+.rating-hint.is-active {
+    color: var(--detail-brand-dark);
+    font-weight: 600;
 }
 
 .detail-card__description {
