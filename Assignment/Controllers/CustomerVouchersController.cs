@@ -157,6 +157,40 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Public), new { page });
         }
 
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Unsave(long id)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userId))
+            {
+                return RedirectToAction("Login", "Account", new { area = "Identity" });
+            }
+
+            var voucherUser = await _context.VoucherUsers
+                .FirstOrDefaultAsync(vu => vu.VoucherId == id && vu.UserId == userId && !vu.IsDeleted);
+
+            if (voucherUser == null)
+            {
+                TempData["Error"] = "Không tìm thấy voucher đã lưu.";
+                return RedirectToAction(nameof(Mine));
+            }
+
+            if (!voucherUser.IsSaved)
+            {
+                TempData["Info"] = "Voucher đã được bỏ lưu trước đó.";
+                return RedirectToAction(nameof(Mine));
+            }
+
+            voucherUser.IsSaved = false;
+            voucherUser.UpdatedAt = DateTime.Now;
+            _context.VoucherUsers.Update(voucherUser);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Đã bỏ lưu voucher khỏi danh sách của bạn.";
+            return RedirectToAction(nameof(Mine));
+        }
+
         public async Task<IActionResult> Mine()
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
