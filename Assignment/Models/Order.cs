@@ -31,8 +31,33 @@ namespace Assignment.Models
         public double TotalBill { get; set; }
         public string? Note { get; set; }
         public string? UserId { get; set; }
-        public long? VoucherId { get; set; }
-        public virtual Voucher? Voucher { get; set; }
+        [NotMapped]
+        public long? VoucherId
+        {
+            get
+            {
+                var trimmedValue = VoucherIdStorage?.Trim();
+                if (string.IsNullOrEmpty(trimmedValue))
+                {
+                    return null;
+                }
+
+                if (long.TryParse(trimmedValue, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsedValue))
+                {
+                    return parsedValue;
+                }
+
+                return null;
+            }
+            set
+            {
+                VoucherIdStorage = value?.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        [Column("VoucherId")]
+        [System.Text.Json.Serialization.JsonIgnore]
+        public string? VoucherIdStorage { get; set; }
         public virtual ICollection<OrderVoucher>? OrderVouchers { get; set; }
         public PaymentMethodType? PaymentMethod { get; set; }
         public PaymentType PaymentType { get; set; }
