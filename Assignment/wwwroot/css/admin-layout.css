@@ -413,3 +413,18 @@ body {
     z-index: 1;
 }
 
+#roleModal .modal-body,
+#userModal .modal-body {
+    max-height: calc(100vh - 220px);
+    overflow-y: auto;
+}
+
+#roleModal .modal-footer,
+#userModal .modal-footer {
+    position: sticky;
+    bottom: 0;
+    background: #ffffff;
+    border-top: 1px solid #dee2e6;
+    z-index: 1;
+}
+

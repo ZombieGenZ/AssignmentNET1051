@@ -207,6 +207,47 @@
                 isSuperAdmin: false,
             };
 
+            const updatePermissionVisibility = () => {
+                const checkboxes = Array.from(permissionContainer.querySelectorAll('.user-permission-checkbox'));
+                const map = new Map();
+                checkboxes.forEach(checkbox => {
+                    const container = checkbox.closest('[data-permission-item]');
+                    if (container) {
+                        container.style.display = '';
+                    }
+                    map.set(checkbox.value, checkbox);
+                });
+
+                checkboxes.forEach(checkbox => {
+                    if (!checkbox.value.endsWith('All')) {
+                        return;
+                    }
+
+                    const baseKey = checkbox.value.slice(0, -3);
+                    const baseCheckbox = map.get(baseKey);
+                    if (!baseCheckbox) {
+                        return;
+                    }
+
+                    const baseContainer = baseCheckbox.closest('[data-permission-item]');
+                    if (!baseContainer) {
+                        return;
+                    }
+
+                    const isInherited = checkbox.dataset.isInherited === 'true';
+                    const shouldHide = checkbox.checked || checkbox.indeterminate || isInherited;
+                    if (shouldHide) {
+                        if (baseCheckbox.dataset.isInherited !== 'true' && !baseCheckbox.disabled) {
+                            baseCheckbox.checked = false;
+                            baseCheckbox.indeterminate = false;
+                        }
+                        baseContainer.style.display = 'none';
+                    } else {
+                        baseContainer.style.display = '';
+                    }
+                });
+            };
+
             const formatDateTime = (value) => {
                 if (!value) {
                     return '<span class="text-muted">-</span>';
@@ -414,12 +455,13 @@
                     items.forEach(item => {
                         const col = document.createElement('div');
                         col.className = 'col-12 col-sm-6 col-lg-4';
+                        col.dataset.permissionItem = 'true';
                         const checkboxId = `permission_${item.key ?? item.Key}`;
                         const isSelected = item.isSelected ?? item.IsSelected;
                         const isInherited = item.isInherited ?? item.IsInherited;
                         col.innerHTML = `
                             <div class="form-check ${isInherited ? 'text-muted' : ''}">
-                                <input class="form-check-input user-permission-checkbox" type="checkbox" value="${item.key ?? item.Key}" id="${checkboxId}" ${isSelected ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
+                                <input class="form-check-input user-permission-checkbox" type="checkbox" value="${item.key ?? item.Key}" id="${checkboxId}" data-permission-key="${item.key ?? item.Key}" data-is-inherited="${isInherited ? 'true' : 'false'}" ${isSelected ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
                                 <label class="form-check-label" for="${checkboxId}">${item.displayName ?? item.DisplayName}${isInherited ? ' <span class="badge bg-light text-secondary ms-1">từ vai trò</span>' : ''}</label>
                             </div>`;
                         row.appendChild(col);
@@ -427,7 +469,18 @@
                     wrapper.appendChild(row);
                     permissionContainer.appendChild(wrapper);
                 });
+
+                updatePermissionVisibility();
             };
+
+            permissionContainer.addEventListener('change', (event) => {
+                const checkbox = event.target.closest('.user-permission-checkbox');
+                if (!checkbox || checkbox.disabled) {
+                    return;
+                }
+                checkbox.dataset.isInherited = 'false';
+                updatePermissionVisibility();
+            });
 
             const openUserModal = async (userId) => {
                 state.selectedUserId = userId;
