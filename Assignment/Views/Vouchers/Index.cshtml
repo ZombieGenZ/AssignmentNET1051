@@ -60,32 +60,36 @@
                     }
                 </div>
             </div>
-            <div class="row g-2 align-items-end mb-3" id="voucherFilters">
-                <div class="col-md-6 col-lg-4">
-                    <label class="form-label mb-1" for="voucherSearchInput">Tìm kiếm</label>
-                    <input type="search" class="form-control" id="voucherSearchInput" placeholder="Mã hoặc tên voucher" />
-                </div>
-                <div class="col-md-3 col-lg-2">
-                    <label class="form-label mb-1" for="voucherTypeFilter">Loại voucher</label>
-                    <select id="voucherTypeFilter" class="form-select">
-                        <option value="">Tất cả</option>
-                        <option value="@((int)VoucherType.Public)">Công khai</option>
-                        <option value="@((int)VoucherType.Private)">Riêng tư</option>
-                    </select>
-                </div>
-                <div class="col-md-3 col-lg-2">
-                    <label class="form-label mb-1" for="voucherStatusFilter">Trạng thái</label>
-                    <select id="voucherStatusFilter" class="form-select">
-                        <option value="">Tất cả</option>
-                        <option value="true">Cho phép</option>
-                        <option value="false">Tạm khóa</option>
-                    </select>
-                </div>
-                <div class="col-md-2 col-lg-2">
-                    <label class="form-label mb-1" for="voucherResetFilters" style="visibility: hidden;">Xóa lọc</label>
-                    <button type="button" class="btn btn-outline-secondary w-100" id="voucherResetFilters">
-                        <i class="fas fa-eraser me-1"></i>Xóa lọc
-                    </button>
+            <div class="filter-toolbar mb-4" id="voucherFilters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-5">
+                        <label class="form-label filter-label" for="voucherSearchInput">Tìm kiếm</label>
+                        <div class="filter-input-icon">
+                            <i class="fas fa-search filter-icon"></i>
+                            <input type="search" class="form-control" id="voucherSearchInput" placeholder="Mã hoặc tên voucher" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-2">
+                        <label class="form-label filter-label" for="voucherTypeFilter">Loại voucher</label>
+                        <select id="voucherTypeFilter" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option value="@((int)VoucherType.Public)">Công khai</option>
+                            <option value="@((int)VoucherType.Private)">Riêng tư</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-2">
+                        <label class="form-label filter-label" for="voucherStatusFilter">Trạng thái</label>
+                        <select id="voucherStatusFilter" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option value="true">Cho phép</option>
+                            <option value="false">Tạm khóa</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-2 ms-lg-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="voucherResetFilters">
+                            <i class="fas fa-eraser me-1"></i>Xóa lọc
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="table-responsive">
