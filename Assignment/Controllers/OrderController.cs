@@ -15,6 +15,7 @@ using Assignment.Services.Payments;
 using Microsoft.Extensions.Logging;
 using Assignment.Options;
 using Assignment.ViewModels;
+using Assignment.ViewModels.Vouchers;
 
 namespace Assignment.Controllers
 {
@@ -65,7 +66,7 @@ namespace Assignment.Controllers
                 SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id))
             };
 
-            PrepareCheckoutViewData(cart, filteredItems, Enumerable.Empty<VoucherDiscountSummary>());
+            await PrepareCheckoutViewData(cart, filteredItems, Enumerable.Empty<VoucherDiscountSummary>());
             return View(order);
         }
 
@@ -182,7 +183,7 @@ namespace Assignment.Controllers
 
             if (!ModelState.IsValid)
             {
-                PrepareCheckoutViewData(cart, filteredItems, voucherSummaries);
+                await PrepareCheckoutViewData(cart, filteredItems, voucherSummaries);
                 return View(order);
             }
 
@@ -423,6 +424,43 @@ namespace Assignment.Controllers
                 totalDiscount,
                 vatAmount,
                 totalBill
+            });
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> GetApplicableVouchers(string? selectedCartItemIds, List<long>? appliedVoucherIds)
+        {
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
+
+            if (cart == null || !cart.CartItems.Any())
+            {
+                return Json(new { success = false, error = "Giỏ hàng của bạn đang trống." });
+            }
+
+            var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+
+            if (!filteredItems.Any())
+            {
+                return Json(new { success = false, error = "Các sản phẩm đã chọn không còn khả dụng." });
+            }
+
+            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            var sanitizedAppliedIds = appliedVoucherIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<long>();
+
+            var voucherOptions = await BuildCheckoutVoucherOptionsAsync(filteredItems, subtotal, sanitizedAppliedIds, userId);
+            var projectedOptions = ProjectVoucherOptions(voucherOptions);
+
+            return Json(new
+            {
+                success = true,
+                privateVouchers = projectedOptions.Private,
+                savedVouchers = projectedOptions.Saved
             });
         }
 
@@ -894,13 +932,23 @@ namespace Assignment.Controllers
             return (true, null, summaries, totalDiscount);
         }
 
-        private void PrepareCheckoutViewData(Cart cart, List<CartItem> filteredItems, IEnumerable<VoucherDiscountSummary> summaries)
+        private async Task PrepareCheckoutViewData(Cart cart, List<CartItem> filteredItems, IEnumerable<VoucherDiscountSummary> summaries)
         {
             cart.CartItems = filteredItems;
             ViewBag.Cart = cart;
 
             var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             SetInitialVoucherViewData(summaries ?? Enumerable.Empty<VoucherDiscountSummary>(), subtotal);
+
+            var appliedIds = summaries?.Select(summary => summary.Id).ToList() ?? new List<long>();
+            var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var voucherOptions = await BuildCheckoutVoucherOptionsAsync(filteredItems, subtotal, appliedIds, userId);
+            var projectedVoucherOptions = ProjectVoucherOptions(voucherOptions);
+            ViewBag.InitialVoucherOptions = new
+            {
+                privateVouchers = projectedVoucherOptions.Private,
+                savedVouchers = projectedVoucherOptions.Saved
+            };
         }
 
         private void SetInitialVoucherViewData(IEnumerable<VoucherDiscountSummary> summaries, double subtotal)
@@ -928,6 +976,199 @@ namespace Assignment.Controllers
                 totalDiscount,
                 vatAmount,
                 totalBill
+            };
+        }
+
+        private async Task<CheckoutVoucherOptionsViewModel> BuildCheckoutVoucherOptionsAsync(
+            IReadOnlyCollection<CartItem> filteredItems,
+            double subtotal,
+            IReadOnlyCollection<long> appliedVoucherIds,
+            string? userId)
+        {
+            if (filteredItems == null || filteredItems.Count == 0 || subtotal <= 0 || string.IsNullOrWhiteSpace(userId))
+            {
+                return new CheckoutVoucherOptionsViewModel();
+            }
+
+            var sanitizedAppliedIds = appliedVoucherIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToList() ?? new List<long>();
+
+            var appliedVouchers = sanitizedAppliedIds.Any()
+                ? await _context.Vouchers
+                    .AsNoTracking()
+                    .Include(v => v.VoucherUsers)
+                    .Include(v => v.VoucherProducts)
+                    .Include(v => v.VoucherCombos)
+                    .Where(v => sanitizedAppliedIds.Contains(v.Id) && !v.IsDeleted && v.IsPublish)
+                    .ToListAsync()
+                : new List<Voucher>();
+
+            var orderedAppliedVouchers = appliedVouchers
+                .OrderBy(v => sanitizedAppliedIds.IndexOf(v.Id))
+                .ToList();
+
+            var privateVouchers = await _context.Vouchers
+                .AsNoTracking()
+                .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
+                .Include(v => v.VoucherCombos)
+                .Where(v => !v.IsDeleted && v.IsPublish && v.Type == VoucherType.Private &&
+                            userId != null &&
+                            (v.UserId == userId ||
+                             v.VoucherUsers.Any(vu => !vu.IsDeleted && !vu.IsSaved && vu.UserId == userId)))
+                .ToListAsync();
+
+            var savedVouchers = await _context.Vouchers
+                .AsNoTracking()
+                .Include(v => v.VoucherUsers)
+                .Include(v => v.VoucherProducts)
+                .Include(v => v.VoucherCombos)
+                .Where(v => !v.IsDeleted && v.IsPublish &&
+                            userId != null &&
+                            v.VoucherUsers.Any(vu => !vu.IsDeleted && vu.IsSaved && vu.UserId == userId))
+                .ToListAsync();
+
+            var privateOptions = BuildVoucherOptionsList(
+                privateVouchers,
+                orderedAppliedVouchers,
+                sanitizedAppliedIds,
+                filteredItems,
+                subtotal,
+                userId,
+                false);
+
+            var savedOptions = BuildVoucherOptionsList(
+                savedVouchers,
+                orderedAppliedVouchers,
+                sanitizedAppliedIds,
+                filteredItems,
+                subtotal,
+                userId,
+                true);
+
+            return new CheckoutVoucherOptionsViewModel
+            {
+                PrivateVouchers = privateOptions,
+                SavedVouchers = savedOptions
+            };
+        }
+
+        private List<CheckoutVoucherOptionViewModel> BuildVoucherOptionsList(
+            IEnumerable<Voucher>? candidates,
+            IReadOnlyCollection<Voucher> appliedVouchers,
+            IReadOnlyCollection<long> appliedVoucherIds,
+            IReadOnlyCollection<CartItem> filteredItems,
+            double subtotal,
+            string? userId,
+            bool isSavedGroup)
+        {
+            var options = new List<CheckoutVoucherOptionViewModel>();
+            if (candidates == null)
+            {
+                return options;
+            }
+
+            var appliedIds = appliedVoucherIds?.ToHashSet() ?? new HashSet<long>();
+            var appliedVoucherList = appliedVouchers?.ToList() ?? new List<Voucher>();
+
+            foreach (var voucher in candidates)
+            {
+                if (voucher == null || appliedIds.Contains(voucher.Id))
+                {
+                    continue;
+                }
+
+                var combined = new List<Voucher>(appliedVoucherList) { voucher };
+                var limitError = ValidateCombinedVoucherLimits(combined);
+                if (limitError != null)
+                {
+                    continue;
+                }
+
+                var calculation = TryCalculateVoucherDiscount(voucher, filteredItems, subtotal, userId);
+                if (!calculation.Success || calculation.DiscountAmount <= 0)
+                {
+                    continue;
+                }
+
+                options.Add(new CheckoutVoucherOptionViewModel
+                {
+                    Id = voucher.Id,
+                    Code = voucher.Code,
+                    Name = voucher.Name,
+                    Description = voucher.Description,
+                    Type = voucher.Type,
+                    DiscountType = voucher.DiscountType,
+                    Discount = voucher.Discount,
+                    UnlimitedPercentageDiscount = voucher.UnlimitedPercentageDiscount,
+                    MaximumPercentageReduction = voucher.MaximumPercentageReduction,
+                    MinimumRequirements = voucher.MinimumRequirements,
+                    PotentialDiscount = calculation.DiscountAmount,
+                    IsSaved = isSavedGroup,
+                    IsLifeTime = voucher.IsLifeTime,
+                    StartTime = voucher.StartTime,
+                    EndTime = voucher.EndTime,
+                    Quantity = voucher.Quantity,
+                    Used = voucher.Used,
+                    HasCombinedUsageLimit = voucher.HasCombinedUsageLimit,
+                    MaxCombinedUsageCount = voucher.MaxCombinedUsageCount,
+                    Group = isSavedGroup ? "saved" : "private"
+                });
+            }
+
+            return options
+                .OrderByDescending(option => option.PotentialDiscount)
+                .ThenBy(option => option.MinimumRequirements)
+                .ThenBy(option => option.Name, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static (List<object> Private, List<object> Saved) ProjectVoucherOptions(CheckoutVoucherOptionsViewModel options)
+        {
+            if (options == null)
+            {
+                return (new List<object>(), new List<object>());
+            }
+
+            var privateOptions = options.PrivateVouchers?
+                .Select(ProjectVoucherOption)
+                .Cast<object>()
+                .ToList() ?? new List<object>();
+
+            var savedOptions = options.SavedVouchers?
+                .Select(ProjectVoucherOption)
+                .Cast<object>()
+                .ToList() ?? new List<object>();
+
+            return (privateOptions, savedOptions);
+        }
+
+        private static object ProjectVoucherOption(CheckoutVoucherOptionViewModel option)
+        {
+            return new
+            {
+                id = option.Id,
+                code = option.Code,
+                name = option.Name,
+                description = option.Description,
+                type = option.Type,
+                discountType = option.DiscountType,
+                discount = option.Discount,
+                unlimitedPercentageDiscount = option.UnlimitedPercentageDiscount,
+                maximumPercentageReduction = option.MaximumPercentageReduction,
+                minimumRequirements = option.MinimumRequirements,
+                potentialDiscount = option.PotentialDiscount,
+                isSaved = option.IsSaved,
+                isLifeTime = option.IsLifeTime,
+                startTime = option.StartTime,
+                endTime = option.EndTime,
+                quantity = option.Quantity,
+                used = option.Used,
+                hasCombinedUsageLimit = option.HasCombinedUsageLimit,
+                maxCombinedUsageCount = option.MaxCombinedUsageCount,
+                group = option.Group
             };
         }
 

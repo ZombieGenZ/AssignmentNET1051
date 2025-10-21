@@ -177,6 +177,47 @@
                                 <div id="voucher-result" class="mt-2"></div>
                             </div>
 
+                            <div id="available-vouchers-card" class="card border-0 bg-light mb-3">
+                                <div class="card-body p-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-3">
+                                        <h6 class="mb-0 fw-semibold">
+                                            <i class="fas fa-ticket-alt me-2"></i>Voucher của bạn
+                                        </h6>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary" id="refreshVoucherOptionsBtn">
+                                            <i class="fas fa-sync-alt me-1"></i>Làm mới
+                                        </button>
+                                    </div>
+                                    <ul class="nav nav-pills mb-3" id="voucherOptionsTabs" role="tablist">
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link active" id="private-vouchers-tab" data-bs-toggle="pill" data-bs-target="#private-vouchers-pane" type="button" role="tab" aria-controls="private-vouchers-pane" aria-selected="true">
+                                                Riêng tư <span class="badge bg-secondary ms-1" id="private-voucher-count">0</span>
+                                            </button>
+                                        </li>
+                                        <li class="nav-item" role="presentation">
+                                            <button class="nav-link" id="saved-vouchers-tab" data-bs-toggle="pill" data-bs-target="#saved-vouchers-pane" type="button" role="tab" aria-controls="saved-vouchers-pane" aria-selected="false">
+                                                Đã lưu <span class="badge bg-secondary ms-1" id="saved-voucher-count">0</span>
+                                            </button>
+                                        </li>
+                                    </ul>
+                                    <div id="voucher-options-message" class="mb-2 d-none"></div>
+                                    <div class="tab-content">
+                                        <div class="tab-pane fade show active" id="private-vouchers-pane" role="tabpanel" aria-labelledby="private-vouchers-tab">
+                                            <div id="private-voucher-container" class="d-grid gap-3"></div>
+                                        </div>
+                                        <div class="tab-pane fade" id="saved-vouchers-pane" role="tabpanel" aria-labelledby="saved-vouchers-tab">
+                                            <div id="saved-voucher-container" class="d-grid gap-3"></div>
+                                        </div>
+                                    </div>
+                                    <div id="voucher-options-loading" class="text-center py-3 d-none">
+                                        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+                                        <span class="ms-2 small">Đang tải voucher phù hợp...</span>
+                                    </div>
+                                    <div id="voucher-empty-placeholder" class="text-center text-muted small mt-2 d-none">
+                                        Bạn chưa có voucher phù hợp cho đơn hàng này.
+                                    </div>
+                                </div>
+                            </div>
+
                             <div id="applied-vouchers-wrapper" class="mb-3" style="display: none;">
                                 <h6 class="fw-semibold">Voucher đã áp dụng</h6>
                                 <ul class="list-group" id="applied-vouchers-list"></ul>
@@ -262,10 +303,22 @@
             const discountAmountEl = $('#discount-amount');
             const vatAmountEl = $('#vat-amount');
             const totalBillEl = $('#total-bill');
+            const voucherOptionsMessage = $('#voucher-options-message');
+            const voucherOptionsLoading = $('#voucher-options-loading');
+            const privateVoucherContainer = $('#private-voucher-container');
+            const savedVoucherContainer = $('#saved-voucher-container');
+            const privateVoucherCount = $('#private-voucher-count');
+            const savedVoucherCount = $('#saved-voucher-count');
+            const voucherEmptyPlaceholder = $('#voucher-empty-placeholder');
+            const refreshVoucherOptionsBtn = $('#refreshVoucherOptionsBtn');
             const initialAppliedVouchers = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialAppliedVouchers ?? new List<object>()));
+            const initialVoucherOptions = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialVoucherOptions ?? new { privateVouchers = new object[0], savedVouchers = new object[0] }));
             const initialTotalsData = @Html.Raw(JsonSerializer.Serialize(ViewBag.InitialVoucherTotals ?? new { totalDiscount = 0.0, vatAmount = totalPrice * 0.15, totalBill = totalPrice + (totalPrice * 0.15) }));
+            const discountTypePercent = @((int)VoucherDiscountType.Percent);
+            const getApplicableVouchersUrl = '@Url.Action("GetApplicableVouchers", "Order")';
 
             let appliedVouchers = [];
+            let voucherOptionsRequest = null;
 
             const initialTotals = {
                 totalDiscount: Number((initialTotalsData?.totalDiscount) || 0),
@@ -275,6 +328,42 @@
 
             function formatCurrency(value) {
                 return Number(value || 0).toLocaleString('vi-VN') + ' đ';
+            }
+
+            function formatDate(value) {
+                if (!value) {
+                    return null;
+                }
+
+                const parsed = new Date(value);
+                if (Number.isNaN(parsed.getTime())) {
+                    return null;
+                }
+
+                return parsed.toLocaleDateString('vi-VN');
+            }
+
+            function buildVoucherValidityText(option) {
+                if (option.isLifeTime) {
+                    return 'Không giới hạn';
+                }
+
+                const start = formatDate(option.startTime);
+                const end = formatDate(option.endTime);
+
+                if (start && end) {
+                    return `Hiệu lực ${start} - ${end}`;
+                }
+
+                if (end) {
+                    return `HSD đến ${end}`;
+                }
+
+                if (start) {
+                    return `Bắt đầu ${start}`;
+                }
+
+                return '';
             }
 
             function updateTotals(totalDiscount, vatAmount, totalBill) {
@@ -298,6 +387,130 @@
                 }
 
                 voucherResultDiv.html(`<div class="alert alert-${type} p-2">${message}</div>`);
+            }
+
+            function setVoucherOptionsMessage(message, type) {
+                if (!message) {
+                    voucherOptionsMessage.addClass('d-none').empty();
+                    return;
+                }
+
+                voucherOptionsMessage
+                    .removeClass('d-none')
+                    .html(`<div class="alert alert-${type} p-2 mb-0">${message}</div>`);
+            }
+
+            function buildVoucherOptionCard(option) {
+                const card = $('<div class="card shadow-sm"></div>');
+                const body = $('<div class="card-body p-3"></div>');
+                card.append(body);
+
+                const header = $('<div class="d-flex justify-content-between align-items-start mb-2"></div>');
+                const titleGroup = $('<div></div>');
+                $('<div class="text-uppercase fw-bold small text-primary mb-1"></div>').text(option.code || '').appendTo(titleGroup);
+                $('<h6 class="mb-0"></h6>').text(option.name || '').appendTo(titleGroup);
+                header.append(titleGroup);
+
+                const badge = $('<span class="badge rounded-pill"></span>');
+                if (option.group === 'saved') {
+                    badge.addClass('bg-success');
+                    badge.text('Đã lưu');
+                } else {
+                    badge.addClass('bg-primary');
+                    badge.text('Riêng tư');
+                }
+                header.append(badge);
+                body.append(header);
+
+                if (option.description) {
+                    $('<p class="mb-2 small text-muted"></p>').text(option.description).appendTo(body);
+                }
+
+                const infoList = $('<div class="d-flex flex-wrap gap-2 small"></div>');
+                const discountText = option.discountType === discountTypePercent
+                    ? `Giảm ${Number(option.discount || 0)}%`
+                    : `Giảm ${formatCurrency(option.discount)}`;
+                $('<span class="badge bg-light text-dark border"></span>').text(discountText).appendTo(infoList);
+
+                if (Number(option.potentialDiscount || 0) > 0) {
+                    $('<span class="badge bg-success"></span>')
+                        .text(`Tiết kiệm ${formatCurrency(option.potentialDiscount)}`)
+                        .appendTo(infoList);
+                }
+
+                if (Number(option.minimumRequirements || 0) > 0) {
+                    $('<span class="badge bg-light text-dark border"></span>')
+                        .text(`ĐH tối thiểu ${formatCurrency(option.minimumRequirements)}`)
+                        .appendTo(infoList);
+                }
+
+                const remaining = Number(option.quantity || 0) - Number(option.used || 0);
+                if (Number(option.quantity || 0) > 0 && remaining > 0) {
+                    $('<span class="badge bg-light text-dark border"></span>')
+                        .text(`Còn ${remaining} lượt`)
+                        .appendTo(infoList);
+                }
+
+                if (option.hasCombinedUsageLimit && Number(option.maxCombinedUsageCount || 0) > 0) {
+                    $('<span class="badge bg-light text-dark border"></span>')
+                        .text(`Tối đa ${option.maxCombinedUsageCount} voucher`)
+                        .appendTo(infoList);
+                }
+
+                const validityText = buildVoucherValidityText(option);
+                if (validityText) {
+                    $('<span class="badge bg-light text-dark border"></span>')
+                        .text(validityText)
+                        .appendTo(infoList);
+                }
+
+                if (infoList.children().length) {
+                    body.append(infoList);
+                }
+
+                const actions = $('<div class="d-grid mt-3"></div>');
+                const optionButton = $('<button type="button" class="btn btn-outline-primary">Áp dụng</button>');
+                optionButton.on('click', function () {
+                    voucherCodeInput.val(option.code || '');
+                    applyVoucher(option.code || '', optionButton);
+                });
+                actions.append(optionButton);
+                body.append(actions);
+
+                return card;
+            }
+
+            function populateVoucherContainer(container, vouchers, defaultGroup) {
+                container.empty();
+
+                if (!Array.isArray(vouchers) || !vouchers.length) {
+                    container.append('<div class="text-center text-muted small py-3">Không có voucher phù hợp.</div>');
+                    return 0;
+                }
+
+                vouchers.forEach(voucher => {
+                    const normalized = $.extend({}, voucher, { group: voucher.group || defaultGroup });
+                    container.append(buildVoucherOptionCard(normalized));
+                });
+
+                return vouchers.length;
+            }
+
+            function renderVoucherOptions(options) {
+                const privateList = Array.isArray(options?.privateVouchers) ? options.privateVouchers : [];
+                const savedList = Array.isArray(options?.savedVouchers) ? options.savedVouchers : [];
+
+                const privateCountValue = populateVoucherContainer(privateVoucherContainer, privateList, 'private');
+                const savedCountValue = populateVoucherContainer(savedVoucherContainer, savedList, 'saved');
+
+                privateVoucherCount.text(privateCountValue);
+                savedVoucherCount.text(savedCountValue);
+
+                if ((privateCountValue + savedCountValue) === 0) {
+                    voucherEmptyPlaceholder.removeClass('d-none');
+                } else {
+                    voucherEmptyPlaceholder.addClass('d-none');
+                }
             }
 
             function renderAppliedVouchers() {
@@ -351,18 +564,28 @@
 
                 updateTotals(response.totalDiscount || 0, response.vatAmount || 0, response.totalBill || 0);
                 renderAppliedVouchers();
+                fetchAvailableVouchers(false);
                 return true;
             }
 
-            function applyVoucher() {
-                const voucherCode = voucherCodeInput.val()?.trim();
+            function applyVoucher(voucherCodeOverride, triggerButton) {
+                const codeSource = typeof voucherCodeOverride === 'string' ? voucherCodeOverride : null;
+                const voucherCode = (codeSource ?? voucherCodeInput.val() ?? '').trim();
+
                 if (!voucherCode) {
                     resetVoucherFeedback('Vui lòng nhập mã giảm giá.', 'warning');
                     return;
                 }
 
-                applyBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...');
                 resetVoucherFeedback('', '');
+
+                let originalTriggerContent = null;
+                if (triggerButton && triggerButton.length) {
+                    originalTriggerContent = triggerButton.html();
+                    triggerButton.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang áp dụng...');
+                } else {
+                    applyBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý...');
+                }
 
                 $.ajax({
                     url: '@Url.Action("ApplyVoucher", "Order")',
@@ -386,7 +609,11 @@
                         resetVoucherFeedback('Có lỗi xảy ra. Vui lòng thử lại.', 'danger');
                     },
                     complete: function () {
-                        applyBtn.prop('disabled', false).removeClass('btn-danger').addClass('btn-outline-secondary').html('Áp dụng');
+                        if (triggerButton && triggerButton.length) {
+                            triggerButton.prop('disabled', false).html(originalTriggerContent);
+                        } else {
+                            applyBtn.prop('disabled', false).removeClass('btn-danger').addClass('btn-outline-secondary').html('Áp dụng');
+                        }
                     }
                 });
             }
@@ -425,6 +652,47 @@
                 });
             }
 
+            function fetchAvailableVouchers(showLoading = true) {
+                if (voucherOptionsRequest && typeof voucherOptionsRequest.abort === 'function') {
+                    voucherOptionsRequest.abort();
+                }
+
+                if (showLoading) {
+                    voucherOptionsLoading.removeClass('d-none');
+                }
+
+                setVoucherOptionsMessage('', '');
+                refreshVoucherOptionsBtn.prop('disabled', true);
+
+                voucherOptionsRequest = $.ajax({
+                    url: getApplicableVouchersUrl,
+                    type: 'POST',
+                    data: {
+                        selectedCartItemIds: selectedCartItemsInput.val(),
+                        appliedVoucherIds: appliedVouchers.map(voucher => voucher.id)
+                    },
+                    headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
+                    traditional: true,
+                    success: function (response) {
+                        if (response && response.success) {
+                            renderVoucherOptions(response);
+                        } else {
+                            setVoucherOptionsMessage(response?.error || 'Không thể tải danh sách voucher.', 'danger');
+                        }
+                    },
+                    error: function (_xhr, status) {
+                        if (status !== 'abort') {
+                            setVoucherOptionsMessage('Có lỗi xảy ra khi tải danh sách voucher.', 'danger');
+                        }
+                    },
+                    complete: function () {
+                        voucherOptionsLoading.addClass('d-none');
+                        refreshVoucherOptionsBtn.prop('disabled', false);
+                        voucherOptionsRequest = null;
+                    }
+                });
+            }
+
             function initializeFromServer() {
                 if (Array.isArray(initialAppliedVouchers) && initialAppliedVouchers.length) {
                     appliedVouchers = initialAppliedVouchers.map(voucher => ({
@@ -442,15 +710,34 @@
                 renderAppliedVouchers();
             }
 
-            initializeFromServer();
+            function initializeVoucherOptions() {
+                const normalizedOptions = (initialVoucherOptions && typeof initialVoucherOptions === 'object')
+                    ? initialVoucherOptions
+                    : { privateVouchers: [], savedVouchers: [] };
+                renderVoucherOptions(normalizedOptions);
+            }
 
-            applyBtn.on('click', applyVoucher);
+            initializeFromServer();
+            initializeVoucherOptions();
+
+            applyBtn.on('click', function (event) {
+                event.preventDefault();
+                applyVoucher();
+            });
+
             voucherCodeInput.on('keypress', function (event) {
                 if (event.which === 13) {
                     event.preventDefault();
                     applyVoucher();
                 }
             });
+
+            if (refreshVoucherOptionsBtn.length) {
+                refreshVoucherOptionsBtn.on('click', function (event) {
+                    event.preventDefault();
+                    fetchAvailableVouchers();
+                });
+            }
         });
     </script>
 }
