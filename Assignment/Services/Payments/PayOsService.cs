@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -15,6 +17,12 @@ namespace Assignment.Services.Payments
     public class PayOsService : IPayOsService
     {
         private const string PaymentRequestEndpoint = "payment-requests";
+        private static readonly string[] KnownBaseUrls =
+        {
+            "https://api-merchant.payos.vn/v2/",
+            "https://api.payos.vn/v2/"
+        };
+
         private readonly HttpClient _httpClient;
         private readonly ILogger<PayOsService> _logger;
         private readonly PayOsOptions _options;
@@ -25,19 +33,8 @@ namespace Assignment.Services.Payments
             _logger = logger;
             _options = options.Value;
 
-            var baseUrl = string.IsNullOrWhiteSpace(_options.BaseUrl) ? "https://api.payos.vn/v2/" : _options.BaseUrl.Trim();
-            if (!baseUrl.EndsWith("/", StringComparison.Ordinal))
-            {
-                baseUrl += "/";
-            }
-            if (_httpClient.BaseAddress == null)
-            {
-                _httpClient.BaseAddress = new Uri(baseUrl);
-            }
-            else if (_httpClient.BaseAddress.AbsoluteUri != baseUrl)
-            {
-                _httpClient.BaseAddress = new Uri(baseUrl);
-            }
+            var resolvedBaseUrl = ResolveBaseUrl(_options.BaseUrl);
+            EnsureBaseAddress(resolvedBaseUrl);
 
             ConfigureDefaultHeaders();
         }
@@ -188,6 +185,76 @@ namespace Assignment.Services.Payments
             }
 
             return builder.ToString();
+        }
+
+        private void EnsureBaseAddress(string baseUrl)
+        {
+            var normalizedBase = EnsureTrailingSlash(baseUrl);
+            if (_httpClient.BaseAddress?.AbsoluteUri != normalizedBase)
+            {
+                _httpClient.BaseAddress = new Uri(normalizedBase);
+            }
+        }
+
+        private string ResolveBaseUrl(string? configuredBaseUrl)
+        {
+            var candidates = BuildBaseUrlCandidates(configuredBaseUrl);
+
+            foreach (var candidate in candidates)
+            {
+                if (!Uri.TryCreate(EnsureTrailingSlash(candidate), UriKind.Absolute, out var candidateUri))
+                {
+                    _logger.LogWarning("Ignoring invalid PayOS base URL '{BaseUrl}'.", candidate);
+                    continue;
+                }
+
+                if (!CanResolveHost(candidateUri.Host))
+                {
+                    _logger.LogWarning("PayOS base URL '{BaseUrl}' could not be resolved via DNS. Trying next candidate.", candidateUri.AbsoluteUri);
+                    continue;
+                }
+
+                return candidateUri.AbsoluteUri;
+            }
+
+            var fallback = EnsureTrailingSlash(KnownBaseUrls[0]);
+            _logger.LogWarning("Falling back to default PayOS base URL '{BaseUrl}' after all candidates failed.", fallback);
+            return fallback;
+        }
+
+        private static IEnumerable<string> BuildBaseUrlCandidates(string? configuredBaseUrl)
+        {
+            if (!string.IsNullOrWhiteSpace(configuredBaseUrl))
+            {
+                yield return configuredBaseUrl.Trim();
+            }
+
+            foreach (var baseUrl in KnownBaseUrls)
+            {
+                yield return baseUrl;
+            }
+        }
+
+        private static bool CanResolveHost(string host)
+        {
+            try
+            {
+                return Dns.GetHostAddresses(host).Length > 0;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        private static string EnsureTrailingSlash(string url)
+        {
+            if (string.IsNullOrWhiteSpace(url))
+            {
+                return string.Empty;
+            }
+
+            return url.EndsWith("/", StringComparison.Ordinal) ? url : url + "/";
         }
 
         private static string? NormalizeInput(string? value)
