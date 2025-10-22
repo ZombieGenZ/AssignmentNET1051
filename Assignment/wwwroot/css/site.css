@@ -20,3 +20,34 @@ html {
 body {
   margin-bottom: 60px;
 }
+
+.management-pagination {
+  width: 100%;
+  gap: 1rem;
+}
+
+.management-pagination__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-start;
+}
+
+.management-pagination__actions .btn {
+  min-width: 120px;
+}
+
+.management-pagination__actions .pagination {
+  margin-bottom: 0;
+}
+
+.management-pagination__summary {
+  color: #6c757d;
+}
+
+@media (min-width: 768px) {
+  .management-pagination__actions {
+    justify-content: flex-end;
+  }
+}

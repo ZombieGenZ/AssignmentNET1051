@@ -45,6 +45,9 @@ namespace Assignment.Controllers
                 filter.PrimaryStart!.Value, filter.PrimaryEnd!.Value);
             viewModel.PrimarySeries = primarySeries;
 
+            viewModel.ProductDistribution = await BuildProductDistributionAsync(filter.PeriodType,
+                filter.PrimaryStart.Value, filter.PrimaryEnd.Value);
+
             if (filter.CompareStart.HasValue && filter.CompareEnd.HasValue)
             {
                 var compareSeries = await BuildSeriesAsync("So sánh", filter.PeriodType,
@@ -146,6 +149,68 @@ namespace Assignment.Controllers
             totalRange.Style.Border.TopBorder = XLBorderStyleValues.Thin;
             totalRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
             currentRow += 2;
+        }
+
+        private async Task<List<ProductRevenueDistributionViewModel>> BuildProductDistributionAsync(StatisticsPeriodType periodType,
+            DateTime startDate, DateTime endDate)
+        {
+            var (startInclusive, endInclusive) = GetActualRange(periodType, startDate, endDate);
+            var endExclusive = endInclusive.AddTicks(1);
+
+            var items = await _context.OrderItems
+                .AsNoTracking()
+                .Where(item => !item.IsDeleted && item.Order != null && !item.Order.IsDeleted &&
+                               RevenueStatuses.Contains(item.Order.Status) &&
+                               item.Order.CreatedAt >= startInclusive && item.Order.CreatedAt < endExclusive)
+                .Select(item => new
+                {
+                    item.ProductId,
+                    ProductName = item.Product != null ? item.Product.Name : null,
+                    item.ComboId,
+                    ComboName = item.Combo != null ? item.Combo.Name : null,
+                    Revenue = item.Price * item.Quantity
+                })
+                .ToListAsync();
+
+            var grouped = items
+                .GroupBy(item => item.ProductId.HasValue
+                    ? item.ProductName ?? $"Sản phẩm #{item.ProductId}"
+                    : item.ComboId.HasValue
+                        ? item.ComboName ?? $"Combo #{item.ComboId}"
+                        : "Khác")
+                .Select(group => new
+                {
+                    Name = group.Key,
+                    Revenue = group.Sum(x => x.Revenue)
+                })
+                .Where(result => result.Revenue > 0)
+                .OrderByDescending(result => result.Revenue)
+                .ToList();
+
+            if (grouped.Count > 10)
+            {
+                var leading = grouped.Take(9).ToList();
+                var othersRevenue = grouped.Skip(9).Sum(item => item.Revenue);
+                if (othersRevenue > 0)
+                {
+                    leading.Add(new { Name = "Khác", Revenue = othersRevenue });
+                }
+
+                grouped = leading;
+            }
+
+            var totalRevenue = grouped.Sum(item => item.Revenue);
+
+            return grouped
+                .Select(item => new ProductRevenueDistributionViewModel
+                {
+                    Name = item.Name,
+                    TotalBill = Math.Round(item.Revenue, 2),
+                    Percentage = totalRevenue > 0
+                        ? Math.Round(item.Revenue / totalRevenue * 100, 2)
+                        : 0
+                })
+                .ToList();
         }
 
         private async Task<StatisticsSeriesViewModel> BuildSeriesAsync(string name, StatisticsPeriodType periodType,
@@ -412,8 +477,24 @@ namespace Assignment.Controllers
                     break;
 
                 case StatisticsPeriodType.Day:
-                    var startDay = (filter.PrimaryStart ?? new DateTime(today.Year, today.Month, 1)).Date;
-                    var endDay = (filter.PrimaryEnd ?? startDay).Date;
+                    var defaultStart = new DateTime(today.Year, today.Month, 1);
+                    var defaultEnd = defaultStart.AddMonths(1).AddDays(-1);
+                    var startDay = (filter.PrimaryStart ?? defaultStart).Date;
+                    DateTime endDay;
+
+                    if (filter.PrimaryEnd.HasValue)
+                    {
+                        endDay = filter.PrimaryEnd.Value.Date;
+                    }
+                    else if (filter.PrimaryStart.HasValue)
+                    {
+                        endDay = startDay;
+                    }
+                    else
+                    {
+                        endDay = defaultEnd.Date;
+                    }
+
                     if (endDay < startDay)
                     {
                         (startDay, endDay) = (endDay, startDay);

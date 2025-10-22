@@ -1,4 +1,4 @@
-﻿:root {
+:root {
     --sidebar-width: 260px;
     --header-height: 60px;
     --primary-color: #4e73df;
@@ -147,6 +147,33 @@ body {
     font-size: 1.2rem;
     color: var(--text-muted);
     cursor: pointer;
+}
+
+.management-pagination {
+    width: 100%;
+    gap: 1rem;
+}
+
+.management-pagination__summary {
+    color: var(--text-muted);
+}
+
+.management-pagination__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.management-pagination__actions .pagination {
+    margin-bottom: 0;
+}
+
+@media (min-width: 768px) {
+    .management-pagination__actions {
+        justify-content: flex-end;
+    }
 }
 
 .badge-notification {

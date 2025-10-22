@@ -302,9 +302,9 @@
 
                 @if (hasPagination)
                 {
-                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4">
-                        <div class="text-muted small">Trang <strong>@currentPage</strong> / <strong>@totalPages</strong></div>
-                        <nav aria-label="Điều hướng trang đơn hàng">
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4 management-pagination">
+                        <div class="text-muted small management-pagination__summary">Trang <strong>@currentPage</strong> / <strong>@totalPages</strong></div>
+                        <nav aria-label="Điều hướng trang đơn hàng" class="management-pagination__actions">
                             <ul class="pagination justify-content-md-end mb-0">
                                 <li class="page-item @(currentPage == 1 ? "disabled" : string.Empty)">
                                     <a class="page-link" asp-action="Manage" asp-route-status="@(statusFilter?.ToString())" asp-route-search="@searchTerm" asp-route-page="@(currentPage - 1)" asp-route-pageSize="@pageSize">
