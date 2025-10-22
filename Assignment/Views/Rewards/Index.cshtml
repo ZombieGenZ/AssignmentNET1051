@@ -95,6 +95,9 @@
                             }
                             <th>Tên vật phẩm</th>
                             <th>Điểm đổi thưởng</th>
+                            <th>Giảm giá</th>
+                            <th>Phạm vi áp dụng</th>
+                            <th>Đơn tối thiểu</th>
                             <th>Yêu cầu cấp bậc</th>
                             <th>Số lượng</th>
                             <th>Thời hạn hiệu lực</th>
@@ -104,7 +107,7 @@
                     </thead>
                     <tbody id="rewardsTableBody">
                         <tr>
-                            <td colspan="@(canDelete ? 8 : 7)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="@(canDelete ? 11 : 10)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -139,12 +142,18 @@
                 <div id="rewardFormErrors" class="alert alert-danger d-none" role="alert"></div>
                 <div class="row g-3">
                     <div class="col-md-6">
-                        <label for="rewardName" class="form-label">Tên vật phẩm<span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="rewardName" maxlength="300" required />
+                        <label for="rewardType" class="form-label">Loại vật phẩm</label>
+                        <select id="rewardType" class="form-select">
+                            <option value="@((int)RewardItemType.Voucher)">Mã giảm giá</option>
+                        </select>
                     </div>
                     <div class="col-md-6">
                         <label for="rewardPointCost" class="form-label">Điểm đổi thưởng<span class="text-danger">*</span></label>
                         <input type="number" min="0" step="1" class="form-control" id="rewardPointCost" required />
+                    </div>
+                    <div class="col-12">
+                        <label for="rewardName" class="form-label">Tên vật phẩm<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="rewardName" maxlength="300" required />
                     </div>
                     <div class="col-12">
                         <label for="rewardDescription" class="form-label">Mô tả<span class="text-danger">*</span></label>
@@ -179,12 +188,74 @@
                                 <option value="@((int)RewardValidityUnit.Year)">Năm</option>
                             </select>
                         </div>
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="rewardValidityUnlimited" />
+                            <label class="form-check-label" for="rewardValidityUnlimited">Không giới hạn thời gian sử dụng</label>
+                        </div>
                     </div>
-                    <div class="col-md-6 d-flex align-items-end">
-                        <div class="form-check form-switch">
+                    <div class="col-md-6 d-flex flex-column justify-content-end">
+                        <div class="form-check form-switch mb-2">
                             <input class="form-check-input" type="checkbox" id="rewardIsPublish" />
                             <label class="form-check-label" for="rewardIsPublish">Cho phép sử dụng</label>
                         </div>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="rewardVoucherIsForNewUsersOnly" />
+                            <label class="form-check-label" for="rewardVoucherIsForNewUsersOnly">Chỉ áp dụng cho khách hàng mới</label>
+                        </div>
+                    </div>
+                    <div class="col-12">
+                        <hr class="text-muted" />
+                        <h6 class="text-primary">Thông tin mã giảm giá</h6>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="rewardVoucherDiscountType" class="form-label">Kiểu giảm giá</label>
+                        <select id="rewardVoucherDiscountType" class="form-select">
+                            <option value="@((int)VoucherDiscountType.Money)">Tiền mặt</option>
+                            <option value="@((int)VoucherDiscountType.Percent)">Phần trăm</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="rewardVoucherDiscount" class="form-label">Giá trị giảm<span class="text-danger">*</span></label>
+                        <input type="number" min="0" step="0.01" class="form-control" id="rewardVoucherDiscount" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label for="rewardVoucherMinimumRequirements" class="form-label">Đơn tối thiểu<span class="text-danger">*</span></label>
+                        <input type="number" min="0" step="0.01" class="form-control" id="rewardVoucherMinimumRequirements" required />
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="rewardVoucherUnlimitedPercentage" />
+                            <label class="form-check-label" for="rewardVoucherUnlimitedPercentage">Không giới hạn mức giảm tối đa (áp dụng cho giảm phần trăm)</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardVoucherMaximumPercentageReduction" class="form-label">Mức giảm tối đa</label>
+                        <input type="number" min="0" step="0.01" class="form-control" id="rewardVoucherMaximumPercentageReduction" />
+                        <small class="text-muted">Áp dụng khi giảm theo phần trăm và có giới hạn.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="rewardVoucherHasCombinedLimit" />
+                            <label class="form-check-label" for="rewardVoucherHasCombinedLimit">Giới hạn số voucher áp dụng chung</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardVoucherMaxCombinedUsageCount" class="form-label">Số voucher áp dụng chung tối đa</label>
+                        <input type="number" min="1" step="1" class="form-control" id="rewardVoucherMaxCombinedUsageCount" />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardVoucherProductScope" class="form-label">Phạm vi sản phẩm</label>
+                        <select id="rewardVoucherProductScope" class="form-select">
+                            <option value="@((int)VoucherProductScope.AllProducts)">Tất cả sản phẩm</option>
+                            <option value="@((int)VoucherProductScope.NoProducts)">Không áp dụng sản phẩm</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardVoucherComboScope" class="form-label">Phạm vi combo</label>
+                        <select id="rewardVoucherComboScope" class="form-select">
+                            <option value="@((int)VoucherComboScope.AllCombos)">Tất cả combo</option>
+                            <option value="@((int)VoucherComboScope.NoCombos)">Không áp dụng combo</option>
+                        </select>
                     </div>
                 </div>
             </div>
@@ -300,6 +371,7 @@
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
 
             const formFields = {
+                typeSelect: document.getElementById('rewardType'),
                 nameInput: document.getElementById('rewardName'),
                 descriptionInput: document.getElementById('rewardDescription'),
                 pointCostInput: document.getElementById('rewardPointCost'),
@@ -307,7 +379,18 @@
                 quantityInput: document.getElementById('rewardQuantity'),
                 validityValueInput: document.getElementById('rewardValidityValue'),
                 validityUnitSelect: document.getElementById('rewardValidityUnit'),
-                isPublishSwitch: document.getElementById('rewardIsPublish')
+                validityUnlimitedSwitch: document.getElementById('rewardValidityUnlimited'),
+                isPublishSwitch: document.getElementById('rewardIsPublish'),
+                voucherIsForNewUsersOnlySwitch: document.getElementById('rewardVoucherIsForNewUsersOnly'),
+                voucherDiscountTypeSelect: document.getElementById('rewardVoucherDiscountType'),
+                voucherDiscountInput: document.getElementById('rewardVoucherDiscount'),
+                voucherMinimumRequirementsInput: document.getElementById('rewardVoucherMinimumRequirements'),
+                voucherUnlimitedPercentageSwitch: document.getElementById('rewardVoucherUnlimitedPercentage'),
+                voucherMaximumPercentageInput: document.getElementById('rewardVoucherMaximumPercentageReduction'),
+                voucherHasCombinedLimitSwitch: document.getElementById('rewardVoucherHasCombinedLimit'),
+                voucherMaxCombinedInput: document.getElementById('rewardVoucherMaxCombinedUsageCount'),
+                voucherProductScopeSelect: document.getElementById('rewardVoucherProductScope'),
+                voucherComboScopeSelect: document.getElementById('rewardVoucherComboScope')
             };
 
             const rankLabels = {
@@ -325,8 +408,27 @@
                 '@((int)RewardValidityUnit.Day)': 'Ngày',
                 '@((int)RewardValidityUnit.Week)': 'Tuần',
                 '@((int)RewardValidityUnit.Month)': 'Tháng',
-                '@((int)RewardValidityUnit.Year)': 'Năm'
+                '@((int)RewardValidityUnit.Year)': 'Năm',
+                '@((int)RewardValidityUnit.Forever)': 'Vĩnh viễn'
             };
+
+            const productScopeLabels = {
+                '@((int)VoucherProductScope.AllProducts)': 'Tất cả sản phẩm',
+                '@((int)VoucherProductScope.NoProducts)': 'Không áp dụng sản phẩm'
+            };
+
+            const comboScopeLabels = {
+                '@((int)VoucherComboScope.AllCombos)': 'Tất cả combo',
+                '@((int)VoucherComboScope.NoCombos)': 'Không áp dụng combo'
+            };
+
+            const discountTypeLabels = {
+                '@((int)VoucherDiscountType.Money)': 'Tiền mặt',
+                '@((int)VoucherDiscountType.Percent)': 'Phần trăm'
+            };
+
+            const DISCOUNT_TYPE_PERCENT = @((int)VoucherDiscountType.Percent);
+            const VALIDITY_UNIT_FOREVER = @((int)RewardValidityUnit.Forever);
 
             const state = {
                 items: [],
@@ -368,12 +470,52 @@
             }
 
             function formatValidity(item) {
-                if (!item || !item.validityValue) {
+                if (!item) {
                     return 'Không xác định';
                 }
+
+                if (item.isValidityUnlimited || item.validityUnit === VALIDITY_UNIT_FOREVER) {
+                    return 'Vĩnh viễn';
+                }
+
+                if (!item.validityValue) {
+                    return 'Không xác định';
+                }
+
                 const unitKey = String(item.validityUnit);
                 const unitText = validityUnitLabels[unitKey] ?? 'Ngày';
                 return `${Number(item.validityValue).toLocaleString('vi-VN')} ${unitText}`;
+            }
+
+            function formatDiscount(item) {
+                if (!item) {
+                    return 'Không xác định';
+                }
+
+                const discountValue = Number(item.voucherDiscount) || 0;
+                if (item.voucherDiscountType === DISCOUNT_TYPE_PERCENT) {
+                    const unlimited = item.voucherUnlimitedPercentageDiscount;
+                    const baseText = `${discountValue.toLocaleString('vi-VN')}%`;
+                    if (unlimited) {
+                        return `${baseText} (không giới hạn)`;
+                    }
+
+                    const maximum = Number(item.voucherMaximumPercentageReduction) || 0;
+                    const maxText = maximum > 0 ? `${formatCurrency(maximum)} đ` : 'Không xác định';
+                    return `${baseText} (tối đa ${maxText})`;
+                }
+
+                return `${formatCurrency(discountValue)} đ`;
+            }
+
+            function formatScope(item) {
+                if (!item) {
+                    return 'Không xác định';
+                }
+
+                const productText = productScopeLabels[String(item.voucherProductScope)] ?? 'Không xác định';
+                const comboText = comboScopeLabels[String(item.voucherComboScope)] ?? 'Không xác định';
+                return `<div><div><strong>SP:</strong> ${productText}</div><div><strong>Combo:</strong> ${comboText}</div></div>`;
             }
 
             function updateBulkActionsVisibility() {
@@ -405,13 +547,13 @@
 
             function renderTable() {
                 if (!canView) {
-                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 8 : 7}" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách vật phẩm.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách vật phẩm.</td></tr>`;
                     tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
                     return;
                 }
 
                 if (!state.items.length) {
-                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 8 : 7}" class="text-center py-4 text-muted">Không có vật phẩm nào để hiển thị.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center py-4 text-muted">Không có vật phẩm nào để hiển thị.</td></tr>`;
                     tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
                     return;
                 }
@@ -423,6 +565,9 @@
                         ? `${Number(item.redeemed).toLocaleString('vi-VN')} / ${Number(item.quantity).toLocaleString('vi-VN')}`
                         : `${Number(item.redeemed).toLocaleString('vi-VN')} / Không giới hạn`;
                     const validityText = formatValidity(item);
+                    const discountText = formatDiscount(item);
+                    const scopeText = formatScope(item);
+                    const minimumRequirementsText = `${formatCurrency(item.voucherMinimumRequirements)} đ`;
 
                     const statusBadge = item.isPublish
                         ? '<span class="badge bg-success">Cho phép</span>'
@@ -448,6 +593,9 @@
                             ${selectCell}
                             <td class="fw-semibold">${item.name}</td>
                             <td>${formatCurrency(item.pointCost)} điểm</td>
+                            <td>${discountText}</td>
+                            <td>${scopeText}</td>
+                            <td>${minimumRequirementsText}</td>
                             <td>${rankText}</td>
                             <td>${quantityText}</td>
                             <td>${validityText}</td>
@@ -504,8 +652,118 @@
                 rewardFormErrors.innerHTML = '';
                 state.formMode = 'create';
                 state.editingId = null;
-                formFields.minimumRankSelect.value = '';
-                formFields.isPublishSwitch.checked = true;
+                if (formFields.typeSelect) {
+                    formFields.typeSelect.value = '@((int)RewardItemType.Voucher)';
+                }
+                if (formFields.minimumRankSelect) {
+                    formFields.minimumRankSelect.value = '';
+                }
+                if (formFields.validityUnitSelect) {
+                    formFields.validityUnitSelect.value = '@((int)RewardValidityUnit.Day)';
+                }
+                if (formFields.validityValueInput) {
+                    formFields.validityValueInput.value = 1;
+                }
+                if (formFields.validityUnlimitedSwitch) {
+                    formFields.validityUnlimitedSwitch.checked = false;
+                }
+                if (formFields.isPublishSwitch) {
+                    formFields.isPublishSwitch.checked = true;
+                }
+                if (formFields.voucherIsForNewUsersOnlySwitch) {
+                    formFields.voucherIsForNewUsersOnlySwitch.checked = false;
+                }
+                if (formFields.voucherDiscountTypeSelect) {
+                    formFields.voucherDiscountTypeSelect.value = '@((int)VoucherDiscountType.Money)';
+                }
+                if (formFields.voucherDiscountInput) {
+                    formFields.voucherDiscountInput.value = '';
+                }
+                if (formFields.voucherMinimumRequirementsInput) {
+                    formFields.voucherMinimumRequirementsInput.value = 0;
+                }
+                if (formFields.voucherUnlimitedPercentageSwitch) {
+                    formFields.voucherUnlimitedPercentageSwitch.checked = false;
+                }
+                if (formFields.voucherMaximumPercentageInput) {
+                    formFields.voucherMaximumPercentageInput.value = '';
+                }
+                if (formFields.voucherHasCombinedLimitSwitch) {
+                    formFields.voucherHasCombinedLimitSwitch.checked = false;
+                }
+                if (formFields.voucherMaxCombinedInput) {
+                    formFields.voucherMaxCombinedInput.value = '';
+                }
+                if (formFields.voucherProductScopeSelect) {
+                    formFields.voucherProductScopeSelect.value = '@((int)VoucherProductScope.AllProducts)';
+                }
+                if (formFields.voucherComboScopeSelect) {
+                    formFields.voucherComboScopeSelect.value = '@((int)VoucherComboScope.AllCombos)';
+                }
+
+                updateValidityControls();
+                updatePercentageControls();
+                updateCombinedLimitControls();
+            }
+
+            function updateValidityControls() {
+                if (!formFields.validityUnlimitedSwitch) {
+                    return;
+                }
+
+                const isUnlimited = formFields.validityUnlimitedSwitch.checked;
+                if (formFields.validityValueInput) {
+                    formFields.validityValueInput.disabled = isUnlimited;
+                    if (isUnlimited) {
+                        formFields.validityValueInput.value = '';
+                    } else if (!formFields.validityValueInput.value) {
+                        formFields.validityValueInput.value = 1;
+                    }
+                }
+
+                if (formFields.validityUnitSelect) {
+                    formFields.validityUnitSelect.disabled = isUnlimited;
+                    if (isUnlimited) {
+                        formFields.validityUnitSelect.value = String(VALIDITY_UNIT_FOREVER);
+                    } else if (formFields.validityUnitSelect.value === String(VALIDITY_UNIT_FOREVER)) {
+                        formFields.validityUnitSelect.value = '@((int)RewardValidityUnit.Day)';
+                    }
+                }
+            }
+
+            function updatePercentageControls() {
+                if (!formFields.voucherDiscountTypeSelect) {
+                    return;
+                }
+
+                const isPercent = Number(formFields.voucherDiscountTypeSelect.value) === DISCOUNT_TYPE_PERCENT;
+
+                if (formFields.voucherUnlimitedPercentageSwitch) {
+                    formFields.voucherUnlimitedPercentageSwitch.disabled = !isPercent;
+                    if (!isPercent) {
+                        formFields.voucherUnlimitedPercentageSwitch.checked = false;
+                    }
+                }
+
+                const shouldDisableMaximum = !isPercent || (formFields.voucherUnlimitedPercentageSwitch && formFields.voucherUnlimitedPercentageSwitch.checked);
+                if (formFields.voucherMaximumPercentageInput) {
+                    formFields.voucherMaximumPercentageInput.disabled = shouldDisableMaximum;
+                    if (shouldDisableMaximum) {
+                        formFields.voucherMaximumPercentageInput.value = '';
+                    }
+                }
+            }
+
+            function updateCombinedLimitControls() {
+                if (!formFields.voucherHasCombinedLimitSwitch || !formFields.voucherMaxCombinedInput) {
+                    return;
+                }
+
+                const hasLimit = formFields.voucherHasCombinedLimitSwitch.checked;
+                formFields.voucherMaxCombinedInput.disabled = !hasLimit;
+                if (!hasLimit) {
+                    formFields.voucherMaxCombinedInput.value = '';
+                }
             }
 
             async function loadRewards() {
@@ -553,15 +811,35 @@
             }
 
             function collectFormData() {
+                const isValidityUnlimited = formFields.validityUnlimitedSwitch ? formFields.validityUnlimitedSwitch.checked : false;
+                const selectedValidityUnit = Number(formFields.validityUnitSelect?.value || 0);
+                const validityUnit = isValidityUnlimited ? VALIDITY_UNIT_FOREVER : selectedValidityUnit;
+                const discountType = Number(formFields.voucherDiscountTypeSelect?.value || @((int)VoucherDiscountType.Money));
+                const isPercentDiscount = discountType === DISCOUNT_TYPE_PERCENT;
+                const unlimitedPercentage = isPercentDiscount && (formFields.voucherUnlimitedPercentageSwitch?.checked ?? false);
+                const hasCombinedLimit = formFields.voucherHasCombinedLimitSwitch?.checked ?? false;
+
                 return {
+                    type: Number(formFields.typeSelect?.value || @((int)RewardItemType.Voucher)),
                     name: formFields.nameInput.value?.trim(),
                     description: formFields.descriptionInput.value?.trim(),
                     pointCost: Number(formFields.pointCostInput.value || 0),
                     minimumRank: formFields.minimumRankSelect.value ? Number(formFields.minimumRankSelect.value) : null,
                     quantity: Number(formFields.quantityInput.value || 0),
-                    validityValue: Number(formFields.validityValueInput.value || 0),
-                    validityUnit: Number(formFields.validityUnitSelect.value || 0),
-                    isPublish: formFields.isPublishSwitch.checked
+                    validityValue: isValidityUnlimited ? 0 : Number(formFields.validityValueInput.value || 0),
+                    validityUnit,
+                    isValidityUnlimited,
+                    isPublish: formFields.isPublishSwitch.checked,
+                    voucherIsForNewUsersOnly: formFields.voucherIsForNewUsersOnlySwitch?.checked ?? false,
+                    voucherDiscountType: discountType,
+                    voucherDiscount: Number(formFields.voucherDiscountInput?.value || 0),
+                    voucherMinimumRequirements: Number(formFields.voucherMinimumRequirementsInput?.value || 0),
+                    voucherUnlimitedPercentageDiscount: unlimitedPercentage,
+                    voucherMaximumPercentageReduction: unlimitedPercentage ? null : Number(formFields.voucherMaximumPercentageInput?.value || 0),
+                    voucherHasCombinedUsageLimit: hasCombinedLimit,
+                    voucherMaxCombinedUsageCount: hasCombinedLimit ? Number(formFields.voucherMaxCombinedInput?.value || 0) : null,
+                    voucherProductScope: Number(formFields.voucherProductScopeSelect?.value || @((int)VoucherProductScope.AllProducts)),
+                    voucherComboScope: Number(formFields.voucherComboScopeSelect?.value || @((int)VoucherComboScope.AllCombos))
                 };
             }
             async function submitForm(event) {
@@ -652,14 +930,63 @@
                     }
 
                     const reward = await response.json();
+                    if (formFields.typeSelect) {
+                        formFields.typeSelect.value = String(reward.type ?? @((int)RewardItemType.Voucher));
+                    }
                     formFields.nameInput.value = reward.name || '';
                     formFields.descriptionInput.value = reward.description || '';
                     formFields.pointCostInput.value = Number(reward.pointCost || 0);
                     formFields.minimumRankSelect.value = reward.minimumRank ?? '';
                     formFields.quantityInput.value = Number(reward.quantity || 0);
-                    formFields.validityValueInput.value = Number(reward.validityValue || 1);
-                    formFields.validityUnitSelect.value = String(reward.validityUnit ?? @((int)RewardValidityUnit.Day));
+                    const isUnlimited = Boolean(reward.isValidityUnlimited) || reward.validityUnit === VALIDITY_UNIT_FOREVER;
+                    if (formFields.validityUnlimitedSwitch) {
+                        formFields.validityUnlimitedSwitch.checked = isUnlimited;
+                    }
+                    if (formFields.validityValueInput) {
+                        formFields.validityValueInput.value = isUnlimited ? '' : Number(reward.validityValue || 0);
+                    }
+                    if (formFields.validityUnitSelect) {
+                        formFields.validityUnitSelect.value = String(reward.validityUnit ?? @((int)RewardValidityUnit.Day));
+                    }
                     formFields.isPublishSwitch.checked = Boolean(reward.isPublish);
+                    if (formFields.voucherIsForNewUsersOnlySwitch) {
+                        formFields.voucherIsForNewUsersOnlySwitch.checked = Boolean(reward.voucherIsForNewUsersOnly);
+                    }
+                    if (formFields.voucherDiscountTypeSelect) {
+                        formFields.voucherDiscountTypeSelect.value = String(reward.voucherDiscountType ?? @((int)VoucherDiscountType.Money));
+                    }
+                    if (formFields.voucherDiscountInput) {
+                        formFields.voucherDiscountInput.value = Number(reward.voucherDiscount || 0);
+                    }
+                    if (formFields.voucherMinimumRequirementsInput) {
+                        formFields.voucherMinimumRequirementsInput.value = Number(reward.voucherMinimumRequirements || 0);
+                    }
+                    if (formFields.voucherUnlimitedPercentageSwitch) {
+                        formFields.voucherUnlimitedPercentageSwitch.checked = Boolean(reward.voucherUnlimitedPercentageDiscount);
+                    }
+                    if (formFields.voucherMaximumPercentageInput) {
+                        formFields.voucherMaximumPercentageInput.value = reward.voucherMaximumPercentageReduction != null
+                            ? Number(reward.voucherMaximumPercentageReduction)
+                            : '';
+                    }
+                    if (formFields.voucherHasCombinedLimitSwitch) {
+                        formFields.voucherHasCombinedLimitSwitch.checked = Boolean(reward.voucherHasCombinedUsageLimit);
+                    }
+                    if (formFields.voucherMaxCombinedInput) {
+                        formFields.voucherMaxCombinedInput.value = reward.voucherMaxCombinedUsageCount != null
+                            ? Number(reward.voucherMaxCombinedUsageCount)
+                            : '';
+                    }
+                    if (formFields.voucherProductScopeSelect) {
+                        formFields.voucherProductScopeSelect.value = String(reward.voucherProductScope ?? @((int)VoucherProductScope.AllProducts));
+                    }
+                    if (formFields.voucherComboScopeSelect) {
+                        formFields.voucherComboScopeSelect.value = String(reward.voucherComboScope ?? @((int)VoucherComboScope.AllCombos));
+                    }
+
+                    updateValidityControls();
+                    updatePercentageControls();
+                    updateCombinedLimitControls();
 
                     rewardModal.show();
                 } catch (error) {
@@ -688,18 +1015,35 @@
                             : `${Number(reward.redeemed).toLocaleString('vi-VN')} / Không giới hạn`;
                         const validityText = formatValidity(reward);
                         const statusText = reward.isPublish ? 'Cho phép sử dụng' : 'Tạm khóa';
+                        const discountText = formatDiscount(reward);
+                        const scopeText = formatScope(reward);
+                        const minimumRequirementsText = `${formatCurrency(reward.voucherMinimumRequirements)} đ`;
+                        const newUserText = reward.voucherIsForNewUsersOnly ? 'Có' : 'Không';
+                        const combinedLimitText = reward.voucherHasCombinedUsageLimit
+                            ? `${Number(reward.voucherMaxCombinedUsageCount || 0).toLocaleString('vi-VN')} voucher`
+                            : 'Không';
 
                         detailModalBody.innerHTML = `
                             <h5 class="text-primary mb-3">${reward.name}</h5>
                             <dl class="row mb-0">
                                 <dt class="col-sm-4">Điểm đổi thưởng</dt>
                                 <dd class="col-sm-8">${formatCurrency(reward.pointCost)} điểm</dd>
+                                <dt class="col-sm-4">Giảm giá</dt>
+                                <dd class="col-sm-8">${discountText}</dd>
+                                <dt class="col-sm-4">Đơn tối thiểu</dt>
+                                <dd class="col-sm-8">${minimumRequirementsText}</dd>
                                 <dt class="col-sm-4">Yêu cầu cấp bậc</dt>
                                 <dd class="col-sm-8">${rankText}</dd>
                                 <dt class="col-sm-4">Số lượng</dt>
                                 <dd class="col-sm-8">${quantityText}</dd>
                                 <dt class="col-sm-4">Thời hạn hiệu lực</dt>
                                 <dd class="col-sm-8">${validityText}</dd>
+                                <dt class="col-sm-4">Phạm vi áp dụng</dt>
+                                <dd class="col-sm-8">${scopeText}</dd>
+                                <dt class="col-sm-4">Giới hạn áp dụng chung</dt>
+                                <dd class="col-sm-8">${combinedLimitText}</dd>
+                                <dt class="col-sm-4">Chỉ áp dụng cho khách hàng mới</dt>
+                                <dd class="col-sm-8">${newUserText}</dd>
                                 <dt class="col-sm-4">Trạng thái</dt>
                                 <dd class="col-sm-8">${statusText}</dd>
                                 <dt class="col-sm-4">Mô tả</dt>
@@ -794,6 +1138,22 @@
 
             if (createBtn && canCreate) {
                 createBtn.addEventListener('click', openCreateModal);
+            }
+
+            if (formFields.validityUnlimitedSwitch) {
+                formFields.validityUnlimitedSwitch.addEventListener('change', updateValidityControls);
+            }
+
+            if (formFields.voucherDiscountTypeSelect) {
+                formFields.voucherDiscountTypeSelect.addEventListener('change', updatePercentageControls);
+            }
+
+            if (formFields.voucherUnlimitedPercentageSwitch) {
+                formFields.voucherUnlimitedPercentageSwitch.addEventListener('change', updatePercentageControls);
+            }
+
+            if (formFields.voucherHasCombinedLimitSwitch) {
+                formFields.voucherHasCombinedLimitSwitch.addEventListener('change', updateCombinedLimitControls);
             }
 
             if (rewardForm) {

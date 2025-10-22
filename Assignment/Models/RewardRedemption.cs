@@ -14,6 +14,10 @@ namespace Assignment.Models
 
         public ApplicationUser? User { get; set; }
 
+        public long? VoucherId { get; set; }
+
+        public Voucher? Voucher { get; set; }
+
         [Required]
         [StringLength(100)]
         public string Code { get; set; } = string.Empty;
@@ -21,8 +25,7 @@ namespace Assignment.Models
         [Required]
         public DateTime ValidFrom { get; set; }
 
-        [Required]
-        public DateTime ValidTo { get; set; }
+        public DateTime? ValidTo { get; set; }
 
         public bool IsUsed { get; set; }
 

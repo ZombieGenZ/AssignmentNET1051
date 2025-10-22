@@ -64,6 +64,9 @@ namespace Assignment.Models
         [Required]
         public OrderStatus Status { get; set; }
 
+        [Required]
+        public bool LoyaltyRewardsApplied { get; set; } = false;
+
         public virtual IEnumerable<OrderItem>? OrderItems { get; set; }
 
         [NotMapped]

@@ -5,6 +5,7 @@ namespace Assignment.Enums
         Day = 0,
         Week = 1,
         Month = 2,
-        Year = 3
+        Year = 3,
+        Forever = 4
     }
 }

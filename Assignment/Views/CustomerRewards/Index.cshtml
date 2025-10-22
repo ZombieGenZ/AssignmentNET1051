@@ -94,10 +94,13 @@
                     Mã đổi thưởng: <span class="badge bg-dark text-uppercase">@rewardCode</span>
                 </div>
             }
-            @if (rewardValidFrom.HasValue && rewardValidTo.HasValue)
+            @if (rewardValidFrom.HasValue)
             {
+                var endText = rewardValidTo.HasValue
+                    ? rewardValidTo.Value.ToString("dd/MM/yyyy HH:mm")
+                    : "Vĩnh viễn";
                 <div class="text-muted small mt-1">
-                    Hiệu lực từ @rewardValidFrom.Value.ToString("dd/MM/yyyy HH:mm") đến @rewardValidTo.Value.ToString("dd/MM/yyyy HH:mm").
+                    Hiệu lực từ @rewardValidFrom.Value.ToString("dd/MM/yyyy HH:mm") đến @endText.
                 </div>
             }
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
@@ -146,13 +149,15 @@
                 var remaining = reward.Quantity > 0 ? Math.Max(0, reward.Quantity - reward.Redeemed) : (long?)null;
                 var rankRequirement = reward.MinimumRank?.GetDisplayName() ?? "Không yêu cầu";
                 var canRedeem = reward.IsAvailable && reward.PointCost <= (Model?.CurrentPoint ?? 0);
-                var validityText = reward.ValidityUnit switch
-                {
-                    RewardValidityUnit.Week => $"{reward.ValidityValue:N0} tuần",
-                    RewardValidityUnit.Month => $"{reward.ValidityValue:N0} tháng",
-                    RewardValidityUnit.Year => $"{reward.ValidityValue:N0} năm",
-                    _ => $"{reward.ValidityValue:N0} ngày"
-                };
+                var validityText = reward.IsValidityUnlimited
+                    ? "Vĩnh viễn"
+                    : reward.ValidityUnit switch
+                    {
+                        RewardValidityUnit.Week => $"{reward.ValidityValue:N0} tuần",
+                        RewardValidityUnit.Month => $"{reward.ValidityValue:N0} tháng",
+                        RewardValidityUnit.Year => $"{reward.ValidityValue:N0} năm",
+                        _ => $"{reward.ValidityValue:N0} ngày"
+                    };
                 <div class="col-12 col-md-6 col-xl-4">
                     <div class="card h-100 shadow-sm border-0">
                         <div class="card-body d-flex flex-column">
