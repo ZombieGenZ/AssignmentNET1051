@@ -322,6 +322,12 @@ using (var scope = app.Services.CreateScope())
             new Claim("ChangeOrderStatusAll", "true"),
             new Claim("ViewStatistics", "true"),
             new Claim("DeleteEvaluate", "true"),
+            new Claim("GetRewardAll", "true"),
+            new Claim("CreateReward", "true"),
+            new Claim("UpdateRewardAll", "true"),
+            new Claim("DeleteRewardAll", "true"),
+            new Claim("ViewTopUserAll", "true"),
+            new Claim("ViewCustomerAll", "true"),
         };
 
         foreach (var claim in claims)
@@ -369,4 +375,16 @@ BEGIN
 END";
 
     await context.Database.ExecuteSqlRawAsync(ensureRoleMetadataSql);
+}
+
+static async Task EnsureVoucherMinimumRankColumnAsync(ApplicationDbContext context)
+{
+    const string ensureVoucherMinimumRankSql = @"
+IF COL_LENGTH(N'dbo.Vouchers', N'MinimumRank') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Vouchers]
+    ADD [MinimumRank] int NULL;
+END";
+
+    await context.Database.ExecuteSqlRawAsync(ensureVoucherMinimumRankSql);
 }
