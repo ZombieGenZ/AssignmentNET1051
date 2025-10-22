@@ -75,12 +75,27 @@ namespace Assignment.Authorization
                 new PermissionDefinition("DeleteVoucherAll", "Xóa bất kỳ voucher"),
                 new PermissionDefinition("DeleteVoucher", "Xóa voucher của bản thân"),
             }),
+            new PermissionGroupDefinition("Rewards", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("GetRewardAll", "Xem tất cả vật phẩm đổi thưởng"),
+                new PermissionDefinition("GetReward", "Xem vật phẩm đổi thưởng của bản thân"),
+                new PermissionDefinition("CreateReward", "Tạo vật phẩm đổi thưởng"),
+                new PermissionDefinition("UpdateRewardAll", "Sửa bất kỳ vật phẩm đổi thưởng"),
+                new PermissionDefinition("UpdateReward", "Sửa vật phẩm đổi thưởng của bản thân"),
+                new PermissionDefinition("DeleteRewardAll", "Xóa bất kỳ vật phẩm đổi thưởng"),
+                new PermissionDefinition("DeleteReward", "Xóa vật phẩm đổi thưởng của bản thân"),
+            }),
             new PermissionGroupDefinition("Orders & Others", new List<PermissionDefinition>
             {
                 new PermissionDefinition("GetOrderAll", "Xem tất cả đơn hàng"),
                 new PermissionDefinition("ChangeOrderStatusAll", "Thay đổi trạng thái tất cả đơn hàng"),
                 new PermissionDefinition("ViewStatistics", "Xem báo cáo thống kê"),
                 new PermissionDefinition("DeleteEvaluate", "Xóa đánh giá"),
+            }),
+            new PermissionGroupDefinition("Customers", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("ViewCustomerAll", "Xem danh sách khách hàng"),
+                new PermissionDefinition("ViewTopUserAll", "Xem bảng xếp hạng khách hàng"),
             }),
         };
 

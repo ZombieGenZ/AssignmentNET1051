@@ -225,6 +225,9 @@
                         <li class="nav-item">
                             <a class="nav-link" asp-area="" asp-controller="CustomerVouchers" asp-action="Public">Tìm mã giảm giá</a>
                         </li>
+                        <li class="nav-item">
+                            <a class="nav-link" asp-area="" asp-controller="CustomerRewards" asp-action="Index">Đổi thưởng</a>
+                        </li>
                     </ul>
 
 
@@ -315,6 +318,11 @@
                                     <li>
                                         <a class="dropdown-item" asp-area="" asp-controller="CustomerVouchers" asp-action="Mine">
                                             <i class="fas fa-ticket-alt me-2"></i>Voucher của tôi
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a class="dropdown-item" asp-area="" asp-controller="CustomerRewards" asp-action="Index">
+                                            <i class="fas fa-gift me-2"></i>Đổi thưởng
                                         </a>
                                     </li>
                                     @if (!string.IsNullOrEmpty(dashboardUrl))
@@ -410,6 +418,12 @@
                                     </a>
                                 </li>
                                 <li>
+                                    <a class="footer-link" asp-area="" asp-controller="CustomerRewards" asp-action="Index">
+                                        <i class="fas fa-angle-right"></i>
+                                        <span>Đổi thưởng</span>
+                                    </a>
+                                </li>
+                                <li>
                                     <a class="footer-link" asp-area="" asp-controller="Cart" asp-action="Index">
                                         <i class="fas fa-angle-right"></i>
                                         <span>Giỏ hàng</span>
@@ -442,6 +456,12 @@
                                     <a class="footer-link" asp-area="" asp-controller="CustomerVouchers" asp-action="Mine">
                                         <i class="fas fa-angle-right"></i>
                                         <span>Voucher của tôi</span>
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="footer-link" asp-area="" asp-controller="CustomerRewards" asp-action="Index">
+                                        <i class="fas fa-angle-right"></i>
+                                        <span>Đổi thưởng</span>
                                     </a>
                                 </li>
                             </ul>

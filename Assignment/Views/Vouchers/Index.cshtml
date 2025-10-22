@@ -108,6 +108,7 @@
                             <th>Phạm vi</th>
                             <th>Giảm giá</th>
                             <th>Đơn tối thiểu</th>
+                            <th>Yêu cầu cấp bậc</th>
                             <th>Sử dụng</th>
                             <th>Thời gian</th>
                             <th>Trạng thái</th>
@@ -116,7 +117,7 @@
                     </thead>
                     <tbody id="vouchersTableBody">
                         <tr>
-                            <td colspan="@(canDelete ? 11 : 10)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="@(canDelete ? 12 : 11)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -198,6 +199,16 @@
                         <div class="col-md-4">
                             <label for="voucherMinimumRequirements" class="form-label">Đơn tối thiểu<span class="text-danger">*</span></label>
                             <input type="number" min="0" step="0.01" class="form-control" id="voucherMinimumRequirements" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="voucherMinimumRank" class="form-label">Yêu cầu cấp bậc</label>
+                            <select id="voucherMinimumRank" class="form-select">
+                                <option value="">Không yêu cầu</option>
+                                <option value="@((int)CustomerRank.Gold)">Từ cấp vàng trở lên</option>
+                                <option value="@((int)CustomerRank.Platinum)">Từ cấp bạch kim trở lên</option>
+                                <option value="@((int)CustomerRank.Diamond)">Từ cấp kim cương trở lên</option>
+                                <option value="@((int)CustomerRank.Emerald)">Từ cấp lục bảo trở lên</option>
+                            </select>
                         </div>
                         <div class="col-md-4">
                             <label for="voucherQuantity" class="form-label">Số lượng</label>
@@ -443,6 +454,7 @@
                 discountTypeSelect: document.getElementById('voucherDiscountType'),
                 discountInput: document.getElementById('voucherDiscount'),
                 minimumRequirementsInput: document.getElementById('voucherMinimumRequirements'),
+                minimumRankSelect: document.getElementById('voucherMinimumRank'),
                 quantityInput: document.getElementById('voucherQuantity'),
                 startTimeInput: document.getElementById('voucherStartTime'),
                 endTimeInput: document.getElementById('voucherEndTime'),
@@ -503,6 +515,17 @@
             const discountTypeLabels = {
                 '@((int)VoucherDiscountType.Money)': 'Tiền mặt',
                 '@((int)VoucherDiscountType.Percent)': 'Phần trăm'
+            };
+
+            const rankLabels = {
+                none: 'Không yêu cầu',
+                '@((int)CustomerRank.Potential)': 'Khách hàng tiềm năng',
+                '@((int)CustomerRank.Bronze)': 'Khách hàng cấp đồng',
+                '@((int)CustomerRank.Silver)': 'Khách hàng cấp bạc',
+                '@((int)CustomerRank.Gold)': 'Khách hàng cấp vàng',
+                '@((int)CustomerRank.Platinum)': 'Khách hàng bạch kim',
+                '@((int)CustomerRank.Diamond)': 'Khách hàng kim cương',
+                '@((int)CustomerRank.Emerald)': 'Khách hàng lục bảo'
             };
 
             const debounce = (fn, delay = 300) => {
@@ -591,6 +614,9 @@
 
             function resetForm() {
                 voucherForm.reset();
+                if (formFields.minimumRankSelect) {
+                    formFields.minimumRankSelect.value = '';
+                }
                 voucherFormErrors.classList.add('d-none');
                 voucherFormErrors.innerHTML = '';
                 state.formMode = 'create';
@@ -658,13 +684,13 @@
             }
             function renderTable() {
                 if (!canView) {
-                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách voucher.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 12 : 11}" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách voucher.</td></tr>`;
                     tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
                     return;
                 }
 
                 if (!state.items.length) {
-                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center py-4 text-muted">Không có voucher nào để hiển thị.</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 12 : 11}" class="text-center py-4 text-muted">Không có voucher nào để hiển thị.</td></tr>`;
                     tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
                     return;
                 }
@@ -675,6 +701,8 @@
                         : `${formatCurrency(item.discount)} đ`;
 
                     const minimumText = `${formatCurrency(item.minimumRequirements)} đ`;
+                    const rankKey = item.minimumRank === null || item.minimumRank === undefined ? 'none' : String(item.minimumRank);
+                    const rankText = rankLabels[rankKey] ?? rankLabels.none;
                     const quantityText = Number(item.quantity) > 0
                         ? `${Number(item.used).toLocaleString('vi-VN')} / ${Number(item.quantity).toLocaleString('vi-VN')}`
                         : `${Number(item.used).toLocaleString('vi-VN')} / Không giới hạn`;
@@ -732,6 +760,7 @@
                             </td>
                             <td>${discountText}</td>
                             <td>${minimumText}</td>
+                            <td>${rankText}</td>
                             <td>${quantityText}</td>
                             <td>${timeText}</td>
                             <td>${statusBadges.join(' ')}</td>
@@ -845,7 +874,7 @@
                     renderPagination();
                 } catch (error) {
                     tableStatus.textContent = 'Không thể tải dữ liệu voucher.';
-                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 11 : 10}" class="text-center text-danger py-4">${error.message || 'Không thể tải dữ liệu voucher.'}</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 12 : 11}" class="text-center text-danger py-4">${error.message || 'Không thể tải dữ liệu voucher.'}</td></tr>`;
                 }
             }
             async function ensureFormOptionsLoaded() {
@@ -1469,6 +1498,7 @@
                     formFields.discountTypeSelect.value = String(voucher.discountType ?? @((int)VoucherDiscountType.Money));
                     formFields.discountInput.value = Number(voucher.discount || 0);
                     formFields.minimumRequirementsInput.value = Number(voucher.minimumRequirements || 0);
+                    formFields.minimumRankSelect.value = voucher.minimumRank ?? '';
                     formFields.quantityInput.value = Number(voucher.quantity || 0);
                     formFields.startTimeInput.value = formatDateTimeForInput(voucher.startTime);
                     formFields.isLifeTimeSwitch.checked = Boolean(voucher.isLifeTime);
@@ -1518,6 +1548,8 @@
                             : `${formatCurrency(voucher.discount)} đ`;
 
                         const minimumText = `${formatCurrency(voucher.minimumRequirements)} đ`;
+                        const rankKey = voucher.minimumRank === null || voucher.minimumRank === undefined ? 'none' : String(voucher.minimumRank);
+                        const rankText = rankLabels[rankKey] ?? rankLabels.none;
                         const quantityText = Number(voucher.quantity) > 0
                             ? `${Number(voucher.used).toLocaleString('vi-VN')} / ${Number(voucher.quantity).toLocaleString('vi-VN')}`
                             : `${Number(voucher.used).toLocaleString('vi-VN')} / Không giới hạn`;
@@ -1553,6 +1585,8 @@
                                 <dd class="col-sm-8">${discountText}</dd>
                                 <dt class="col-sm-4">Đơn tối thiểu</dt>
                                 <dd class="col-sm-8">${minimumText}</dd>
+                                <dt class="col-sm-4">Yêu cầu cấp bậc</dt>
+                                <dd class="col-sm-8">${rankText}</dd>
                                 <dt class="col-sm-4">Số lượng</dt>
                                 <dd class="col-sm-8">${quantityText}</dd>
                                 <dt class="col-sm-4">Thời gian</dt>
@@ -1676,6 +1710,7 @@
                     discountType: discountTypeValue,
                     discount: Number(formFields.discountInput.value || 0),
                     minimumRequirements: Number(formFields.minimumRequirementsInput.value || 0),
+                    minimumRank: formFields.minimumRankSelect.value ? Number(formFields.minimumRankSelect.value) : null,
                     quantity: Number(formFields.quantityInput.value || 0),
                     startTime: toIsoString(formFields.startTimeInput.value),
                     isLifeTime: formFields.isLifeTimeSwitch.checked,
