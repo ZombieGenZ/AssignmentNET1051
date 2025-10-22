@@ -2,12 +2,15 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using System.Text.Json;
+using System.IO;
 using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Models;
 using Assignment.Options;
 using Assignment.Extensions;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
@@ -296,6 +299,256 @@ namespace Assignment.Controllers.Api
 
             await _context.SaveChangesAsync();
             return Ok(new { message = "Đã xóa các vật phẩm đổi thưởng đã chọn." });
+        }
+
+        [HttpPost("import-products")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportProducts([FromForm] IFormFile? file)
+        {
+            if (!User.HasAnyPermission(
+                    "CreateReward",
+                    "CreateRewardAll",
+                    "UpdateReward",
+                    "UpdateRewardAll"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách sản phẩm." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu sản phẩm." });
+                }
+
+                var productIds = new HashSet<long>();
+                var invalidEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    var rawValue = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(rawValue))
+                    {
+                        continue;
+                    }
+
+                    if (row.RowNumber() == 1 && string.Equals(rawValue, "ProductId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!long.TryParse(rawValue, out var productId) || productId <= 0)
+                    {
+                        invalidEntries.Add(rawValue);
+                        continue;
+                    }
+
+                    productIds.Add(productId);
+                }
+
+                if (!productIds.Any())
+                {
+                    return Ok(new ImportProductsResponse
+                    {
+                        InvalidEntries = invalidEntries.ToList()
+                    });
+                }
+
+                var products = await _context.Products
+                    .Where(p => productIds.Contains(p.Id) && !p.IsDeleted)
+                    .Select(p => new ProductOption
+                    {
+                        Id = p.Id,
+                        Name = p.Name
+                    })
+                    .ToListAsync();
+
+                var foundIds = new HashSet<long>(products.Select(p => p.Id));
+                foreach (var id in productIds)
+                {
+                    if (!foundIds.Contains(id))
+                    {
+                        invalidEntries.Add(id.ToString());
+                    }
+                }
+
+                var response = new ImportProductsResponse
+                {
+                    Products = products,
+                    InvalidEntries = invalidEntries.ToList()
+                };
+
+                return Ok(response);
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "File không hợp lệ hoặc bị hỏng." });
+            }
+        }
+
+        [HttpPost("import-combos")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportCombos([FromForm] IFormFile? file)
+        {
+            if (!User.HasAnyPermission(
+                    "CreateReward",
+                    "CreateRewardAll",
+                    "UpdateReward",
+                    "UpdateRewardAll"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách combo." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu combo." });
+                }
+
+                var comboIds = new HashSet<long>();
+                var invalidEntries = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    var rawValue = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(rawValue))
+                    {
+                        continue;
+                    }
+
+                    if (row.RowNumber() == 1 && string.Equals(rawValue, "ComboId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!long.TryParse(rawValue, out var comboId) || comboId <= 0)
+                    {
+                        invalidEntries.Add(rawValue);
+                        continue;
+                    }
+
+                    comboIds.Add(comboId);
+                }
+
+                if (!comboIds.Any())
+                {
+                    return Ok(new ImportCombosResponse
+                    {
+                        InvalidEntries = invalidEntries.ToList()
+                    });
+                }
+
+                var combos = await _context.Combos
+                    .Where(c => comboIds.Contains(c.Id) && !c.IsDeleted)
+                    .Select(c => new ComboOption
+                    {
+                        Id = c.Id,
+                        Name = c.Name
+                    })
+                    .ToListAsync();
+
+                var foundIds = new HashSet<long>(combos.Select(c => c.Id));
+                foreach (var id in comboIds)
+                {
+                    if (!foundIds.Contains(id))
+                    {
+                        invalidEntries.Add(id.ToString());
+                    }
+                }
+
+                var response = new ImportCombosResponse
+                {
+                    Combos = combos,
+                    InvalidEntries = invalidEntries.ToList()
+                };
+
+                return Ok(response);
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "File không hợp lệ hoặc bị hỏng." });
+            }
+        }
+
+        [HttpGet("product-template")]
+        public IActionResult DownloadRewardProductTemplate()
+        {
+            if (!User.HasAnyPermission("CreateReward", "CreateRewardAll", "UpdateReward", "UpdateRewardAll"))
+            {
+                return Forbid();
+            }
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("RewardProducts");
+            worksheet.Cell(1, 1).Value = "ProductId";
+            worksheet.Cell(2, 1).Value = "123";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            var content = stream.ToArray();
+            const string fileName = "reward_products_template.xlsx";
+            const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(content, contentType, fileName);
+        }
+
+        [HttpGet("combo-template")]
+        public IActionResult DownloadRewardComboTemplate()
+        {
+            if (!User.HasAnyPermission("CreateReward", "CreateRewardAll", "UpdateReward", "UpdateRewardAll"))
+            {
+                return Forbid();
+            }
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("RewardCombos");
+            worksheet.Cell(1, 1).Value = "ComboId";
+            worksheet.Cell(2, 1).Value = "456";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            var content = stream.ToArray();
+            const string fileName = "reward_combos_template.xlsx";
+            const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(content, contentType, fileName);
         }
 
         [HttpGet("form-options")]
@@ -823,6 +1076,18 @@ namespace Assignment.Controllers.Api
         {
             public long Id { get; set; }
             public string Name { get; set; } = string.Empty;
+        }
+
+        public class ImportProductsResponse
+        {
+            public List<ProductOption> Products { get; set; } = new();
+            public List<string> InvalidEntries { get; set; } = new();
+        }
+
+        public class ImportCombosResponse
+        {
+            public List<ComboOption> Combos { get; set; } = new();
+            public List<string> InvalidEntries { get; set; } = new();
         }
 
         public class PagedResponse<T>
