@@ -18,6 +18,7 @@ namespace Assignment.Models
         public long TotalPoint { get; set; }
         public CustomerRank Rank { get; set; } = CustomerRank.Potential;
         public bool ExcludeFromLeaderboard { get; set; }
+        public decimal Booster { get; set; } = 1m;
     }
 
 }

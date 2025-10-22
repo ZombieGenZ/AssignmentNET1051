@@ -55,6 +55,19 @@
     }
 
     var pageSizeOptions = Model?.Rewards?.PageSizeOptions ?? Array.Empty<int>();
+    var boosterValue = Model?.Booster ?? 1m;
+    var boosterCulture = CultureInfo.GetCultureInfo("vi-VN");
+    var boosterDisplay = boosterValue % 1m == 0
+        ? $"x{boosterValue.ToString("N0", boosterCulture)}"
+        : $"x{boosterValue.ToString("N2", boosterCulture).TrimEnd('0').TrimEnd(',', '.')}";
+    var isAtMaxRank = string.IsNullOrEmpty(nextRankName);
+    double progressPercent = 100d;
+    if (!isAtMaxRank && Model?.NextRankExp.HasValue == true && Model.NextRankExp.Value > 0)
+    {
+        var cappedExp = Math.Min(Model.Exp, Model.NextRankExp.Value);
+        progressPercent = (double)cappedExp / Model.NextRankExp.Value * 100d;
+    }
+    progressPercent = Math.Max(0d, Math.Min(100d, progressPercent));
 }
 
 <div class="container my-4">
@@ -78,19 +91,28 @@
                         <dd class="col-6 text-end fw-semibold text-success">@Model?.CurrentPoint.ToString("N0")</dd>
                         <dt class="col-6 text-muted">Tổng điểm tích lũy</dt>
                         <dd class="col-6 text-end fw-semibold">@Model?.TotalPoint.ToString("N0")</dd>
+                        <dt class="col-6 text-muted">Booster</dt>
+                        <dd class="col-6 text-end fw-semibold text-primary">@boosterDisplay</dd>
                     </dl>
-                    @if (!string.IsNullOrEmpty(nextRankName) && expToNextRank.HasValue && expToNextRank.Value > 0)
-                    {
-                        <div class="alert alert-info mt-3 mb-0" role="alert">
-                            <div class="fw-semibold">Còn @expToNextRank.Value.ToString("N0") EXP để đạt @nextRankName.</div>
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="text-muted small">Tiến độ lên cấp</span>
+                            <span class="fw-semibold">@progressPercent.ToString("N1", boosterCulture)%</span>
                         </div>
-                    }
-                    else if (!string.IsNullOrEmpty(nextRankName))
-                    {
-                        <div class="alert alert-success mt-3 mb-0" role="alert">
-                            <div class="fw-semibold">Bạn đã đạt cấp cao nhất!</div>
+                        <div class="progress" style="height: 10px;">
+                            <div class="progress-bar" role="progressbar" style="width: @progressPercent.ToString("F1", CultureInfo.InvariantCulture)%" aria-valuenow="@progressPercent.ToString("F1", CultureInfo.InvariantCulture)" aria-valuemin="0" aria-valuemax="100"></div>
                         </div>
-                    }
+                        <div class="text-muted small mt-2">
+                            @if (!string.IsNullOrEmpty(nextRankName) && expToNextRank.HasValue && expToNextRank.Value > 0)
+                            {
+                                <span>Còn <strong>@expToNextRank.Value.ToString("N0")</strong> EXP để đạt <strong>@nextRankName</strong>.</span>
+                            }
+                            else
+                            {
+                                <span>Bạn đã đạt cấp cao nhất! Booster hiện tại <strong>@boosterDisplay</strong> (Tối đa).</span>
+                            }
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -329,6 +351,7 @@
             let activeForm = null;
             let pointCostPerItem = 0;
             let maxQuantity = null;
+            let voucherPerItem = 1;
 
             const formatNumber = (value) => Number(value || 0).toLocaleString('vi-VN');
 
@@ -339,6 +362,22 @@
 
                 quantityError.textContent = '';
                 quantityError.classList.add('d-none');
+            };
+
+            const updateVoucherInfo = (quantity) => {
+                if (!voucherQuantityInfo) {
+                    return;
+                }
+
+                if (!Number.isFinite(voucherPerItem) || voucherPerItem <= 0) {
+                    voucherQuantityInfo.textContent = '';
+                    voucherQuantityInfo.classList.add('d-none');
+                    return;
+                }
+
+                const totalVoucherCount = voucherPerItem * quantity;
+                voucherQuantityInfo.textContent = `Mỗi lượt đổi thưởng nhận ${formatNumber(voucherPerItem)} mã giảm giá (tổng ${formatNumber(totalVoucherCount)} mã trong lượt này).`;
+                voucherQuantityInfo.classList.remove('d-none');
             };
 
             const updateTotals = () => {
@@ -358,6 +397,7 @@
 
                 const totalPoints = pointCostPerItem * quantity;
                 totalPointsText.textContent = formatNumber(totalPoints);
+                updateVoucherInfo(quantity);
             };
 
             const showModalForButton = (button) => {
@@ -410,16 +450,9 @@
                     totalPointsText.textContent = formatNumber(pointCostPerItem);
                 }
 
-                if (voucherQuantityInfo) {
-                    const voucherQuantity = Math.floor(Number(voucherQuantityRaw));
-                    if (Number.isFinite(voucherQuantity) && voucherQuantity > 0) {
-                        voucherQuantityInfo.textContent = `Mỗi mã giảm giá nhận được sẽ có ${formatNumber(voucherQuantity)} lượt sử dụng.`;
-                        voucherQuantityInfo.classList.remove('d-none');
-                    } else {
-                        voucherQuantityInfo.textContent = '';
-                        voucherQuantityInfo.classList.add('d-none');
-                    }
-                }
+                const parsedVoucherPerItem = Math.floor(Number(voucherQuantityRaw));
+                voucherPerItem = Number.isFinite(parsedVoucherPerItem) && parsedVoucherPerItem > 0 ? parsedVoucherPerItem : 1;
+                updateVoucherInfo(1);
 
                 if (quantityHelp) {
                     let availabilityText = 'Số lượng còn lại không xác định.';

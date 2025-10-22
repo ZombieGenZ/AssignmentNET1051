@@ -5,7 +5,6 @@
 
     var canViewCustomers = ViewData["CanViewCustomers"] as bool? ?? false;
     var canViewTop = ViewData["CanViewTop"] as bool? ?? false;
-    var canManageLeaderboard = ViewData["CanManageLeaderboard"] as bool? ?? false;
 }
 
 @section Styles {
@@ -84,8 +83,7 @@
 
 <div class="container-fluid pt-4 px-4" id="customer-app"
      data-can-view-customers="@(canViewCustomers ? "true" : "false")"
-     data-can-view-top="@(canViewTop ? "true" : "false")"
-     data-can-manage-leaderboard="@(canManageLeaderboard ? "true" : "false")">
+     data-can-view-top="@(canViewTop ? "true" : "false")">
     <div class="row g-4">
         @if (canViewCustomers)
         {
@@ -143,12 +141,11 @@
                                         <th>Điểm hiện tại</th>
                                         <th>Tổng điểm tích lũy</th>
                                         <th>Cấp bậc</th>
-                                        <th class="text-center" style="width: 160px;">Hiển thị BXH</th>
                                     </tr>
                                 </thead>
                                 <tbody id="customersTableBody">
                                     <tr>
-                                        <td colspan="8" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td>
+                                        <td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -179,28 +176,42 @@
                                     <i class="fas fa-trophy me-2"></i>Bảng xếp hạng khách hàng
                                 </h4>
                             </div>
-                            <div class="d-flex flex-wrap gap-2 align-items-center">
-                                <select id="topPeriodSelect" class="form-select form-select-sm" style="width: 140px;">
-                                    <option value="month">Theo tháng</option>
-                                    <option value="quarter">Theo quý</option>
-                                    <option value="year">Theo năm</option>
-                                </select>
-                                <select id="topMonthSelect" class="form-select form-select-sm" style="width: 120px;">
-                                    @for (var month = 1; month <= 12; month++)
-                                    {
-                                        <option value="@month">Tháng @month</option>
-                                    }
-                                </select>
-                                <select id="topQuarterSelect" class="form-select form-select-sm d-none" style="width: 120px;">
-                                    @for (var quarter = 1; quarter <= 4; quarter++)
-                                    {
-                                        <option value="@quarter">Quý @quarter</option>
-                                    }
-                                </select>
-                                <input type="number" class="form-control form-control-sm" id="topYearInput" style="width: 100px;" value="@DateTime.Now.Year" />
-                                <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshTopBtn">
-                                    <i class="fas fa-rotate-right me-1"></i>Tải lại
-                                </button>
+                            <div class="d-flex flex-column flex-xl-row gap-3 align-items-xl-center w-100">
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <div class="input-group input-group-sm" style="min-width: 260px;">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="search" class="form-control" id="topSearchInput" placeholder="Tìm theo tên hoặc email" />
+                                        <button type="button" class="btn btn-outline-primary" id="applyTopFiltersBtn">
+                                            <i class="fas fa-filter me-1"></i>Tìm
+                                        </button>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="resetTopSearchBtn">
+                                        <i class="fas fa-eraser me-1"></i>Xóa tìm
+                                    </button>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <select id="topPeriodSelect" class="form-select form-select-sm" style="width: 140px;">
+                                        <option value="month">Theo tháng</option>
+                                        <option value="quarter">Theo quý</option>
+                                        <option value="year">Theo năm</option>
+                                    </select>
+                                    <select id="topMonthSelect" class="form-select form-select-sm" style="width: 120px;">
+                                        @for (var month = 1; month <= 12; month++)
+                                        {
+                                            <option value="@month">Tháng @month</option>
+                                        }
+                                    </select>
+                                    <select id="topQuarterSelect" class="form-select form-select-sm d-none" style="width: 120px;">
+                                        @for (var quarter = 1; quarter <= 4; quarter++)
+                                        {
+                                            <option value="@quarter">Quý @quarter</option>
+                                        }
+                                    </select>
+                                    <input type="number" class="form-control form-control-sm" id="topYearInput" style="width: 100px;" value="@DateTime.Now.Year" />
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshTopBtn">
+                                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -214,6 +225,7 @@
                                         <th>Khách hàng</th>
                                         <th>Email</th>
                                         <th>Cấp bậc</th>
+                                        <th>Booster</th>
                                         <th>EXP nhận</th>
                                         <th>Điểm nhận</th>
                                         <th>Tổng điểm tích lũy</th>
@@ -223,7 +235,7 @@
                                 </thead>
                                 <tbody id="topCustomersTableBody">
                                     <tr>
-                                        <td colspan="9" class="text-center py-4 text-muted">Đang tải bảng xếp hạng...</td>
+                                        <td colspan="10" class="text-center py-4 text-muted">Đang tải bảng xếp hạng...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -241,10 +253,6 @@
     </div>
 </div>
 
-<form id="customerAntiForgery" class="d-none">
-    @Html.AntiForgeryToken()
-</form>
-
 @section Scripts {
     <script>
         (() => {
@@ -255,7 +263,6 @@
 
             const canViewCustomers = app.dataset.canViewCustomers === 'true';
             const canViewTop = app.dataset.canViewTop === 'true';
-            const canManageLeaderboard = app.dataset.canManageLeaderboard === 'true';
 
             const API_CUSTOMERS = '/api/customers';
             const API_TOP = '/api/customers/top';
@@ -283,14 +290,14 @@
 
             const topAlertPlaceholder = document.getElementById('topAlertPlaceholder');
             const topTableBody = document.getElementById('topCustomersTableBody');
+            const topSearchInput = document.getElementById('topSearchInput');
+            const applyTopFiltersBtn = document.getElementById('applyTopFiltersBtn');
+            const resetTopSearchBtn = document.getElementById('resetTopSearchBtn');
             const topPeriodSelect = document.getElementById('topPeriodSelect');
             const topMonthSelect = document.getElementById('topMonthSelect');
             const topQuarterSelect = document.getElementById('topQuarterSelect');
             const topYearInput = document.getElementById('topYearInput');
             const refreshTopBtn = document.getElementById('refreshTopBtn');
-
-            const antiForgeryInput = document.querySelector('#customerAntiForgery input[name="__RequestVerificationToken"]');
-            const antiForgeryToken = antiForgeryInput ? antiForgeryInput.value : '';
 
             const now = new Date();
 
@@ -308,7 +315,8 @@
                 period: topPeriodSelect?.value || 'month',
                 month: Number(topMonthSelect?.value || (now.getMonth() + 1)),
                 quarter: Number(topQuarterSelect?.value || Math.floor(now.getMonth() / 3) + 1),
-                year: Number(topYearInput?.value || now.getFullYear())
+                year: Number(topYearInput?.value || now.getFullYear()),
+                search: ''
             };
 
             function escapeHtml(value) {
@@ -329,6 +337,21 @@
                     return '0';
                 }
                 return numeric.toLocaleString('vi-VN');
+            }
+
+            function formatBooster(value) {
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric) || numeric <= 0) {
+                    return 'x1';
+                }
+
+                const options = Number.isInteger(numeric)
+                    ? undefined
+                    : { minimumFractionDigits: 0, maximumFractionDigits: 2 };
+                const formatted = options
+                    ? numeric.toLocaleString('vi-VN', options)
+                    : numeric.toLocaleString('vi-VN');
+                return `x${formatted}`;
             }
 
             function getInitials(value) {
@@ -406,14 +429,14 @@
                 }
 
                 if (!canViewCustomers) {
-                    customersTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách khách hàng.</td></tr>';
+                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách khách hàng.</td></tr>';
                     updateCustomerPaginationSummary();
                     setCustomerPaginationButtons();
                     return;
                 }
 
                 if (!customerState.items.length) {
-                    customersTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Không có khách hàng nào để hiển thị.</td></tr>';
+                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Không có khách hàng nào để hiển thị.</td></tr>';
                     updateCustomerPaginationSummary();
                     setCustomerPaginationButtons();
                     return;
@@ -422,18 +445,6 @@
                 const rows = customerState.items.map(item => {
                     const rankKey = item.rank === null || item.rank === undefined ? 'none' : String(item.rank);
                     const rankText = rankLabels[rankKey] ?? rankLabels.none;
-                    const isExcluded = Boolean(item.excludeFromLeaderboard);
-                    const statusText = isExcluded ? 'Đang ẩn khỏi BXH' : 'Đang hiển thị BXH';
-                    const toggleHtml = canManageLeaderboard
-                        ? `
-                            <div class="d-flex flex-column align-items-center gap-1">
-                                <div class="form-check form-switch m-0">
-                                    <input class="form-check-input leaderboard-toggle" type="checkbox" data-id="${escapeHtml(item.id)}" ${isExcluded ? '' : 'checked'} />
-                                </div>
-                                <div class="small text-muted">${escapeHtml(statusText)}</div>
-                            </div>`
-                        : `<span class="badge ${isExcluded ? 'bg-secondary' : 'bg-success'}">${escapeHtml(statusText)}</span>`;
-
                     return `
                         <tr>
                             <td class="fw-semibold">${escapeHtml(item.fullName) || '(Chưa cập nhật)'}</td>
@@ -443,7 +454,6 @@
                             <td>${formatNumber(item.point)}</td>
                             <td>${formatNumber(item.totalPoint)}</td>
                             <td>${escapeHtml(rankText)}</td>
-                            <td class="text-center">${toggleHtml}</td>
                         </tr>`;
                 });
 
@@ -458,12 +468,12 @@
                 }
 
                 if (!canViewTop) {
-                    topTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Bạn không có quyền xem bảng xếp hạng khách hàng.</td></tr>';
+                    topTableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">Bạn không có quyền xem bảng xếp hạng khách hàng.</td></tr>';
                     return;
                 }
 
                 if (!topState.items.length) {
-                    topTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Không có dữ liệu cho khoảng thời gian đã chọn.</td></tr>';
+                    topTableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">Không có dữ liệu cho khoảng thời gian đã chọn.</td></tr>';
                     return;
                 }
 
@@ -486,6 +496,7 @@
                     const displayName = escapeHtml(item.fullName) || '(Chưa cập nhật)';
                     const email = escapeHtml(item.email) || '-';
                     const rankBadge = `<span class="badge bg-primary-subtle text-primary fw-semibold">${escapeHtml(rankText)}</span>`;
+                    const boosterDisplay = formatBooster(item.booster);
 
                     return `
                         <tr class="${rowClass}">
@@ -501,6 +512,7 @@
                             </td>
                             <td>${email}</td>
                             <td>${rankBadge}</td>
+                            <td class="text-center">${escapeHtml(boosterDisplay)}</td>
                             <td class="fw-semibold text-end text-primary">${formatNumber(item.expEarned)}</td>
                             <td class="fw-semibold text-end text-success">${formatNumber(item.pointsEarned)}</td>
                             <td class="text-end">${formatNumber(item.totalPoint)}</td>
@@ -519,7 +531,7 @@
                 }
 
                 if (customersTableBody) {
-                    customersTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td></tr>';
+                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td></tr>';
                 }
 
                 clearAlert(customerAlertPlaceholder);
@@ -557,77 +569,6 @@
                         renderCustomers();
                         showAlert(customerAlertPlaceholder, error.message || 'Không thể tải danh sách khách hàng.', 'danger');
                     });
-            }
-
-            function setCustomerLeaderboardFlag(userId, excluded) {
-                if (!Array.isArray(customerState.items) || !userId) {
-                    return;
-                }
-
-                const match = customerState.items.find(item => String(item.id) === String(userId));
-                if (match) {
-                    match.excludeFromLeaderboard = excluded;
-                }
-            }
-
-            async function updateLeaderboardVisibility(userId, exclude, checkbox) {
-                if (!canManageLeaderboard || !userId) {
-                    return;
-                }
-
-                const targetUrl = `${API_CUSTOMERS}/${encodeURIComponent(userId)}/leaderboard-visibility`;
-                const payload = { excludeFromLeaderboard: exclude };
-                const previousChecked = checkbox ? checkbox.checked : !exclude;
-
-                if (checkbox) {
-                    checkbox.disabled = true;
-                }
-
-                try {
-                    const response = await fetch(targetUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (response.status === 403) {
-                        throw new Error('Bạn không có quyền thay đổi trạng thái bảng xếp hạng.');
-                    }
-
-                    if (response.status === 404) {
-                        throw new Error('Không tìm thấy khách hàng để cập nhật.');
-                    }
-
-                    if (!response.ok) {
-                        throw new Error('Không thể cập nhật bảng xếp hạng của khách hàng.');
-                    }
-
-                    setCustomerLeaderboardFlag(userId, exclude);
-                    renderCustomers();
-
-                    const message = exclude
-                        ? 'Khách hàng đã được ẩn khỏi bảng xếp hạng.'
-                        : 'Khách hàng đã được hiển thị trên bảng xếp hạng.';
-                    showAlert(customerAlertPlaceholder, message, 'success');
-                } catch (error) {
-                    if (checkbox) {
-                        checkbox.checked = !previousChecked;
-                    }
-
-                    setCustomerLeaderboardFlag(userId, !exclude);
-                    renderCustomers();
-
-                    const alertMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật bảng xếp hạng.';
-                    showAlert(customerAlertPlaceholder, alertMessage, 'danger');
-                } finally {
-                    if (checkbox) {
-                        checkbox.disabled = false;
-                    }
-                }
             }
 
             function normalizeYear(value) {
@@ -669,7 +610,7 @@
                 }
 
                 if (topTableBody) {
-                    topTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Đang tải bảng xếp hạng...</td></tr>';
+                    topTableBody.innerHTML = '<tr><td colspan="10" class="text-center py-4 text-muted">Đang tải bảng xếp hạng...</td></tr>';
                 }
 
                 clearAlert(topAlertPlaceholder);
@@ -685,6 +626,10 @@
 
                 if (topState.period === 'quarter') {
                     params.append('quarter', String(topState.quarter));
+                }
+
+                if (topState.search) {
+                    params.append('search', topState.search);
                 }
 
                 fetch(`${API_TOP}?${params.toString()}`, { headers: { 'Accept': 'application/json' } })
@@ -752,12 +697,39 @@
             }
 
             if (!canViewTop) {
-                [topPeriodSelect, topMonthSelect, topQuarterSelect, topYearInput, refreshTopBtn]
+                [topSearchInput, applyTopFiltersBtn, resetTopSearchBtn, topPeriodSelect, topMonthSelect, topQuarterSelect, topYearInput, refreshTopBtn]
                     .forEach(element => {
                         if (element) {
                             element.disabled = true;
                         }
                     });
+            }
+
+            if (topSearchInput) {
+                topSearchInput.addEventListener('keydown', event => {
+                    if (event.key === 'Enter') {
+                        event.preventDefault();
+                        topState.search = topSearchInput.value?.trim() ?? '';
+                        loadTopCustomers();
+                    }
+                });
+            }
+
+            if (applyTopFiltersBtn) {
+                applyTopFiltersBtn.addEventListener('click', () => {
+                    topState.search = topSearchInput?.value?.trim() ?? '';
+                    loadTopCustomers();
+                });
+            }
+
+            if (resetTopSearchBtn) {
+                resetTopSearchBtn.addEventListener('click', () => {
+                    if (topSearchInput) {
+                        topSearchInput.value = '';
+                    }
+                    topState.search = '';
+                    loadTopCustomers();
+                });
             }
 
             if (customerPageSizeSelect) {
@@ -792,23 +764,6 @@
             if (refreshCustomersBtn) {
                 refreshCustomersBtn.addEventListener('click', () => {
                     loadCustomers();
-                });
-            }
-
-            if (customersTableBody && canManageLeaderboard) {
-                customersTableBody.addEventListener('change', event => {
-                    const target = event.target;
-                    if (!target || !(target instanceof HTMLInputElement) || !target.classList.contains('leaderboard-toggle')) {
-                        return;
-                    }
-
-                    const userId = target.dataset.id;
-                    if (!userId) {
-                        return;
-                    }
-
-                    const exclude = !target.checked;
-                    updateLeaderboardVisibility(userId, exclude, target);
                 });
             }
 
@@ -862,6 +817,10 @@
 
             if (topQuarterSelect) {
                 topQuarterSelect.value = String(topState.quarter);
+            }
+
+            if (topSearchInput) {
+                topSearchInput.value = topState.search;
             }
 
             updatePeriodControls();

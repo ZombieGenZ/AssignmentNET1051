@@ -52,6 +52,13 @@ namespace Assignment.Controllers
             return Json(new { success = true, data = roles });
         }
 
+        [HttpGet("permissions")]
+        public async Task<IActionResult> GetPermissions()
+        {
+            var permissions = await _userManagementService.GetPermissionDefinitionsAsync();
+            return Json(new { success = true, data = permissions });
+        }
+
         [HttpPost("users/{id}/roles")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateRoles(string id, [FromBody] IEnumerable<string> roles)
@@ -95,6 +102,52 @@ namespace Assignment.Controllers
             }
 
             return Json(new { success = true, message = model.Unlock ? "Đã mở khóa người dùng." : "Đã cập nhật thời gian khóa tài khoản." });
+        }
+
+        [HttpPost("users/{id}/settings")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateSettings(string id, [FromBody] UpdateUserSettingsRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new { success = false, message = "Dữ liệu không hợp lệ." });
+            }
+
+            var result = await _userManagementService.UpdateUserSettingsAsync(id, request.ExcludeFromLeaderboard, request.Booster ?? 1m);
+            if (!result.Success)
+            {
+                return BadRequest(new { success = false, message = result.ErrorMessage ?? "Không thể cập nhật thiết lập người dùng." });
+            }
+
+            return Json(new { success = true, message = "Đã cập nhật thiết lập người dùng." });
+        }
+
+        [HttpPost("users/bulk-update")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkUpdate([FromBody] BulkUserUpdateRequest request)
+        {
+            if (request == null || request.UserIds == null || request.UserIds.Count == 0)
+            {
+                return BadRequest(new { success = false, message = "Vui lòng chọn ít nhất một người dùng." });
+            }
+
+            var result = await _userManagementService.BulkUpdateUsersAsync(request);
+            var message = $"Đã cập nhật {result.Updated} / {result.TotalSelected} người dùng.";
+
+            return Json(new
+            {
+                success = true,
+                message,
+                skipped = result.Skipped,
+                errors = result.HasErrors ? result.Errors : Array.Empty<string>()
+            });
+        }
+
+        public class UpdateUserSettingsRequest
+        {
+            public bool ExcludeFromLeaderboard { get; set; }
+
+            public decimal? Booster { get; set; }
         }
     }
 }

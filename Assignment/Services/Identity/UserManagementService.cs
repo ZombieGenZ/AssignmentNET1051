@@ -83,6 +83,8 @@ namespace Assignment.Services.Identity
                     user.UserName,
                     user.FullName,
                     user.LockoutEnd,
+                    user.ExcludeFromLeaderboard,
+                    user.Booster,
                 })
                 .ToListAsync(cancellationToken);
 
@@ -95,6 +97,8 @@ namespace Assignment.Services.Identity
                     FullName = user.FullName,
                     LockoutEnd = user.LockoutEnd,
                     IsLockedOut = user.LockoutEnd.HasValue && user.LockoutEnd.Value > now,
+                    ExcludeFromLeaderboard = user.ExcludeFromLeaderboard,
+                    Booster = user.Booster,
                 })
                 .ToList();
 
@@ -194,6 +198,8 @@ namespace Assignment.Services.Identity
                 Roles = roles.OrderBy(role => role).ToList(),
                 Permissions = permissions,
                 IsSuperAdmin = isSuperAdmin,
+                ExcludeFromLeaderboard = user.ExcludeFromLeaderboard,
+                Booster = user.Booster,
             };
         }
 
@@ -305,6 +311,186 @@ namespace Assignment.Services.Identity
             return (true, null);
         }
 
+        public async Task<(bool Success, string? ErrorMessage)> UpdateUserSettingsAsync(string userId, bool excludeFromLeaderboard, decimal booster, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(userId))
+            {
+                return (false, "Người dùng không hợp lệ.");
+            }
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+            {
+                return (false, "Người dùng không tồn tại.");
+            }
+
+            if (await IsSuperAdminAsync(user))
+            {
+                return (false, "Không thể chỉnh sửa người dùng superadmin.");
+            }
+
+            user.ExcludeFromLeaderboard = excludeFromLeaderboard;
+            user.Booster = NormalizeBooster(booster);
+
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                return (false, string.Join("; ", result.Errors.Select(error => error.Description)));
+            }
+
+            return (true, null);
+        }
+
+        public Task<IReadOnlyList<PermissionViewModel>> GetPermissionDefinitionsAsync(CancellationToken cancellationToken = default)
+        {
+            var permissions = BuildPermissionViewModels(
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase),
+                new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+            return Task.FromResult(permissions);
+        }
+
+        public async Task<BulkUserUpdateResult> BulkUpdateUsersAsync(BulkUserUpdateRequest request, CancellationToken cancellationToken = default)
+        {
+            var result = new BulkUserUpdateResult();
+
+            if (request == null || request.UserIds == null || request.UserIds.Count == 0)
+            {
+                return result;
+            }
+
+            var distinctIds = request.UserIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            result.TotalSelected = distinctIds.Count;
+            if (distinctIds.Count == 0)
+            {
+                return result;
+            }
+
+            var users = await _userManager.Users
+                .Where(user => distinctIds.Contains(user.Id))
+                .ToListAsync(cancellationToken);
+
+            foreach (var user in users)
+            {
+                if (await IsSuperAdminAsync(user))
+                {
+                    result.Skipped++;
+                    result.Errors.Add($"Không thể chỉnh sửa superadmin {user.Email ?? user.UserName ?? user.Id}.");
+                    continue;
+                }
+
+                var userUpdated = false;
+                var errors = new List<string>();
+
+                if (request.ApplyRoles)
+                {
+                    var (success, errorMessage) = await UpdateUserRolesAsync(user.Id, request.Roles, cancellationToken);
+                    if (!success && !string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        errors.Add(errorMessage);
+                    }
+                    else if (success)
+                    {
+                        userUpdated = true;
+                    }
+                }
+
+                if (request.ApplyPermissions)
+                {
+                    var (success, errorMessage) = await UpdateUserPermissionsAsync(user.Id, request.Permissions, cancellationToken);
+                    if (!success && !string.IsNullOrWhiteSpace(errorMessage))
+                    {
+                        errors.Add(errorMessage);
+                    }
+                    else if (success)
+                    {
+                        userUpdated = true;
+                    }
+                }
+
+                var shouldUpdateUser = false;
+                if (request.ApplyExcludeFromLeaderboard)
+                {
+                    user.ExcludeFromLeaderboard = request.ExcludeFromLeaderboard ?? false;
+                    shouldUpdateUser = true;
+                }
+
+                if (request.ApplyBooster)
+                {
+                    user.Booster = NormalizeBooster(request.Booster);
+                    shouldUpdateUser = true;
+                }
+
+                if (shouldUpdateUser)
+                {
+                    var updateResult = await _userManager.UpdateAsync(user);
+                    if (!updateResult.Succeeded)
+                    {
+                        errors.Add(string.Join("; ", updateResult.Errors.Select(error => error.Description)));
+                    }
+                    else
+                    {
+                        userUpdated = true;
+                    }
+                }
+
+                if (request.ApplyLock)
+                {
+                    if (!request.Unlock && (!request.DurationValue.HasValue || request.DurationValue.Value <= 0 || string.IsNullOrWhiteSpace(request.DurationUnit)))
+                    {
+                        errors.Add("Thông tin khóa tài khoản không hợp lệ.");
+                    }
+                    else
+                    {
+                        var lockModel = new LockUserViewModel
+                        {
+                            UserId = user.Id,
+                            Unlock = request.Unlock,
+                            DurationValue = request.Unlock ? 0 : request.DurationValue ?? 0,
+                            DurationUnit = request.DurationUnit ?? "minute",
+                        };
+
+                        var (success, errorMessage) = await UpdateUserLockoutAsync(lockModel, cancellationToken);
+                        if (!success && !string.IsNullOrWhiteSpace(errorMessage))
+                        {
+                            errors.Add(errorMessage);
+                        }
+                        else if (success)
+                        {
+                            userUpdated = true;
+                        }
+                    }
+                }
+
+                if (errors.Count > 0)
+                {
+                    var label = user.Email ?? user.UserName ?? user.Id;
+                    result.Errors.Add($"{label}: {string.Join("; ", errors)}");
+                }
+
+                if (userUpdated)
+                {
+                    result.Updated++;
+                }
+            }
+
+            var processedIds = users.Select(u => u.Id).ToHashSet(StringComparer.Ordinal);
+            var missing = distinctIds.Where(id => !processedIds.Contains(id)).ToList();
+            if (missing.Count > 0)
+            {
+                result.Errors.Add($"Không tìm thấy {missing.Count} người dùng.");
+            }
+
+            result.Skipped += missing.Count;
+
+            return result;
+        }
+
         public async Task<(bool Success, string? ErrorMessage)> UpdateUserLockoutAsync(LockUserViewModel model, CancellationToken cancellationToken = default)
         {
             if (model == null || string.IsNullOrWhiteSpace(model.UserId))
@@ -388,6 +574,17 @@ namespace Assignment.Services.Identity
         {
             return ManagedPermissionKeys.Contains(claim.Type) &&
                    string.Equals(claim.Value, "true", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static decimal NormalizeBooster(decimal? value)
+        {
+            if (!value.HasValue || value.Value <= 0)
+            {
+                return 1m;
+            }
+
+            var rounded = Math.Round(value.Value, 2, MidpointRounding.AwayFromZero);
+            return rounded < 1m ? 1m : rounded;
         }
 
         private static IReadOnlyList<PermissionViewModel> BuildPermissionViewModels(
