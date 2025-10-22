@@ -634,6 +634,9 @@ namespace Assignment.Migrations
                     b.Property<bool>("IsForNewUsersOnly")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("MinimumRank")
+                        .HasColumnType("int");
+
                     b.Property<double?>("MaximumPercentageReduction")
                         .HasColumnType("float");
 
