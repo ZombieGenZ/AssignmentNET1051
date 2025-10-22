@@ -73,7 +73,8 @@ namespace Assignment.Controllers
                     ValidityValue = r.ValidityValue,
                     ValidityUnit = r.ValidityUnit,
                     IsPublish = r.IsPublish,
-                    IsAvailable = r.Quantity <= 0 || r.Redeemed < r.Quantity
+                    IsAvailable = r.Quantity <= 0 || r.Redeemed < r.Quantity,
+                    IsValidityUnlimited = r.IsValidityUnlimited
                 })
                 .ToList();
 
@@ -142,11 +143,45 @@ namespace Assignment.Controllers
 
             var now = DateTime.Now;
             var validFrom = now;
-            var validTo = CalculateExpiry(now, reward.ValidityValue, reward.ValidityUnit);
+            var validTo = CalculateExpiry(now, reward.ValidityValue, reward.ValidityUnit, reward.IsValidityUnlimited);
 
             try
             {
                 var code = await GenerateUniqueCodeAsync();
+
+                var voucher = new Voucher
+                {
+                    Code = code,
+                    Name = reward.Name,
+                    Description = reward.Description,
+                    Type = VoucherType.Private,
+                    ProductScope = reward.VoucherProductScope,
+                    ComboScope = reward.VoucherComboScope,
+                    UserId = user.Id,
+                    Discount = reward.VoucherDiscount,
+                    DiscountType = reward.VoucherDiscountType,
+                    Used = 0,
+                    Quantity = 1,
+                    StartTime = validFrom,
+                    IsLifeTime = reward.IsValidityUnlimited,
+                    EndTime = reward.IsValidityUnlimited ? null : validTo,
+                    MinimumRequirements = reward.VoucherMinimumRequirements,
+                    UnlimitedPercentageDiscount = reward.VoucherDiscountType == VoucherDiscountType.Percent && reward.VoucherUnlimitedPercentageDiscount,
+                    MaximumPercentageReduction = reward.VoucherDiscountType == VoucherDiscountType.Percent && !reward.VoucherUnlimitedPercentageDiscount
+                        ? reward.VoucherMaximumPercentageReduction
+                        : null,
+                    HasCombinedUsageLimit = reward.VoucherHasCombinedUsageLimit,
+                    MaxCombinedUsageCount = reward.VoucherHasCombinedUsageLimit ? reward.VoucherMaxCombinedUsageCount : null,
+                    IsPublish = true,
+                    IsShow = false,
+                    IsForNewUsersOnly = reward.VoucherIsForNewUsersOnly,
+                    MinimumRank = null,
+                    CreateBy = user.Id,
+                    CreatedAt = now,
+                    UpdatedAt = null,
+                    IsDeleted = false,
+                    DeletedAt = null
+                };
 
                 var redemption = new RewardRedemption
                 {
@@ -158,6 +193,7 @@ namespace Assignment.Controllers
                     IsUsed = false,
                     UsedAt = null,
                     PointCost = reward.PointCost,
+                    Voucher = voucher,
                     CreateBy = user.Id,
                     CreatedAt = now,
                     UpdatedAt = null,
@@ -170,6 +206,7 @@ namespace Assignment.Controllers
 
                 user.Point = Math.Max(0, user.Point - reward.PointCost);
 
+                _context.Vouchers.Add(voucher);
                 _context.RewardRedemptions.Add(redemption);
                 _context.Rewards.Update(reward);
                 _context.Users.Update(user);
@@ -179,7 +216,7 @@ namespace Assignment.Controllers
                 TempData["RewardSuccess"] = $"Bạn đã đổi thành công \"{reward.Name}\".";
                 TempData["RewardCode"] = code;
                 TempData["RewardValidFrom"] = validFrom.ToString("o");
-                TempData["RewardValidTo"] = validTo.ToString("o");
+                TempData["RewardValidTo"] = validTo?.ToString("o");
             }
             catch (DbUpdateException)
             {
@@ -228,8 +265,13 @@ namespace Assignment.Controllers
             throw new InvalidOperationException("Không thể tạo mã đổi thưởng duy nhất. Vui lòng thử lại sau.");
         }
 
-        private static DateTime CalculateExpiry(DateTime start, int validityValue, RewardValidityUnit unit)
+        private static DateTime? CalculateExpiry(DateTime start, int validityValue, RewardValidityUnit unit, bool isUnlimited)
         {
+            if (isUnlimited || unit == RewardValidityUnit.Forever)
+            {
+                return null;
+            }
+
             var sanitizedValue = validityValue < 1 ? 1 : validityValue;
 
             return unit switch

@@ -15,6 +15,7 @@ namespace Assignment.ViewModels.Rewards
         public RewardValidityUnit ValidityUnit { get; set; }
         public bool IsPublish { get; set; }
         public bool IsAvailable { get; set; }
+        public bool IsValidityUnlimited { get; set; }
     }
 
     public class CustomerRewardIndexViewModel

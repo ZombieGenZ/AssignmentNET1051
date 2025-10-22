@@ -211,23 +211,6 @@ namespace Assignment.Controllers
             order.Vat = priceAfterDiscount * 0.15;
             order.TotalBill = priceAfterDiscount + order.Vat;
 
-            if (user != null)
-            {
-                var baseValue = (long)Math.Round(order.TotalBill, MidpointRounding.AwayFromZero);
-                if (baseValue > 0)
-                {
-                    var expEarned = baseValue * 2;
-                    var pointEarned = baseValue;
-
-                    user.Exp += expEarned;
-                    user.Point += pointEarned;
-                    user.TotalPoint += pointEarned;
-                    user.Rank = CustomerRankCalculator.CalculateRank(user.Exp);
-
-                    _context.Users.Update(user);
-                }
-            }
-
             _context.Orders.Add(order);
             _context.CartItems.RemoveRange(filteredItems);
             await _context.SaveChangesAsync();
@@ -621,6 +604,11 @@ namespace Assignment.Controllers
             order.Status = status;
             order.UpdatedAt = DateTime.Now;
 
+            if (status == OrderStatus.Completed)
+            {
+                await ApplyLoyaltyRewardsAsync(order);
+            }
+
             await _context.SaveChangesAsync();
 
             TempData["Success"] = $"Cập nhật trạng thái đơn hàng #{order.Id} thành công.";
@@ -667,6 +655,11 @@ namespace Assignment.Controllers
                 order.Status = status;
                 order.UpdatedAt = now;
                 updatedCount++;
+
+                if (status == OrderStatus.Completed)
+                {
+                    await ApplyLoyaltyRewardsAsync(order);
+                }
             }
 
             if (updatedCount > 0)
@@ -689,6 +682,40 @@ namespace Assignment.Controllers
             }
 
             return RedirectToAction(nameof(Manage), new { status = statusFilter, search, page, pageSize });
+        }
+
+        private async Task ApplyLoyaltyRewardsAsync(Order order)
+        {
+            if (order == null || order.LoyaltyRewardsApplied || string.IsNullOrEmpty(order.UserId))
+            {
+                return;
+            }
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == order.UserId);
+            if (user == null)
+            {
+                order.LoyaltyRewardsApplied = true;
+                return;
+            }
+
+            var baseValue = (long)Math.Round(order.TotalBill, MidpointRounding.AwayFromZero);
+            if (baseValue <= 0)
+            {
+                order.LoyaltyRewardsApplied = true;
+                return;
+            }
+
+            var expEarned = baseValue * 2;
+            var pointEarned = baseValue;
+
+            user.Exp += expEarned;
+            user.Point += pointEarned;
+            user.TotalPoint += pointEarned;
+            user.Rank = CustomerRankCalculator.CalculateRank(user.Exp);
+
+            order.LoyaltyRewardsApplied = true;
+
+            _context.Users.Update(user);
         }
 
         [HttpGet]
