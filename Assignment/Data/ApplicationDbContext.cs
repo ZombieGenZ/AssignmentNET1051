@@ -35,5 +35,7 @@ namespace Assignment.Data
         public DbSet<Rating> Ratings { get; set; }
         public DbSet<Reward> Rewards { get; set; }
         public DbSet<RewardRedemption> RewardRedemptions { get; set; }
+        public DbSet<RewardProduct> RewardProducts { get; set; }
+        public DbSet<RewardCombo> RewardCombos { get; set; }
     }
 }

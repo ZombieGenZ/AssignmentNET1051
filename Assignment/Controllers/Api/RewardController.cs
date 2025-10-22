@@ -1,5 +1,7 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using System.Text.Json;
 using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Models;
@@ -8,6 +10,8 @@ using Assignment.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using System.Collections.Generic;
 
 namespace Assignment.Controllers.Api
 {
@@ -27,6 +31,17 @@ namespace Assignment.Controllers.Api
 
         private string? CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier);
 
+        private IQueryable<Reward> BuildRewardQuery(bool tracking = false)
+        {
+            var query = tracking ? _context.Rewards.AsQueryable() : _context.Rewards.AsNoTracking();
+
+            return query
+                .Include(r => r.RewardProducts.Where(rp => !rp.IsDeleted))
+                    .ThenInclude(rp => rp.Product)
+                .Include(r => r.RewardCombos.Where(rc => !rc.IsDeleted))
+                    .ThenInclude(rc => rc.Combo);
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetRewards(
             [FromQuery] int page = 1,
@@ -45,8 +60,7 @@ namespace Assignment.Controllers.Api
             page = PaginationDefaults.NormalizePage(page);
             pageSize = PaginationDefaults.NormalizePageSize(pageSize);
 
-            IQueryable<Reward> query = _context.Rewards
-                .AsNoTracking()
+            IQueryable<Reward> query = BuildRewardQuery()
                 .Where(r => !r.IsDeleted);
 
             if (!canGetAll)
@@ -99,7 +113,8 @@ namespace Assignment.Controllers.Api
         [HttpGet("{id:long}")]
         public async Task<IActionResult> GetReward(long id)
         {
-            var reward = await _context.Rewards.FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+            var reward = await BuildRewardQuery()
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
             if (reward == null)
             {
                 return NotFound();
@@ -119,7 +134,7 @@ namespace Assignment.Controllers.Api
         [Authorize(Policy = "CreateRewardPolicy")]
         public async Task<IActionResult> CreateReward([FromBody] RewardRequest request)
         {
-            ValidateRewardRequest(request);
+            await ValidateRewardRequestAsync(request);
             if (!ModelState.IsValid)
             {
                 return ValidationProblem(ModelState);
@@ -133,7 +148,8 @@ namespace Assignment.Controllers.Api
                 Description = request.Description!.Trim(),
                 PointCost = request.PointCost,
                 MinimumRank = request.MinimumRank,
-                Quantity = request.Quantity,
+                Quantity = request.IsQuantityUnlimited ? 0 : request.Quantity,
+                IsQuantityUnlimited = request.IsQuantityUnlimited,
                 Redeemed = 0,
                 ValidityValue = request.IsValidityUnlimited ? 0 : request.ValidityValue,
                 ValidityUnit = request.ValidityUnit,
@@ -149,6 +165,7 @@ namespace Assignment.Controllers.Api
                 VoucherHasCombinedUsageLimit = request.VoucherHasCombinedUsageLimit,
                 VoucherMaxCombinedUsageCount = request.VoucherHasCombinedUsageLimit ? request.VoucherMaxCombinedUsageCount : null,
                 VoucherIsForNewUsersOnly = request.VoucherIsForNewUsersOnly,
+                VoucherQuantity = request.VoucherQuantity,
                 CreateBy = CurrentUserId,
                 CreatedAt = now,
                 UpdatedAt = null,
@@ -159,14 +176,21 @@ namespace Assignment.Controllers.Api
             _context.Rewards.Add(reward);
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetReward), new { id = reward.Id }, MapToDetail(reward));
+            await UpdateRewardAssociationsAsync(reward, request, now);
+            await _context.SaveChangesAsync();
+
+            var createdReward = await BuildRewardQuery()
+                .FirstOrDefaultAsync(r => r.Id == reward.Id);
+
+            return CreatedAtAction(nameof(GetReward), new { id = reward.Id }, MapToDetail(createdReward ?? reward));
         }
 
         [HttpPut("{id:long}")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateReward(long id, [FromBody] RewardRequest request)
         {
-            var reward = await _context.Rewards.FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+            var reward = await BuildRewardQuery(tracking: true)
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
             if (reward == null)
             {
                 return NotFound();
@@ -178,7 +202,7 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            ValidateRewardRequest(request);
+            await ValidateRewardRequestAsync(request);
             if (!ModelState.IsValid)
             {
                 return ValidationProblem(ModelState);
@@ -189,7 +213,8 @@ namespace Assignment.Controllers.Api
             reward.Description = request.Description!.Trim();
             reward.PointCost = request.PointCost;
             reward.MinimumRank = request.MinimumRank;
-            reward.Quantity = request.Quantity;
+            reward.Quantity = request.IsQuantityUnlimited ? 0 : request.Quantity;
+            reward.IsQuantityUnlimited = request.IsQuantityUnlimited;
             reward.ValidityValue = request.IsValidityUnlimited ? 0 : request.ValidityValue;
             reward.ValidityUnit = request.ValidityUnit;
             reward.IsValidityUnlimited = request.IsValidityUnlimited;
@@ -204,10 +229,16 @@ namespace Assignment.Controllers.Api
             reward.VoucherHasCombinedUsageLimit = request.VoucherHasCombinedUsageLimit;
             reward.VoucherMaxCombinedUsageCount = request.VoucherHasCombinedUsageLimit ? request.VoucherMaxCombinedUsageCount : null;
             reward.VoucherIsForNewUsersOnly = request.VoucherIsForNewUsersOnly;
+            reward.VoucherQuantity = request.VoucherQuantity;
             reward.UpdatedAt = DateTime.Now;
 
+            await UpdateRewardAssociationsAsync(reward, request, reward.UpdatedAt.Value);
             await _context.SaveChangesAsync();
-            return Ok(MapToDetail(reward));
+
+            var updatedReward = await BuildRewardQuery()
+                .FirstOrDefaultAsync(r => r.Id == reward.Id);
+
+            return Ok(MapToDetail(updatedReward ?? reward));
         }
 
         [HttpDelete("{id:long}")]
@@ -267,7 +298,59 @@ namespace Assignment.Controllers.Api
             return Ok(new { message = "Đã xóa các vật phẩm đổi thưởng đã chọn." });
         }
 
-        private void ValidateRewardRequest(RewardRequest request)
+        [HttpGet("form-options")]
+        public async Task<IActionResult> GetFormOptions()
+        {
+            if (!User.HasAnyPermission(
+                    "CreateReward",
+                    "CreateRewardAll",
+                    "UpdateReward",
+                    "UpdateRewardAll"))
+            {
+                return Forbid();
+            }
+
+            var products = await _context.Products
+                .Where(p => !p.IsDeleted)
+                .OrderBy(p => p.Name)
+                .Select(p => new ProductOption
+                {
+                    Id = p.Id,
+                    Name = p.Name
+                })
+                .ToListAsync();
+
+            var combos = await _context.Combos
+                .Where(c => !c.IsDeleted)
+                .OrderBy(c => c.Name)
+                .Select(c => new ComboOption
+                {
+                    Id = c.Id,
+                    Name = c.Name
+                })
+                .ToListAsync();
+
+            var response = new FormOptionsResponse
+            {
+                Products = products,
+                Combos = combos
+            };
+
+            return Ok(response);
+        }
+
+        private async Task ValidateRewardRequestAsync(RewardRequest request)
+        {
+            ValidateRewardRequestCore(request);
+            if (!ModelState.IsValid)
+            {
+                return;
+            }
+
+            await ValidateRewardScopeSelectionsAsync(request);
+        }
+
+        private void ValidateRewardRequestCore(RewardRequest request)
         {
             if (request.Type != RewardItemType.Voucher)
             {
@@ -289,9 +372,13 @@ namespace Assignment.Controllers.Api
                 ModelState.AddModelError(nameof(request.PointCost), "Điểm đổi thưởng phải lớn hơn hoặc bằng 0.");
             }
 
-            if (request.Quantity < 0)
+            if (request.IsQuantityUnlimited)
             {
-                ModelState.AddModelError(nameof(request.Quantity), "Số lượng phải lớn hơn hoặc bằng 0.");
+                request.Quantity = 0;
+            }
+            else if (request.Quantity <= 0)
+            {
+                ModelState.AddModelError(nameof(request.Quantity), "Vui lòng nhập số lượng lớn hơn 0 hoặc chọn không giới hạn.");
             }
 
             if (!request.IsValidityUnlimited && request.ValidityValue < 1)
@@ -324,6 +411,11 @@ namespace Assignment.Controllers.Api
                 ModelState.AddModelError(nameof(request.VoucherMaxCombinedUsageCount), "Vui lòng nhập số voucher áp dụng chung tối đa hợp lệ.");
             }
 
+            if (request.VoucherQuantity < 1)
+            {
+                ModelState.AddModelError(nameof(request.VoucherQuantity), "Số lượng vé giảm giá phải lớn hơn hoặc bằng 1.");
+            }
+
             if (request.VoucherDiscountType == VoucherDiscountType.Percent)
             {
                 if (request.VoucherDiscount > 100)
@@ -349,19 +441,180 @@ namespace Assignment.Controllers.Api
                 request.VoucherMaximumPercentageReduction = null;
             }
 
+            if (request.VoucherProductScope == VoucherProductScope.NoProducts && request.VoucherComboScope == VoucherComboScope.NoCombos)
+            {
+                ModelState.AddModelError(nameof(request.VoucherProductScope), "Vật phẩm đổi thưởng phải áp dụng cho ít nhất sản phẩm hoặc combo.");
+            }
+        }
+
+        private async Task ValidateRewardScopeSelectionsAsync(RewardRequest request)
+        {
+            request.ProductIds = request.ProductIds?.Where(id => id > 0).Distinct().ToList() ?? new List<long>();
+            request.ComboIds = request.ComboIds?.Where(id => id > 0).Distinct().ToList() ?? new List<long>();
+
+            if (request.VoucherProductScope != VoucherProductScope.SelectedProducts)
+            {
+                request.ProductIds.Clear();
+            }
+
+            if (request.VoucherComboScope != VoucherComboScope.SelectedCombos)
+            {
+                request.ComboIds.Clear();
+            }
+
             if (request.VoucherProductScope == VoucherProductScope.SelectedProducts)
             {
-                ModelState.AddModelError(nameof(request.VoucherProductScope), "Chưa hỗ trợ chọn một số sản phẩm cho vật phẩm đổi thưởng.");
+                if (!request.ProductIds.Any())
+                {
+                    ModelState.AddModelError(nameof(request.ProductIds), "Vui lòng chọn ít nhất một sản phẩm áp dụng.");
+                }
+                else
+                {
+                    var existingProductIds = await _context.Products
+                        .Where(p => !p.IsDeleted && request.ProductIds.Contains(p.Id))
+                        .Select(p => p.Id)
+                        .ToListAsync();
+
+                    var missingIds = request.ProductIds.Except(existingProductIds).ToList();
+                    if (missingIds.Any())
+                    {
+                        ModelState.AddModelError(nameof(request.ProductIds), "Một số sản phẩm đã chọn không tồn tại hoặc đã bị xóa.");
+                    }
+                    else
+                    {
+                        request.ProductIds = existingProductIds;
+                    }
+                }
             }
 
             if (request.VoucherComboScope == VoucherComboScope.SelectedCombos)
             {
-                ModelState.AddModelError(nameof(request.VoucherComboScope), "Chưa hỗ trợ chọn một số combo cho vật phẩm đổi thưởng.");
+                if (!request.ComboIds.Any())
+                {
+                    ModelState.AddModelError(nameof(request.ComboIds), "Vui lòng chọn ít nhất một combo áp dụng.");
+                }
+                else
+                {
+                    var existingComboIds = await _context.Combos
+                        .Where(c => !c.IsDeleted && request.ComboIds.Contains(c.Id))
+                        .Select(c => c.Id)
+                        .ToListAsync();
+
+                    var missingComboIds = request.ComboIds.Except(existingComboIds).ToList();
+                    if (missingComboIds.Any())
+                    {
+                        ModelState.AddModelError(nameof(request.ComboIds), "Một số combo đã chọn không tồn tại hoặc đã bị xóa.");
+                    }
+                    else
+                    {
+                        request.ComboIds = existingComboIds;
+                    }
+                }
+            }
+        }
+
+        private async Task UpdateRewardAssociationsAsync(Reward reward, RewardRequest request, DateTime timestamp)
+        {
+            if (reward == null)
+            {
+                return;
             }
 
-            if (request.VoucherProductScope == VoucherProductScope.NoProducts && request.VoucherComboScope == VoucherComboScope.NoCombos)
+            var now = timestamp == default ? DateTime.Now : timestamp;
+            var currentUserId = CurrentUserId;
+
+            var existingRewardProducts = await _context.RewardProducts
+                .Where(rp => rp.RewardId == reward.Id && !rp.IsDeleted)
+                .ToListAsync();
+
+            if (request.VoucherProductScope != VoucherProductScope.SelectedProducts || !request.ProductIds.Any())
             {
-                ModelState.AddModelError(nameof(request.VoucherProductScope), "Vật phẩm đổi thưởng phải áp dụng cho ít nhất sản phẩm hoặc combo.");
+                foreach (var rewardProduct in existingRewardProducts)
+                {
+                    rewardProduct.IsDeleted = true;
+                    rewardProduct.DeletedAt = now;
+                    rewardProduct.UpdatedAt = now;
+                }
+            }
+            else
+            {
+                var desiredProductIds = new HashSet<long>(request.ProductIds);
+                foreach (var rewardProduct in existingRewardProducts)
+                {
+                    if (!desiredProductIds.Contains(rewardProduct.ProductId))
+                    {
+                        rewardProduct.IsDeleted = true;
+                        rewardProduct.DeletedAt = now;
+                        rewardProduct.UpdatedAt = now;
+                    }
+                    else
+                    {
+                        desiredProductIds.Remove(rewardProduct.ProductId);
+                    }
+                }
+
+                foreach (var productId in desiredProductIds)
+                {
+                    var newRewardProduct = new RewardProduct
+                    {
+                        RewardId = reward.Id,
+                        ProductId = productId,
+                        CreateBy = currentUserId,
+                        CreatedAt = now,
+                        UpdatedAt = null,
+                        IsDeleted = false,
+                        DeletedAt = null
+                    };
+
+                    _context.RewardProducts.Add(newRewardProduct);
+                }
+            }
+
+            var existingRewardCombos = await _context.RewardCombos
+                .Where(rc => rc.RewardId == reward.Id && !rc.IsDeleted)
+                .ToListAsync();
+
+            if (request.VoucherComboScope != VoucherComboScope.SelectedCombos || !request.ComboIds.Any())
+            {
+                foreach (var rewardCombo in existingRewardCombos)
+                {
+                    rewardCombo.IsDeleted = true;
+                    rewardCombo.DeletedAt = now;
+                    rewardCombo.UpdatedAt = now;
+                }
+            }
+            else
+            {
+                var desiredComboIds = new HashSet<long>(request.ComboIds);
+                foreach (var rewardCombo in existingRewardCombos)
+                {
+                    if (!desiredComboIds.Contains(rewardCombo.ComboId))
+                    {
+                        rewardCombo.IsDeleted = true;
+                        rewardCombo.DeletedAt = now;
+                        rewardCombo.UpdatedAt = now;
+                    }
+                    else
+                    {
+                        desiredComboIds.Remove(rewardCombo.ComboId);
+                    }
+                }
+
+                foreach (var comboId in desiredComboIds)
+                {
+                    var newRewardCombo = new RewardCombo
+                    {
+                        RewardId = reward.Id,
+                        ComboId = comboId,
+                        CreateBy = currentUserId,
+                        CreatedAt = now,
+                        UpdatedAt = null,
+                        IsDeleted = false,
+                        DeletedAt = null
+                    };
+
+                    _context.RewardCombos.Add(newRewardCombo);
+                }
             }
         }
 
@@ -374,6 +627,7 @@ namespace Assignment.Controllers.Api
             PointCost = reward.PointCost,
             MinimumRank = reward.MinimumRank,
             Quantity = reward.Quantity,
+            IsQuantityUnlimited = reward.IsQuantityUnlimited,
             Redeemed = reward.Redeemed,
             ValidityValue = reward.ValidityValue,
             ValidityUnit = reward.ValidityUnit,
@@ -390,7 +644,10 @@ namespace Assignment.Controllers.Api
             VoucherMaximumPercentageReduction = reward.VoucherMaximumPercentageReduction,
             VoucherHasCombinedUsageLimit = reward.VoucherHasCombinedUsageLimit,
             VoucherMaxCombinedUsageCount = reward.VoucherMaxCombinedUsageCount,
-            VoucherIsForNewUsersOnly = reward.VoucherIsForNewUsersOnly
+            VoucherIsForNewUsersOnly = reward.VoucherIsForNewUsersOnly,
+            VoucherQuantity = reward.VoucherQuantity,
+            SelectedProductCount = reward.RewardProducts?.Count(rp => !rp.IsDeleted) ?? 0,
+            SelectedComboCount = reward.RewardCombos?.Count(rc => !rc.IsDeleted) ?? 0
         };
 
         private static RewardDetail MapToDetail(Reward reward) => new()
@@ -402,6 +659,7 @@ namespace Assignment.Controllers.Api
             PointCost = reward.PointCost,
             MinimumRank = reward.MinimumRank,
             Quantity = reward.Quantity,
+            IsQuantityUnlimited = reward.IsQuantityUnlimited,
             Redeemed = reward.Redeemed,
             ValidityValue = reward.ValidityValue,
             ValidityUnit = reward.ValidityUnit,
@@ -418,7 +676,28 @@ namespace Assignment.Controllers.Api
             VoucherMaximumPercentageReduction = reward.VoucherMaximumPercentageReduction,
             VoucherHasCombinedUsageLimit = reward.VoucherHasCombinedUsageLimit,
             VoucherMaxCombinedUsageCount = reward.VoucherMaxCombinedUsageCount,
-            VoucherIsForNewUsersOnly = reward.VoucherIsForNewUsersOnly
+            VoucherIsForNewUsersOnly = reward.VoucherIsForNewUsersOnly,
+            VoucherQuantity = reward.VoucherQuantity,
+            SelectedProductCount = reward.RewardProducts?.Count(rp => !rp.IsDeleted) ?? 0,
+            SelectedComboCount = reward.RewardCombos?.Count(rc => !rc.IsDeleted) ?? 0,
+            SelectedProducts = reward.RewardProducts?
+                .Where(rp => !rp.IsDeleted)
+                .Select(rp => new RewardScopeItem
+                {
+                    Id = rp.ProductId,
+                    Name = rp.Product?.Name ?? $"Sản phẩm #{rp.ProductId}"
+                })
+                .OrderBy(item => item.Name)
+                .ToList() ?? new List<RewardScopeItem>(),
+            SelectedCombos = reward.RewardCombos?
+                .Where(rc => !rc.IsDeleted)
+                .Select(rc => new RewardScopeItem
+                {
+                    Id = rc.ComboId,
+                    Name = rc.Combo?.Name ?? $"Combo #{rc.ComboId}"
+                })
+                .OrderBy(item => item.Name)
+                .ToList() ?? new List<RewardScopeItem>()
         };
 
         public class RewardRequest
@@ -448,6 +727,8 @@ namespace Assignment.Controllers.Api
 
             public bool IsValidityUnlimited { get; set; }
 
+            public bool IsQuantityUnlimited { get; set; }
+
             public bool IsPublish { get; set; }
 
             public VoucherProductScope VoucherProductScope { get; set; }
@@ -473,6 +754,13 @@ namespace Assignment.Controllers.Api
             public int? VoucherMaxCombinedUsageCount { get; set; }
 
             public bool VoucherIsForNewUsersOnly { get; set; }
+
+            [Range(1, int.MaxValue)]
+            public int VoucherQuantity { get; set; } = 1;
+
+            public List<long> ProductIds { get; set; } = new();
+
+            public List<long> ComboIds { get; set; } = new();
         }
 
         public class RewardListItem
@@ -484,6 +772,7 @@ namespace Assignment.Controllers.Api
             public long PointCost { get; set; }
             public CustomerRank? MinimumRank { get; set; }
             public long Quantity { get; set; }
+            public bool IsQuantityUnlimited { get; set; }
             public long Redeemed { get; set; }
             public int ValidityValue { get; set; }
             public RewardValidityUnit ValidityUnit { get; set; }
@@ -501,10 +790,39 @@ namespace Assignment.Controllers.Api
             public bool VoucherHasCombinedUsageLimit { get; set; }
             public int? VoucherMaxCombinedUsageCount { get; set; }
             public bool VoucherIsForNewUsersOnly { get; set; }
+            public int VoucherQuantity { get; set; }
+            public int SelectedProductCount { get; set; }
+            public int SelectedComboCount { get; set; }
         }
 
         public class RewardDetail : RewardListItem
         {
+            public IReadOnlyCollection<RewardScopeItem> SelectedProducts { get; set; } = Array.Empty<RewardScopeItem>();
+            public IReadOnlyCollection<RewardScopeItem> SelectedCombos { get; set; } = Array.Empty<RewardScopeItem>();
+        }
+
+        public class RewardScopeItem
+        {
+            public long Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+        }
+
+        public class FormOptionsResponse
+        {
+            public IReadOnlyCollection<ProductOption> Products { get; set; } = Array.Empty<ProductOption>();
+            public IReadOnlyCollection<ComboOption> Combos { get; set; } = Array.Empty<ComboOption>();
+        }
+
+        public class ProductOption
+        {
+            public long Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+        }
+
+        public class ComboOption
+        {
+            public long Id { get; set; }
+            public string Name { get; set; } = string.Empty;
         }
 
         public class PagedResponse<T>

@@ -174,14 +174,18 @@
                     </div>
                     <div class="col-md-6">
                         <label for="rewardQuantity" class="form-label">Số lượng</label>
-                        <input type="number" min="0" step="1" class="form-control" id="rewardQuantity" />
-                        <small class="text-muted">Nhập 0 để không giới hạn.</small>
+                        <input type="number" min="1" step="1" class="form-control" id="rewardQuantity" />
+                        <div class="form-check mt-2">
+                            <input class="form-check-input" type="checkbox" id="rewardIsQuantityUnlimited" />
+                            <label class="form-check-label" for="rewardIsQuantityUnlimited">Không giới hạn số lượng</label>
+                        </div>
                     </div>
                     <div class="col-md-6">
                         <label for="rewardValidityValue" class="form-label">Thời hạn hiệu lực<span class="text-danger">*</span></label>
                         <div class="input-group">
                             <input type="number" min="1" step="1" class="form-control" id="rewardValidityValue" required />
                             <select id="rewardValidityUnit" class="form-select" style="max-width: 160px;">
+                                <option value="@((int)RewardValidityUnit.Minute)">Phút</option>
                                 <option value="@((int)RewardValidityUnit.Day)">Ngày</option>
                                 <option value="@((int)RewardValidityUnit.Week)">Tuần</option>
                                 <option value="@((int)RewardValidityUnit.Month)">Tháng</option>
@@ -222,6 +226,11 @@
                         <label for="rewardVoucherMinimumRequirements" class="form-label">Đơn tối thiểu<span class="text-danger">*</span></label>
                         <input type="number" min="0" step="0.01" class="form-control" id="rewardVoucherMinimumRequirements" required />
                     </div>
+                    <div class="col-md-4">
+                        <label for="rewardVoucherQuantity" class="form-label">Số lượng vé giảm giá<span class="text-danger">*</span></label>
+                        <input type="number" min="1" step="1" class="form-control" id="rewardVoucherQuantity" />
+                        <div class="form-text">Số lượt sử dụng cho mỗi mã giảm giá được tạo.</div>
+                    </div>
                     <div class="col-md-6">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="rewardVoucherUnlimitedPercentage" />
@@ -247,6 +256,7 @@
                         <label for="rewardVoucherProductScope" class="form-label">Phạm vi sản phẩm</label>
                         <select id="rewardVoucherProductScope" class="form-select">
                             <option value="@((int)VoucherProductScope.AllProducts)">Tất cả sản phẩm</option>
+                            <option value="@((int)VoucherProductScope.SelectedProducts)">Một số sản phẩm</option>
                             <option value="@((int)VoucherProductScope.NoProducts)">Không áp dụng sản phẩm</option>
                         </select>
                     </div>
@@ -254,8 +264,19 @@
                         <label for="rewardVoucherComboScope" class="form-label">Phạm vi combo</label>
                         <select id="rewardVoucherComboScope" class="form-select">
                             <option value="@((int)VoucherComboScope.AllCombos)">Tất cả combo</option>
+                            <option value="@((int)VoucherComboScope.SelectedCombos)">Một số combo</option>
                             <option value="@((int)VoucherComboScope.NoCombos)">Không áp dụng combo</option>
                         </select>
+                    </div>
+                    <div class="col-12 d-none" id="rewardSelectedProductsWrapper">
+                        <label for="rewardSelectedProducts" class="form-label">Sản phẩm áp dụng<span class="text-danger">*</span></label>
+                        <select id="rewardSelectedProducts" class="form-select" multiple size="8"></select>
+                        <div class="form-text">Giữ Ctrl (Windows) hoặc Command (macOS) để chọn nhiều sản phẩm.</div>
+                    </div>
+                    <div class="col-12 d-none" id="rewardSelectedCombosWrapper">
+                        <label for="rewardSelectedCombos" class="form-label">Combo áp dụng<span class="text-danger">*</span></label>
+                        <select id="rewardSelectedCombos" class="form-select" multiple size="6"></select>
+                        <div class="form-text">Giữ Ctrl (Windows) hoặc Command (macOS) để chọn nhiều combo.</div>
                     </div>
                 </div>
             </div>
@@ -377,6 +398,7 @@
                 pointCostInput: document.getElementById('rewardPointCost'),
                 minimumRankSelect: document.getElementById('rewardMinimumRank'),
                 quantityInput: document.getElementById('rewardQuantity'),
+                quantityUnlimitedSwitch: document.getElementById('rewardIsQuantityUnlimited'),
                 validityValueInput: document.getElementById('rewardValidityValue'),
                 validityUnitSelect: document.getElementById('rewardValidityUnit'),
                 validityUnlimitedSwitch: document.getElementById('rewardValidityUnlimited'),
@@ -385,12 +407,17 @@
                 voucherDiscountTypeSelect: document.getElementById('rewardVoucherDiscountType'),
                 voucherDiscountInput: document.getElementById('rewardVoucherDiscount'),
                 voucherMinimumRequirementsInput: document.getElementById('rewardVoucherMinimumRequirements'),
+                voucherQuantityInput: document.getElementById('rewardVoucherQuantity'),
                 voucherUnlimitedPercentageSwitch: document.getElementById('rewardVoucherUnlimitedPercentage'),
                 voucherMaximumPercentageInput: document.getElementById('rewardVoucherMaximumPercentageReduction'),
                 voucherHasCombinedLimitSwitch: document.getElementById('rewardVoucherHasCombinedLimit'),
                 voucherMaxCombinedInput: document.getElementById('rewardVoucherMaxCombinedUsageCount'),
                 voucherProductScopeSelect: document.getElementById('rewardVoucherProductScope'),
-                voucherComboScopeSelect: document.getElementById('rewardVoucherComboScope')
+                voucherComboScopeSelect: document.getElementById('rewardVoucherComboScope'),
+                selectedProductsSelect: document.getElementById('rewardSelectedProducts'),
+                selectedCombosSelect: document.getElementById('rewardSelectedCombos'),
+                selectedProductsWrapper: document.getElementById('rewardSelectedProductsWrapper'),
+                selectedCombosWrapper: document.getElementById('rewardSelectedCombosWrapper')
             };
 
             const rankLabels = {
@@ -405,6 +432,7 @@
             };
 
             const validityUnitLabels = {
+                '@((int)RewardValidityUnit.Minute)': 'Phút',
                 '@((int)RewardValidityUnit.Day)': 'Ngày',
                 '@((int)RewardValidityUnit.Week)': 'Tuần',
                 '@((int)RewardValidityUnit.Month)': 'Tháng',
@@ -414,11 +442,13 @@
 
             const productScopeLabels = {
                 '@((int)VoucherProductScope.AllProducts)': 'Tất cả sản phẩm',
+                '@((int)VoucherProductScope.SelectedProducts)': 'Một số sản phẩm',
                 '@((int)VoucherProductScope.NoProducts)': 'Không áp dụng sản phẩm'
             };
 
             const comboScopeLabels = {
                 '@((int)VoucherComboScope.AllCombos)': 'Tất cả combo',
+                '@((int)VoucherComboScope.SelectedCombos)': 'Một số combo',
                 '@((int)VoucherComboScope.NoCombos)': 'Không áp dụng combo'
             };
 
@@ -429,6 +459,12 @@
 
             const DISCOUNT_TYPE_PERCENT = @((int)VoucherDiscountType.Percent);
             const VALIDITY_UNIT_FOREVER = @((int)RewardValidityUnit.Forever);
+            const PRODUCT_SCOPE_ALL = @((int)VoucherProductScope.AllProducts);
+            const PRODUCT_SCOPE_SELECTED = @((int)VoucherProductScope.SelectedProducts);
+            const PRODUCT_SCOPE_NONE = @((int)VoucherProductScope.NoProducts);
+            const COMBO_SCOPE_ALL = @((int)VoucherComboScope.AllCombos);
+            const COMBO_SCOPE_SELECTED = @((int)VoucherComboScope.SelectedCombos);
+            const COMBO_SCOPE_NONE = @((int)VoucherComboScope.NoCombos);
 
             const state = {
                 items: [],
@@ -443,6 +479,11 @@
                 filters: {
                     search: '',
                     isPublish: ''
+                },
+                formOptionsLoaded: false,
+                formOptions: {
+                    products: [],
+                    combos: []
                 }
             };
 
@@ -513,9 +554,166 @@
                     return 'Không xác định';
                 }
 
-                const productText = productScopeLabels[String(item.voucherProductScope)] ?? 'Không xác định';
-                const comboText = comboScopeLabels[String(item.voucherComboScope)] ?? 'Không xác định';
+                const productScopeValue = Number(item.voucherProductScope);
+                const comboScopeValue = Number(item.voucherComboScope);
+
+                let productText = productScopeLabels[String(productScopeValue)] ?? 'Không xác định';
+                if (productScopeValue === PRODUCT_SCOPE_SELECTED) {
+                    const count = Number(item.selectedProductCount || 0);
+                    productText += count > 0 ? ` (${count.toLocaleString('vi-VN')})` : ' (0)';
+                }
+
+                let comboText = comboScopeLabels[String(comboScopeValue)] ?? 'Không xác định';
+                if (comboScopeValue === COMBO_SCOPE_SELECTED) {
+                    const count = Number(item.selectedComboCount || 0);
+                    comboText += count > 0 ? ` (${count.toLocaleString('vi-VN')})` : ' (0)';
+                }
+
                 return `<div><div><strong>SP:</strong> ${productText}</div><div><strong>Combo:</strong> ${comboText}</div></div>`;
+            }
+
+            function setSelectedOptions(selectElement, selectedIds = []) {
+                if (!selectElement) {
+                    return;
+                }
+
+                const selectedSet = new Set((selectedIds || []).map(id => String(id)));
+                Array.from(selectElement.options || []).forEach(option => {
+                    option.selected = selectedSet.has(option.value);
+                });
+            }
+
+            function populateProductOptions(selectedIds = []) {
+                if (!formFields.selectedProductsSelect) {
+                    return;
+                }
+
+                const options = Array.isArray(state.formOptions.products) ? state.formOptions.products : [];
+                formFields.selectedProductsSelect.innerHTML = options
+                    .map(option => `<option value="${option.id}">${option.name || `Sản phẩm #${option.id}`}</option>`)
+                    .join('');
+
+                setSelectedOptions(formFields.selectedProductsSelect, selectedIds);
+            }
+
+            function populateComboOptions(selectedIds = []) {
+                if (!formFields.selectedCombosSelect) {
+                    return;
+                }
+
+                const options = Array.isArray(state.formOptions.combos) ? state.formOptions.combos : [];
+                formFields.selectedCombosSelect.innerHTML = options
+                    .map(option => `<option value="${option.id}">${option.name || `Combo #${option.id}`}</option>`)
+                    .join('');
+
+                setSelectedOptions(formFields.selectedCombosSelect, selectedIds);
+            }
+
+            function clearMultiSelect(selectElement) {
+                if (!selectElement) {
+                    return;
+                }
+
+                Array.from(selectElement.options || []).forEach(option => {
+                    option.selected = false;
+                });
+            }
+
+            async function ensureFormOptionsLoaded() {
+                if (state.formOptionsLoaded) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/form-options`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách sản phẩm/combo.');
+                    }
+
+                    const data = await response.json();
+                    state.formOptions.products = Array.isArray(data.products) ? data.products : [];
+                    state.formOptions.combos = Array.isArray(data.combos) ? data.combos : [];
+                    state.formOptionsLoaded = true;
+                    populateProductOptions();
+                    populateComboOptions();
+                } catch (error) {
+                    showAlert(error.message || 'Không thể tải dữ liệu lựa chọn.', 'danger');
+                }
+            }
+
+            function ensureScopeOptionAvailability() {
+                let productScopeValue = Number(formFields.voucherProductScopeSelect?.value ?? PRODUCT_SCOPE_ALL);
+                let comboScopeValue = Number(formFields.voucherComboScopeSelect?.value ?? COMBO_SCOPE_ALL);
+
+                if (!formFields.voucherProductScopeSelect || !formFields.voucherComboScopeSelect) {
+                    return { productScopeValue, comboScopeValue };
+                }
+
+                const productNoneOption = Array.from(formFields.voucherProductScopeSelect.options || [])
+                    .find(option => Number(option.value) === PRODUCT_SCOPE_NONE);
+                const comboNoneOption = Array.from(formFields.voucherComboScopeSelect.options || [])
+                    .find(option => Number(option.value) === COMBO_SCOPE_NONE);
+
+                if (comboNoneOption) {
+                    const hideComboNone = productScopeValue === PRODUCT_SCOPE_NONE;
+                    comboNoneOption.hidden = hideComboNone;
+                    comboNoneOption.disabled = hideComboNone;
+
+                    if (hideComboNone && comboScopeValue === COMBO_SCOPE_NONE) {
+                        formFields.voucherComboScopeSelect.value = String(COMBO_SCOPE_ALL);
+                        comboScopeValue = COMBO_SCOPE_ALL;
+                    }
+                }
+
+                if (productNoneOption) {
+                    const hideProductNone = comboScopeValue === COMBO_SCOPE_NONE;
+                    productNoneOption.hidden = hideProductNone;
+                    productNoneOption.disabled = hideProductNone;
+
+                    if (hideProductNone && productScopeValue === PRODUCT_SCOPE_NONE) {
+                        formFields.voucherProductScopeSelect.value = String(PRODUCT_SCOPE_ALL);
+                        productScopeValue = PRODUCT_SCOPE_ALL;
+                    }
+                }
+
+                return { productScopeValue, comboScopeValue };
+            }
+
+            function updateScopeControls() {
+                const { productScopeValue, comboScopeValue } = ensureScopeOptionAvailability();
+
+                if (formFields.selectedProductsWrapper) {
+                    const showProducts = productScopeValue === PRODUCT_SCOPE_SELECTED;
+                    formFields.selectedProductsWrapper.classList.toggle('d-none', !showProducts);
+                    if (!showProducts) {
+                        clearMultiSelect(formFields.selectedProductsSelect);
+                    }
+                }
+
+                if (formFields.selectedCombosWrapper) {
+                    const showCombos = comboScopeValue === COMBO_SCOPE_SELECTED;
+                    formFields.selectedCombosWrapper.classList.toggle('d-none', !showCombos);
+                    if (!showCombos) {
+                        clearMultiSelect(formFields.selectedCombosSelect);
+                    }
+                }
+            }
+
+            function updateQuantityControls() {
+                if (!formFields.quantityUnlimitedSwitch || !formFields.quantityInput) {
+                    return;
+                }
+
+                const isUnlimited = formFields.quantityUnlimitedSwitch.checked;
+                formFields.quantityInput.disabled = isUnlimited;
+                if (isUnlimited) {
+                    formFields.quantityInput.value = '';
+                } else if (!formFields.quantityInput.value) {
+                    formFields.quantityInput.value = 1;
+                }
             }
 
             function updateBulkActionsVisibility() {
@@ -561,9 +759,11 @@
                 const rows = state.items.map(item => {
                     const rankKey = item.minimumRank === null || item.minimumRank === undefined ? 'none' : String(item.minimumRank);
                     const rankText = rankLabels[rankKey] ?? rankLabels.none;
-                    const quantityText = Number(item.quantity) > 0
-                        ? `${Number(item.redeemed).toLocaleString('vi-VN')} / ${Number(item.quantity).toLocaleString('vi-VN')}`
-                        : `${Number(item.redeemed).toLocaleString('vi-VN')} / Không giới hạn`;
+                    const redeemedText = Number(item.redeemed).toLocaleString('vi-VN');
+                    const hasLimitedQuantity = !item.isQuantityUnlimited && Number(item.quantity) > 0;
+                    const quantityText = hasLimitedQuantity
+                        ? `${redeemedText} / ${Number(item.quantity).toLocaleString('vi-VN')}`
+                        : `${redeemedText} / Không giới hạn`;
                     const validityText = formatValidity(item);
                     const discountText = formatDiscount(item);
                     const scopeText = formatScope(item);
@@ -652,11 +852,18 @@
                 rewardFormErrors.innerHTML = '';
                 state.formMode = 'create';
                 state.editingId = null;
+
                 if (formFields.typeSelect) {
                     formFields.typeSelect.value = '@((int)RewardItemType.Voucher)';
                 }
                 if (formFields.minimumRankSelect) {
                     formFields.minimumRankSelect.value = '';
+                }
+                if (formFields.quantityInput) {
+                    formFields.quantityInput.value = 1;
+                }
+                if (formFields.quantityUnlimitedSwitch) {
+                    formFields.quantityUnlimitedSwitch.checked = false;
                 }
                 if (formFields.validityUnitSelect) {
                     formFields.validityUnitSelect.value = '@((int)RewardValidityUnit.Day)';
@@ -682,6 +889,9 @@
                 if (formFields.voucherMinimumRequirementsInput) {
                     formFields.voucherMinimumRequirementsInput.value = 0;
                 }
+                if (formFields.voucherQuantityInput) {
+                    formFields.voucherQuantityInput.value = 1;
+                }
                 if (formFields.voucherUnlimitedPercentageSwitch) {
                     formFields.voucherUnlimitedPercentageSwitch.checked = false;
                 }
@@ -701,6 +911,13 @@
                     formFields.voucherComboScopeSelect.value = '@((int)VoucherComboScope.AllCombos)';
                 }
 
+                if (state.formOptionsLoaded) {
+                    populateProductOptions();
+                    populateComboOptions();
+                }
+
+                updateQuantityControls();
+                updateScopeControls();
                 updateValidityControls();
                 updatePercentageControls();
                 updateCombinedLimitControls();
@@ -812,12 +1029,19 @@
 
             function collectFormData() {
                 const isValidityUnlimited = formFields.validityUnlimitedSwitch ? formFields.validityUnlimitedSwitch.checked : false;
+                const isQuantityUnlimited = formFields.quantityUnlimitedSwitch ? formFields.quantityUnlimitedSwitch.checked : false;
                 const selectedValidityUnit = Number(formFields.validityUnitSelect?.value || 0);
                 const validityUnit = isValidityUnlimited ? VALIDITY_UNIT_FOREVER : selectedValidityUnit;
                 const discountType = Number(formFields.voucherDiscountTypeSelect?.value || @((int)VoucherDiscountType.Money));
                 const isPercentDiscount = discountType === DISCOUNT_TYPE_PERCENT;
                 const unlimitedPercentage = isPercentDiscount && (formFields.voucherUnlimitedPercentageSwitch?.checked ?? false);
                 const hasCombinedLimit = formFields.voucherHasCombinedLimitSwitch?.checked ?? false;
+                const productScopeValue = Number(formFields.voucherProductScopeSelect?.value || PRODUCT_SCOPE_ALL);
+                const comboScopeValue = Number(formFields.voucherComboScopeSelect?.value || COMBO_SCOPE_ALL);
+                const selectedProductIds = Array.from(formFields.selectedProductsSelect?.selectedOptions ?? [])
+                    .map(option => Number(option.value));
+                const selectedComboIds = Array.from(formFields.selectedCombosSelect?.selectedOptions ?? [])
+                    .map(option => Number(option.value));
 
                 return {
                     type: Number(formFields.typeSelect?.value || @((int)RewardItemType.Voucher)),
@@ -825,10 +1049,11 @@
                     description: formFields.descriptionInput.value?.trim(),
                     pointCost: Number(formFields.pointCostInput.value || 0),
                     minimumRank: formFields.minimumRankSelect.value ? Number(formFields.minimumRankSelect.value) : null,
-                    quantity: Number(formFields.quantityInput.value || 0),
+                    quantity: isQuantityUnlimited ? 0 : Number(formFields.quantityInput.value || 0),
                     validityValue: isValidityUnlimited ? 0 : Number(formFields.validityValueInput.value || 0),
                     validityUnit,
                     isValidityUnlimited,
+                    isQuantityUnlimited,
                     isPublish: formFields.isPublishSwitch.checked,
                     voucherIsForNewUsersOnly: formFields.voucherIsForNewUsersOnlySwitch?.checked ?? false,
                     voucherDiscountType: discountType,
@@ -838,8 +1063,11 @@
                     voucherMaximumPercentageReduction: unlimitedPercentage ? null : Number(formFields.voucherMaximumPercentageInput?.value || 0),
                     voucherHasCombinedUsageLimit: hasCombinedLimit,
                     voucherMaxCombinedUsageCount: hasCombinedLimit ? Number(formFields.voucherMaxCombinedInput?.value || 0) : null,
-                    voucherProductScope: Number(formFields.voucherProductScopeSelect?.value || @((int)VoucherProductScope.AllProducts)),
-                    voucherComboScope: Number(formFields.voucherComboScopeSelect?.value || @((int)VoucherComboScope.AllCombos))
+                    voucherProductScope: productScopeValue,
+                    voucherComboScope: comboScopeValue,
+                    voucherQuantity: Number(formFields.voucherQuantityInput?.value || 1),
+                    productIds: productScopeValue === PRODUCT_SCOPE_SELECTED ? selectedProductIds : [],
+                    comboIds: comboScopeValue === COMBO_SCOPE_SELECTED ? selectedComboIds : []
                 };
             }
             async function submitForm(event) {
@@ -906,10 +1134,12 @@
                 }
             }
 
-            function openCreateModal() {
+            async function openCreateModal() {
                 resetForm();
                 rewardModalLabel.textContent = 'Thêm vật phẩm';
                 rewardSubmitBtn.textContent = 'Thêm mới';
+                await ensureFormOptionsLoaded();
+                updateScopeControls();
                 rewardModal.show();
             }
 
@@ -921,6 +1151,7 @@
                 state.editingId = id;
 
                 try {
+                    await ensureFormOptionsLoaded();
                     const response = await fetch(`${API_BASE_URL}/${id}`, {
                         headers: { 'Accept': 'application/json' }
                     });
@@ -937,13 +1168,19 @@
                     formFields.descriptionInput.value = reward.description || '';
                     formFields.pointCostInput.value = Number(reward.pointCost || 0);
                     formFields.minimumRankSelect.value = reward.minimumRank ?? '';
-                    formFields.quantityInput.value = Number(reward.quantity || 0);
-                    const isUnlimited = Boolean(reward.isValidityUnlimited) || reward.validityUnit === VALIDITY_UNIT_FOREVER;
+                    const isQuantityUnlimited = Boolean(reward.isQuantityUnlimited);
+                    if (formFields.quantityUnlimitedSwitch) {
+                        formFields.quantityUnlimitedSwitch.checked = isQuantityUnlimited;
+                    }
+                    if (formFields.quantityInput) {
+                        formFields.quantityInput.value = isQuantityUnlimited ? '' : Number(reward.quantity || 0);
+                    }
+                    const isValidityUnlimited = Boolean(reward.isValidityUnlimited) || reward.validityUnit === VALIDITY_UNIT_FOREVER;
                     if (formFields.validityUnlimitedSwitch) {
-                        formFields.validityUnlimitedSwitch.checked = isUnlimited;
+                        formFields.validityUnlimitedSwitch.checked = isValidityUnlimited;
                     }
                     if (formFields.validityValueInput) {
-                        formFields.validityValueInput.value = isUnlimited ? '' : Number(reward.validityValue || 0);
+                        formFields.validityValueInput.value = isValidityUnlimited ? '' : Number(reward.validityValue || 0);
                     }
                     if (formFields.validityUnitSelect) {
                         formFields.validityUnitSelect.value = String(reward.validityUnit ?? @((int)RewardValidityUnit.Day));
@@ -961,6 +1198,9 @@
                     if (formFields.voucherMinimumRequirementsInput) {
                         formFields.voucherMinimumRequirementsInput.value = Number(reward.voucherMinimumRequirements || 0);
                     }
+                    if (formFields.voucherQuantityInput) {
+                        formFields.voucherQuantityInput.value = Number(reward.voucherQuantity || 1);
+                    }
                     if (formFields.voucherUnlimitedPercentageSwitch) {
                         formFields.voucherUnlimitedPercentageSwitch.checked = Boolean(reward.voucherUnlimitedPercentageDiscount);
                     }
@@ -977,16 +1217,30 @@
                             ? Number(reward.voucherMaxCombinedUsageCount)
                             : '';
                     }
+                    const productScopeValue = reward.voucherProductScope ?? @((int)VoucherProductScope.AllProducts);
+                    const comboScopeValue = reward.voucherComboScope ?? @((int)VoucherComboScope.AllCombos);
                     if (formFields.voucherProductScopeSelect) {
-                        formFields.voucherProductScopeSelect.value = String(reward.voucherProductScope ?? @((int)VoucherProductScope.AllProducts));
+                        formFields.voucherProductScopeSelect.value = String(productScopeValue);
                     }
                     if (formFields.voucherComboScopeSelect) {
-                        formFields.voucherComboScopeSelect.value = String(reward.voucherComboScope ?? @((int)VoucherComboScope.AllCombos));
+                        formFields.voucherComboScopeSelect.value = String(comboScopeValue);
                     }
 
+                    const selectedProductIds = Array.isArray(reward.selectedProducts)
+                        ? reward.selectedProducts.map(product => Number(product.id))
+                        : [];
+                    const selectedComboIds = Array.isArray(reward.selectedCombos)
+                        ? reward.selectedCombos.map(combo => Number(combo.id))
+                        : [];
+
+                    populateProductOptions(selectedProductIds);
+                    populateComboOptions(selectedComboIds);
+
+                    updateQuantityControls();
                     updateValidityControls();
                     updatePercentageControls();
                     updateCombinedLimitControls();
+                    updateScopeControls();
 
                     rewardModal.show();
                 } catch (error) {
@@ -1010,9 +1264,11 @@
                     .then(reward => {
                         const rankKey = reward.minimumRank === null || reward.minimumRank === undefined ? 'none' : String(reward.minimumRank);
                         const rankText = rankLabels[rankKey] ?? rankLabels.none;
-                        const quantityText = Number(reward.quantity) > 0
-                            ? `${Number(reward.redeemed).toLocaleString('vi-VN')} / ${Number(reward.quantity).toLocaleString('vi-VN')}`
-                            : `${Number(reward.redeemed).toLocaleString('vi-VN')} / Không giới hạn`;
+                        const redeemedDetail = Number(reward.redeemed).toLocaleString('vi-VN');
+                        const hasLimitedQuantityDetail = !reward.isQuantityUnlimited && Number(reward.quantity) > 0;
+                        const quantityText = hasLimitedQuantityDetail
+                            ? `${redeemedDetail} / ${Number(reward.quantity).toLocaleString('vi-VN')}`
+                            : `${redeemedDetail} / Không giới hạn`;
                         const validityText = formatValidity(reward);
                         const statusText = reward.isPublish ? 'Cho phép sử dụng' : 'Tạm khóa';
                         const discountText = formatDiscount(reward);
@@ -1022,6 +1278,13 @@
                         const combinedLimitText = reward.voucherHasCombinedUsageLimit
                             ? `${Number(reward.voucherMaxCombinedUsageCount || 0).toLocaleString('vi-VN')} voucher`
                             : 'Không';
+                        const voucherQuantityText = Number(reward.voucherQuantity || 1).toLocaleString('vi-VN');
+                        const productListHtml = Array.isArray(reward.selectedProducts) && reward.selectedProducts.length
+                            ? `<div class="mt-2"><strong>Sản phẩm cụ thể:</strong><ul class="mb-0 ps-3">${reward.selectedProducts.map(product => `<li>${product.name || `Sản phẩm #${product.id}`}</li>`).join('')}</ul></div>`
+                            : '';
+                        const comboListHtml = Array.isArray(reward.selectedCombos) && reward.selectedCombos.length
+                            ? `<div class="mt-2"><strong>Combo cụ thể:</strong><ul class="mb-0 ps-3">${reward.selectedCombos.map(combo => `<li>${combo.name || `Combo #${combo.id}`}</li>`).join('')}</ul></div>`
+                            : '';
 
                         detailModalBody.innerHTML = `
                             <h5 class="text-primary mb-3">${reward.name}</h5>
@@ -1036,10 +1299,12 @@
                                 <dd class="col-sm-8">${rankText}</dd>
                                 <dt class="col-sm-4">Số lượng</dt>
                                 <dd class="col-sm-8">${quantityText}</dd>
+                                <dt class="col-sm-4">Số lượt sử dụng / mã</dt>
+                                <dd class="col-sm-8">${voucherQuantityText}</dd>
                                 <dt class="col-sm-4">Thời hạn hiệu lực</dt>
                                 <dd class="col-sm-8">${validityText}</dd>
                                 <dt class="col-sm-4">Phạm vi áp dụng</dt>
-                                <dd class="col-sm-8">${scopeText}</dd>
+                                <dd class="col-sm-8">${scopeText}${productListHtml}${comboListHtml}</dd>
                                 <dt class="col-sm-4">Giới hạn áp dụng chung</dt>
                                 <dd class="col-sm-8">${combinedLimitText}</dd>
                                 <dt class="col-sm-4">Chỉ áp dụng cho khách hàng mới</dt>
@@ -1144,6 +1409,10 @@
                 formFields.validityUnlimitedSwitch.addEventListener('change', updateValidityControls);
             }
 
+            if (formFields.quantityUnlimitedSwitch) {
+                formFields.quantityUnlimitedSwitch.addEventListener('change', updateQuantityControls);
+            }
+
             if (formFields.voucherDiscountTypeSelect) {
                 formFields.voucherDiscountTypeSelect.addEventListener('change', updatePercentageControls);
             }
@@ -1154,6 +1423,24 @@
 
             if (formFields.voucherHasCombinedLimitSwitch) {
                 formFields.voucherHasCombinedLimitSwitch.addEventListener('change', updateCombinedLimitControls);
+            }
+
+            if (formFields.voucherProductScopeSelect) {
+                formFields.voucherProductScopeSelect.addEventListener('change', async () => {
+                    if (Number(formFields.voucherProductScopeSelect.value) === PRODUCT_SCOPE_SELECTED) {
+                        await ensureFormOptionsLoaded();
+                    }
+                    updateScopeControls();
+                });
+            }
+
+            if (formFields.voucherComboScopeSelect) {
+                formFields.voucherComboScopeSelect.addEventListener('change', async () => {
+                    if (Number(formFields.voucherComboScopeSelect.value) === COMBO_SCOPE_SELECTED) {
+                        await ensureFormOptionsLoaded();
+                    }
+                    updateScopeControls();
+                });
             }
 
             if (rewardForm) {

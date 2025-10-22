@@ -20,6 +20,9 @@ namespace Assignment.Models
         [Range(0, long.MaxValue)]
         public long Quantity { get; set; }
 
+        [Required]
+        public bool IsQuantityUnlimited { get; set; } = false;
+
         [Range(0, long.MaxValue)]
         public long Redeemed { get; set; }
 
@@ -55,6 +58,9 @@ namespace Assignment.Models
         [Range(0, double.MaxValue)]
         public double VoucherMinimumRequirements { get; set; }
 
+        [Range(1, int.MaxValue)]
+        public int VoucherQuantity { get; set; } = 1;
+
         [Required]
         public bool VoucherUnlimitedPercentageDiscount { get; set; } = false;
 
@@ -72,5 +78,9 @@ namespace Assignment.Models
         public bool VoucherIsForNewUsersOnly { get; set; } = false;
 
         public virtual ICollection<RewardRedemption>? Redemptions { get; set; }
+
+        public virtual ICollection<RewardProduct>? RewardProducts { get; set; }
+
+        public virtual ICollection<RewardCombo>? RewardCombos { get; set; }
     }
 }

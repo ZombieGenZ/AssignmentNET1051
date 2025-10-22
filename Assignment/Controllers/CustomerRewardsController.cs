@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Assignment.Data;
 using Assignment.Enums;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 
 namespace Assignment.Controllers
 {
@@ -44,7 +46,7 @@ namespace Assignment.Controllers
                 .AsNoTracking()
                 .Where(r => !r.IsDeleted && r.IsPublish)
                 .Where(r => !r.MinimumRank.HasValue || user.Rank >= r.MinimumRank.Value)
-                .Where(r => r.Quantity <= 0 || r.Redeemed < r.Quantity);
+                .Where(r => r.IsQuantityUnlimited || r.Quantity <= 0 || r.Redeemed < r.Quantity);
 
             var totalItems = await query.CountAsync();
             var totalPages = totalItems == 0 ? 0 : (int)Math.Ceiling(totalItems / (double)pageSize);
@@ -73,8 +75,10 @@ namespace Assignment.Controllers
                     ValidityValue = r.ValidityValue,
                     ValidityUnit = r.ValidityUnit,
                     IsPublish = r.IsPublish,
-                    IsAvailable = r.Quantity <= 0 || r.Redeemed < r.Quantity,
-                    IsValidityUnlimited = r.IsValidityUnlimited
+                    IsAvailable = r.IsQuantityUnlimited || r.Quantity <= 0 || r.Redeemed < r.Quantity,
+                    IsValidityUnlimited = r.IsValidityUnlimited,
+                    IsQuantityUnlimited = r.IsQuantityUnlimited,
+                    VoucherQuantity = r.VoucherQuantity
                 })
                 .ToList();
 
@@ -108,7 +112,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Redeem(long id, int? page, int? pageSize)
+        public async Task<IActionResult> Redeem(long id, int? page, int? pageSize, int quantity = 1)
         {
             var user = await _userManager.GetUserAsync(User);
             if (user == null)
@@ -116,7 +120,12 @@ namespace Assignment.Controllers
                 return Challenge();
             }
 
-            var reward = await _context.Rewards.FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
+            var reward = await _context.Rewards
+                .Include(r => r.RewardProducts.Where(rp => !rp.IsDeleted))
+                    .ThenInclude(rp => rp.Product)
+                .Include(r => r.RewardCombos.Where(rc => !rc.IsDeleted))
+                    .ThenInclude(rc => rc.Combo)
+                .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
             if (reward == null || !reward.IsPublish)
             {
                 TempData["RewardError"] = "Vật phẩm đổi thưởng không khả dụng.";
@@ -129,13 +138,24 @@ namespace Assignment.Controllers
                 return RedirectToIndex(page, pageSize);
             }
 
-            if (reward.Quantity > 0 && reward.Redeemed >= reward.Quantity)
+            var sanitizedQuantity = quantity < 1 ? 1 : quantity;
+            var sanitizedQuantityLong = (long)sanitizedQuantity;
+
+            if (!reward.IsQuantityUnlimited && reward.Quantity > 0 && reward.Redeemed >= reward.Quantity)
             {
                 TempData["RewardError"] = "Vật phẩm đã hết số lượng.";
                 return RedirectToIndex(page, pageSize);
             }
 
-            if (user.Point < reward.PointCost)
+            if (!reward.IsQuantityUnlimited && reward.Quantity > 0 && reward.Redeemed + sanitizedQuantityLong > reward.Quantity)
+            {
+                TempData["RewardError"] = "Số lượng yêu cầu vượt quá số lượng còn lại.";
+                return RedirectToIndex(page, pageSize);
+            }
+
+            var totalPointCost = reward.PointCost * sanitizedQuantityLong;
+
+            if (user.Point < totalPointCost)
             {
                 TempData["RewardError"] = "Điểm thưởng của bạn không đủ để đổi vật phẩm này.";
                 return RedirectToIndex(page, pageSize);
@@ -147,74 +167,106 @@ namespace Assignment.Controllers
 
             try
             {
-                var code = await GenerateUniqueCodeAsync();
+                var generatedCodes = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var rewardProductIds = reward.RewardProducts?.Where(rp => !rp.IsDeleted).Select(rp => rp.ProductId).ToList() ?? new List<long>();
+                var rewardComboIds = reward.RewardCombos?.Where(rc => !rc.IsDeleted).Select(rc => rc.ComboId).ToList() ?? new List<long>();
+                var createdCodes = new List<string>();
 
-                var voucher = new Voucher
+                for (var i = 0; i < sanitizedQuantity; i++)
                 {
-                    Code = code,
-                    Name = reward.Name,
-                    Description = reward.Description,
-                    Type = VoucherType.Private,
-                    ProductScope = reward.VoucherProductScope,
-                    ComboScope = reward.VoucherComboScope,
-                    UserId = user.Id,
-                    Discount = reward.VoucherDiscount,
-                    DiscountType = reward.VoucherDiscountType,
-                    Used = 0,
-                    Quantity = 1,
-                    StartTime = validFrom,
-                    IsLifeTime = reward.IsValidityUnlimited,
-                    EndTime = reward.IsValidityUnlimited ? null : validTo,
-                    MinimumRequirements = reward.VoucherMinimumRequirements,
-                    UnlimitedPercentageDiscount = reward.VoucherDiscountType == VoucherDiscountType.Percent && reward.VoucherUnlimitedPercentageDiscount,
-                    MaximumPercentageReduction = reward.VoucherDiscountType == VoucherDiscountType.Percent && !reward.VoucherUnlimitedPercentageDiscount
-                        ? reward.VoucherMaximumPercentageReduction
-                        : null,
-                    HasCombinedUsageLimit = reward.VoucherHasCombinedUsageLimit,
-                    MaxCombinedUsageCount = reward.VoucherHasCombinedUsageLimit ? reward.VoucherMaxCombinedUsageCount : null,
-                    IsPublish = true,
-                    IsShow = false,
-                    IsForNewUsersOnly = reward.VoucherIsForNewUsersOnly,
-                    MinimumRank = null,
-                    CreateBy = user.Id,
-                    CreatedAt = now,
-                    UpdatedAt = null,
-                    IsDeleted = false,
-                    DeletedAt = null
-                };
+                    var code = await GenerateUniqueCodeAsync(generatedCodes);
+                    generatedCodes.Add(code);
+                    createdCodes.Add(code);
 
-                var redemption = new RewardRedemption
-                {
-                    RewardId = reward.Id,
-                    UserId = user.Id,
-                    Code = code,
-                    ValidFrom = validFrom,
-                    ValidTo = validTo,
-                    IsUsed = false,
-                    UsedAt = null,
-                    PointCost = reward.PointCost,
-                    Voucher = voucher,
-                    CreateBy = user.Id,
-                    CreatedAt = now,
-                    UpdatedAt = null,
-                    IsDeleted = false,
-                    DeletedAt = null
-                };
+                    var voucher = new Voucher
+                    {
+                        Code = code,
+                        Name = reward.Name,
+                        Description = reward.Description,
+                        Type = VoucherType.Private,
+                        ProductScope = reward.VoucherProductScope,
+                        ComboScope = reward.VoucherComboScope,
+                        UserId = user.Id,
+                        Discount = reward.VoucherDiscount,
+                        DiscountType = reward.VoucherDiscountType,
+                        Used = 0,
+                        Quantity = reward.VoucherQuantity,
+                        StartTime = validFrom,
+                        IsLifeTime = reward.IsValidityUnlimited,
+                        EndTime = reward.IsValidityUnlimited ? null : validTo,
+                        MinimumRequirements = reward.VoucherMinimumRequirements,
+                        UnlimitedPercentageDiscount = reward.VoucherDiscountType == VoucherDiscountType.Percent && reward.VoucherUnlimitedPercentageDiscount,
+                        MaximumPercentageReduction = reward.VoucherDiscountType == VoucherDiscountType.Percent && !reward.VoucherUnlimitedPercentageDiscount
+                            ? reward.VoucherMaximumPercentageReduction
+                            : null,
+                        HasCombinedUsageLimit = reward.VoucherHasCombinedUsageLimit,
+                        MaxCombinedUsageCount = reward.VoucherHasCombinedUsageLimit ? reward.VoucherMaxCombinedUsageCount : null,
+                        IsPublish = true,
+                        IsShow = false,
+                        IsForNewUsersOnly = reward.VoucherIsForNewUsersOnly,
+                        MinimumRank = null,
+                        CreateBy = user.Id,
+                        CreatedAt = now,
+                        UpdatedAt = null,
+                        IsDeleted = false,
+                        DeletedAt = null,
+                        VoucherProducts = rewardProductIds.Select(productId => new VoucherProduct
+                        {
+                            ProductId = productId,
+                            CreateBy = user.Id,
+                            CreatedAt = now,
+                            UpdatedAt = null,
+                            IsDeleted = false,
+                            DeletedAt = null
+                        }).ToList(),
+                        VoucherCombos = rewardComboIds.Select(comboId => new VoucherCombo
+                        {
+                            ComboId = comboId,
+                            CreateBy = user.Id,
+                            CreatedAt = now,
+                            UpdatedAt = null,
+                            IsDeleted = false,
+                            DeletedAt = null
+                        }).ToList()
+                    };
 
-                reward.Redeemed += 1;
+                    var redemption = new RewardRedemption
+                    {
+                        RewardId = reward.Id,
+                        UserId = user.Id,
+                        Code = code,
+                        ValidFrom = validFrom,
+                        ValidTo = validTo,
+                        IsUsed = false,
+                        UsedAt = null,
+                        PointCost = reward.PointCost,
+                        Voucher = voucher,
+                        CreateBy = user.Id,
+                        CreatedAt = now,
+                        UpdatedAt = null,
+                        IsDeleted = false,
+                        DeletedAt = null
+                    };
+
+                    _context.Vouchers.Add(voucher);
+                    _context.RewardRedemptions.Add(redemption);
+                }
+
+                reward.Redeemed += sanitizedQuantityLong;
                 reward.UpdatedAt = now;
 
-                user.Point = Math.Max(0, user.Point - reward.PointCost);
+                user.Point = Math.Max(0, user.Point - totalPointCost);
 
-                _context.Vouchers.Add(voucher);
-                _context.RewardRedemptions.Add(redemption);
                 _context.Rewards.Update(reward);
                 _context.Users.Update(user);
 
                 await _context.SaveChangesAsync();
 
-                TempData["RewardSuccess"] = $"Bạn đã đổi thành công \"{reward.Name}\".";
-                TempData["RewardCode"] = code;
+                TempData["RewardSuccess"] = sanitizedQuantity > 1
+                    ? $"Bạn đã đổi thành công {sanitizedQuantity} vật phẩm \"{reward.Name}\"."
+                    : $"Bạn đã đổi thành công \"{reward.Name}\".";
+                TempData["RewardCodes"] = JsonSerializer.Serialize(createdCodes);
+                TempData["RewardCode"] = createdCodes.FirstOrDefault();
                 TempData["RewardValidFrom"] = validFrom.ToString("o");
                 TempData["RewardValidTo"] = validTo?.ToString("o");
             }
@@ -243,7 +295,7 @@ namespace Assignment.Controllers
             return PageSizeOptions.Contains(pageSize) ? pageSize : DefaultPageSize;
         }
 
-        private async Task<string> GenerateUniqueCodeAsync()
+        private async Task<string> GenerateUniqueCodeAsync(ISet<string>? reservedCodes = null)
         {
             const int maxAttempts = 10;
 
@@ -251,6 +303,11 @@ namespace Assignment.Controllers
             {
                 var randomSegment = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
                 var code = $"RW-{randomSegment}";
+
+                if (reservedCodes != null && reservedCodes.Contains(code))
+                {
+                    continue;
+                }
 
                 var exists = await _context.RewardRedemptions
                     .AsNoTracking()
@@ -276,6 +333,7 @@ namespace Assignment.Controllers
 
             return unit switch
             {
+                RewardValidityUnit.Minute => start.AddMinutes(sanitizedValue),
                 RewardValidityUnit.Week => start.AddDays(7 * sanitizedValue),
                 RewardValidityUnit.Month => start.AddMonths(sanitizedValue),
                 RewardValidityUnit.Year => start.AddYears(sanitizedValue),
