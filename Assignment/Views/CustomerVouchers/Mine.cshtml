@@ -3,8 +3,10 @@
 
 @{
     ViewData["Title"] = "Voucher của tôi";
-    var privateVouchers = Model?.PrivateVouchers ?? Enumerable.Empty<Assignment.ViewModels.Vouchers.VoucherSummaryViewModel>();
-    var savedVouchers = Model?.SavedVouchers ?? Enumerable.Empty<Assignment.ViewModels.Vouchers.VoucherSummaryViewModel>();
+    var privateSection = Model?.PrivateVouchers;
+    var privateVouchers = privateSection?.Items ?? Enumerable.Empty<Assignment.ViewModels.Vouchers.VoucherSummaryViewModel>();
+    var savedSection = Model?.SavedVouchers;
+    var savedVouchers = savedSection?.Items ?? Enumerable.Empty<Assignment.ViewModels.Vouchers.VoucherSummaryViewModel>();
     var referenceTime = ViewBag.ReferenceTime as DateTime? ?? DateTime.Now;
 }
 
@@ -124,6 +126,29 @@
                     </div>
                 }
             </div>
+            @if ((privateSection?.TotalItems ?? 0) > 0)
+            {
+                var privateInfo = privateSection!;
+                <div class="management-pagination mt-4">
+                    <div class="management-pagination__summary text-muted small">
+                        Hiển thị @privateInfo.StartItem.ToString("N0") - @privateInfo.EndItem.ToString("N0") trong tổng số @privateInfo.TotalItems.ToString("N0") voucher riêng tư.
+                    </div>
+                    <div class="management-pagination__actions">
+                        <a class="btn btn-outline-secondary btn-sm @(privateInfo.HasPrevious ? string.Empty : "disabled")"
+                           href="@(privateInfo.HasPrevious ? Url.Action("Mine", new { privatePage = privateInfo.CurrentPage - 1, privatePageSize = privateInfo.PageSize, savedPage = savedSection?.CurrentPage ?? 1, savedPageSize = savedSection?.PageSize ?? 6 }) : "#")"
+                           tabindex="@(privateInfo.HasPrevious ? "0" : "-1")"
+                           aria-disabled="@(privateInfo.HasPrevious ? "false" : "true")">
+                            <i class="fas fa-angle-left me-1"></i>Trước
+                        </a>
+                        <a class="btn btn-outline-secondary btn-sm @(privateInfo.HasNext ? string.Empty : "disabled")"
+                           href="@(privateInfo.HasNext ? Url.Action("Mine", new { privatePage = privateInfo.CurrentPage + 1, privatePageSize = privateInfo.PageSize, savedPage = savedSection?.CurrentPage ?? 1, savedPageSize = savedSection?.PageSize ?? 6 }) : "#")"
+                           tabindex="@(privateInfo.HasNext ? "0" : "-1")"
+                           aria-disabled="@(privateInfo.HasNext ? "false" : "true")">
+                            Sau<i class="fas fa-angle-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            }
         }
     </div>
 
@@ -219,6 +244,29 @@
                     </div>
                 }
             </div>
+            @if ((savedSection?.TotalItems ?? 0) > 0)
+            {
+                var savedInfo = savedSection!;
+                <div class="management-pagination mt-4">
+                    <div class="management-pagination__summary text-muted small">
+                        Hiển thị @savedInfo.StartItem.ToString("N0") - @savedInfo.EndItem.ToString("N0") trong tổng số @savedInfo.TotalItems.ToString("N0") voucher đã lưu.
+                    </div>
+                    <div class="management-pagination__actions">
+                        <a class="btn btn-outline-secondary btn-sm @(savedInfo.HasPrevious ? string.Empty : "disabled")"
+                           href="@(savedInfo.HasPrevious ? Url.Action("Mine", new { privatePage = privateSection?.CurrentPage ?? 1, privatePageSize = privateSection?.PageSize ?? 6, savedPage = savedInfo.CurrentPage - 1, savedPageSize = savedInfo.PageSize }) : "#")"
+                           tabindex="@(savedInfo.HasPrevious ? "0" : "-1")"
+                           aria-disabled="@(savedInfo.HasPrevious ? "false" : "true")">
+                            <i class="fas fa-angle-left me-1"></i>Trước
+                        </a>
+                        <a class="btn btn-outline-secondary btn-sm @(savedInfo.HasNext ? string.Empty : "disabled")"
+                           href="@(savedInfo.HasNext ? Url.Action("Mine", new { privatePage = privateSection?.CurrentPage ?? 1, privatePageSize = privateSection?.PageSize ?? 6, savedPage = savedInfo.CurrentPage + 1, savedPageSize = savedInfo.PageSize }) : "#")"
+                           tabindex="@(savedInfo.HasNext ? "0" : "-1")"
+                           aria-disabled="@(savedInfo.HasNext ? "false" : "true")">
+                            Sau<i class="fas fa-angle-right ms-1"></i>
+                        </a>
+                    </div>
+                </div>
+            }
         }
     </div>
 </div>

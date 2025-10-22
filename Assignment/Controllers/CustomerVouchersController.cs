@@ -192,7 +192,7 @@ namespace Assignment.Controllers
             return RedirectToAction(nameof(Mine));
         }
 
-        public async Task<IActionResult> Mine()
+        public async Task<IActionResult> Mine(int privatePage = 1, int privatePageSize = 6, int savedPage = 1, int savedPageSize = 6)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userId))
@@ -200,81 +200,107 @@ namespace Assignment.Controllers
                 return RedirectToAction("Login", "Account", new { area = "Identity" });
             }
 
+            const int defaultPageSize = 6;
+            privatePage = Math.Max(1, privatePage);
+            savedPage = Math.Max(1, savedPage);
+            privatePageSize = privatePageSize > 0 ? privatePageSize : defaultPageSize;
+            savedPageSize = savedPageSize > 0 ? savedPageSize : defaultPageSize;
+
             var now = DateTime.Now;
 
-            var privateVouchers = await _context.Vouchers
+            var privateQuery = _context.Vouchers
                 .AsNoTracking()
                 .Where(v => !v.IsDeleted && v.Type == VoucherType.Private &&
                     (v.UserId == userId || v.VoucherUsers.Any(vu => !vu.IsDeleted && !vu.IsSaved && vu.UserId == userId)))
                 .OrderBy(v => v.StartTime)
-                .ThenBy(v => v.Id)
-                .ToListAsync();
+                .ThenBy(v => v.Id);
 
-            var savedVouchers = await _context.Vouchers
+            var savedQuery = _context.Vouchers
                 .AsNoTracking()
                 .Where(v => !v.IsDeleted && v.VoucherUsers.Any(vu => !vu.IsDeleted && vu.IsSaved && vu.UserId == userId))
                 .OrderBy(v => v.StartTime)
-                .ThenBy(v => v.Id)
+                .ThenBy(v => v.Id);
+
+            var totalPrivate = await privateQuery.CountAsync();
+            var totalSaved = await savedQuery.CountAsync();
+
+            var privateTotalPages = totalPrivate > 0 ? (int)Math.Ceiling(totalPrivate / (double)privatePageSize) : 0;
+            var savedTotalPages = totalSaved > 0 ? (int)Math.Ceiling(totalSaved / (double)savedPageSize) : 0;
+
+            if (privateTotalPages > 0 && privatePage > privateTotalPages)
+            {
+                privatePage = privateTotalPages;
+            }
+
+            if (savedTotalPages > 0 && savedPage > savedTotalPages)
+            {
+                savedPage = savedTotalPages;
+            }
+
+            if (privateTotalPages == 0)
+            {
+                privatePage = 1;
+            }
+
+            if (savedTotalPages == 0)
+            {
+                savedPage = 1;
+            }
+
+            var privateEntities = await privateQuery
+                .Skip((privatePage - 1) * privatePageSize)
+                .Take(privatePageSize)
                 .ToListAsync();
 
-            var privateViewModels = privateVouchers
-                .Select(v => new VoucherSummaryViewModel
-                {
-                    Id = v.Id,
-                    Code = v.Code,
-                    Name = v.Name,
-                    Description = v.Description,
-                    Type = v.Type,
-                    ProductScope = v.ProductScope,
-                    ComboScope = v.ComboScope,
-                    DiscountType = v.DiscountType,
-                    Discount = v.Discount,
-                    UnlimitedPercentageDiscount = v.UnlimitedPercentageDiscount,
-                    MaximumPercentageReduction = v.MaximumPercentageReduction,
-                    MinimumRequirements = v.MinimumRequirements,
-                    Quantity = v.Quantity,
-                    Used = v.Used,
-                    IsLifeTime = v.IsLifeTime,
-                    StartTime = v.StartTime,
-                    EndTime = v.EndTime,
-                    IsPublish = v.IsPublish,
-                    IsShow = v.IsShow,
-                    IsSaved = false,
-                    IsForNewUsersOnly = v.IsForNewUsersOnly
-                })
-                .ToList();
+            var savedEntities = await savedQuery
+                .Skip((savedPage - 1) * savedPageSize)
+                .Take(savedPageSize)
+                .ToListAsync();
 
-            var savedViewModels = savedVouchers
-                .Select(v => new VoucherSummaryViewModel
-                {
-                    Id = v.Id,
-                    Code = v.Code,
-                    Name = v.Name,
-                    Description = v.Description,
-                    Type = v.Type,
-                    ProductScope = v.ProductScope,
-                    ComboScope = v.ComboScope,
-                    DiscountType = v.DiscountType,
-                    Discount = v.Discount,
-                    UnlimitedPercentageDiscount = v.UnlimitedPercentageDiscount,
-                    MaximumPercentageReduction = v.MaximumPercentageReduction,
-                    MinimumRequirements = v.MinimumRequirements,
-                    Quantity = v.Quantity,
-                    Used = v.Used,
-                    IsLifeTime = v.IsLifeTime,
-                    StartTime = v.StartTime,
-                    EndTime = v.EndTime,
-                    IsPublish = v.IsPublish,
-                    IsShow = v.IsShow,
-                    IsSaved = true,
-                    IsForNewUsersOnly = v.IsForNewUsersOnly
-                })
-                .ToList();
+            VoucherSummaryViewModel MapVoucher(Voucher v, bool isSaved) => new VoucherSummaryViewModel
+            {
+                Id = v.Id,
+                Code = v.Code,
+                Name = v.Name,
+                Description = v.Description,
+                Type = v.Type,
+                ProductScope = v.ProductScope,
+                ComboScope = v.ComboScope,
+                DiscountType = v.DiscountType,
+                Discount = v.Discount,
+                UnlimitedPercentageDiscount = v.UnlimitedPercentageDiscount,
+                MaximumPercentageReduction = v.MaximumPercentageReduction,
+                MinimumRequirements = v.MinimumRequirements,
+                Quantity = v.Quantity,
+                Used = v.Used,
+                IsLifeTime = v.IsLifeTime,
+                StartTime = v.StartTime,
+                EndTime = v.EndTime,
+                IsPublish = v.IsPublish,
+                IsShow = v.IsShow,
+                IsSaved = isSaved,
+                IsForNewUsersOnly = v.IsForNewUsersOnly
+            };
+
+            var privateViewModels = privateEntities.Select(v => MapVoucher(v, false)).ToList();
+            var savedViewModels = savedEntities.Select(v => MapVoucher(v, true)).ToList();
 
             var viewModel = new UserVoucherListViewModel
             {
-                PrivateVouchers = privateViewModels,
-                SavedVouchers = savedViewModels
+                PrivateVouchers = new PaginatedVoucherCollectionViewModel
+                {
+                    Items = privateViewModels,
+                    CurrentPage = privatePage,
+                    PageSize = privatePageSize,
+                    TotalItems = totalPrivate
+                },
+                SavedVouchers = new PaginatedVoucherCollectionViewModel
+                {
+                    Items = savedViewModels,
+                    CurrentPage = savedPage,
+                    PageSize = savedPageSize,
+                    TotalItems = totalSaved
+                }
             };
 
             ViewBag.ReferenceTime = now;

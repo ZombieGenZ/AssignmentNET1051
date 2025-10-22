@@ -56,14 +56,6 @@
                             <input type="search" class="form-control" id="categorySearchInput" placeholder="Tên danh mục" />
                         </div>
                     </div>
-                    <div class="col-12 col-sm-6 col-lg-3">
-                        <label class="form-label filter-label" for="categoryUpdateFilter">Trạng thái cập nhật</label>
-                        <select id="categoryUpdateFilter" class="form-select">
-                            <option value="">Tất cả</option>
-                            <option value="updated">Đã cập nhật</option>
-                            <option value="never">Chưa cập nhật</option>
-                        </select>
-                    </div>
                     <div class="col-12 col-sm-6 col-lg-2 ms-lg-auto d-flex align-items-end">
                         <button type="button" class="btn btn-outline-secondary w-100" id="categoryResetFilters">
                             <i class="fas fa-eraser me-1"></i>Xóa lọc
@@ -204,7 +196,6 @@
             const refreshBtn = document.getElementById('refreshCategoriesBtn');
             const createBtn = document.getElementById('createCategoryBtn');
             const searchInput = document.getElementById('categorySearchInput');
-            const updateFilterSelect = document.getElementById('categoryUpdateFilter');
             const resetFiltersBtn = document.getElementById('categoryResetFilters');
             const bulkActions = document.getElementById('bulkActions');
             const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
@@ -328,20 +319,10 @@
                     filteredCategories = [];
                 } else {
                     const searchTerm = (searchInput?.value || '').trim().toLowerCase();
-                    const updateValue = updateFilterSelect?.value || '';
 
                     filteredCategories = allCategories.filter(category => {
                         const name = (category.name || '').toString().toLowerCase();
-                        const matchesSearch = !searchTerm || name.includes(searchTerm);
-
-                        let matchesUpdate = true;
-                        if (updateValue === 'updated') {
-                            matchesUpdate = Boolean(category.updatedAt);
-                        } else if (updateValue === 'never') {
-                            matchesUpdate = !category.updatedAt;
-                        }
-
-                        return matchesSearch && matchesUpdate;
+                        return !searchTerm || name.includes(searchTerm);
                     });
                 }
 
@@ -900,17 +881,10 @@
                 });
             }
 
-            if (updateFilterSelect) {
-                updateFilterSelect.addEventListener('change', () => applyCategoryFilters());
-            }
-
             if (resetFiltersBtn) {
                 resetFiltersBtn.addEventListener('click', () => {
                     if (searchInput) {
                         searchInput.value = '';
-                    }
-                    if (updateFilterSelect) {
-                        updateFilterSelect.value = '';
                     }
                     applyCategoryFilters();
                 });

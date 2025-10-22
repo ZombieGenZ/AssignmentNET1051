@@ -36,6 +36,9 @@
     var compareRange = Model.CompareSeries != null
         ? $"{Model.Filter.CompareStart?.ToString("dd/MM/yyyy") ?? "Không giới hạn"} - {Model.Filter.CompareEnd?.ToString("dd/MM/yyyy") ?? "Hiện tại"}"
         : null;
+    var distributionLabelsJson = JsonSerializer.Serialize(Model.ProductDistribution.Select(p => p.Name));
+    var distributionRevenueJson = JsonSerializer.Serialize(Model.ProductDistribution.Select(p => Math.Round(p.TotalBill, 2)));
+    var distributionPercentageJson = JsonSerializer.Serialize(Model.ProductDistribution.Select(p => Math.Round(p.Percentage, 2)));
 }
 
 <div class="analytics-dashboard">
@@ -82,7 +85,7 @@
             <div class="row g-3">
                 <div class="col-12 col-lg-4 col-xl-3">
                     <label asp-for="Filter.PeriodType" class="form-label">Kiểu thống kê</label>
-                    <select asp-for="Filter.PeriodType" class="form-select" asp-items="Html.GetEnumSelectList<StatisticsPeriodType>()" data-default-value="@((int)StatisticsPeriodType.Month)"></select>
+                    <select asp-for="Filter.PeriodType" class="form-select" asp-items="Html.GetEnumSelectList<StatisticsPeriodType>()" data-default-value="@((int)StatisticsPeriodType.Day)"></select>
                 </div>
                 <div class="col-12 col-lg-4 col-xl-3">
                     <label asp-for="Filter.PrimaryStart" class="form-label">Bắt đầu</label>
@@ -186,6 +189,38 @@
         <div class="chart-container">
             <canvas id="revenueChart"></canvas>
         </div>
+    </div>
+
+    <div class="modern-chart-card mb-4">
+        <div class="chart-header">
+            <div>
+                <h2 class="chart-title">Tỷ trọng doanh thu theo sản phẩm</h2>
+                <p class="chart-subtitle">Phân bổ doanh thu trong khoảng @primaryRange.</p>
+            </div>
+        </div>
+        @if (Model.ProductDistribution.Any())
+        {
+            <div class="chart-container pie-chart-container">
+                <canvas id="productShareChart"></canvas>
+            </div>
+            <div class="product-share-legend mt-3">
+                <div class="row g-2">
+                    @foreach (var item in Model.ProductDistribution)
+                    {
+                        <div class="col-sm-6 col-lg-4">
+                            <div class="product-share-item d-flex justify-content-between align-items-center small">
+                                <span class="fw-semibold text-truncate me-2">@item.Name</span>
+                                <span class="text-muted">@item.Percentage.ToString("N2")% • @item.TotalBill.ToString("N0") đ</span>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="p-4 text-center text-muted">Không có dữ liệu doanh thu trong khoảng thời gian đã chọn.</div>
+        }
     </div>
 
     <div class="card shadow-sm">
@@ -557,6 +592,20 @@
             border: 1px solid rgba(15, 23, 42, 0.08);
         }
 
+        .pie-chart-container {
+            height: 420px;
+        }
+
+        .product-share-legend {
+            margin-top: 1.5rem;
+        }
+
+        .product-share-item {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 0.65rem 0.85rem;
+        }
+
         @@media (max-width: 768px) {
             .chart-header {
                 flex-direction: column;
@@ -697,6 +746,62 @@
             },
             plugins: []
         });
+
+        const productShareLabels = @Html.Raw(distributionLabelsJson);
+        const productShareValues = @Html.Raw(distributionRevenueJson);
+        const productSharePercentages = @Html.Raw(distributionPercentageJson);
+        const productShareColors = [
+            '#2563eb', '#f97316', '#22c55e', '#ec4899', '#14b8a6',
+            '#a855f7', '#facc15', '#ef4444', '#0ea5e9', '#94a3b8'
+        ];
+
+        const shareCanvas = document.getElementById('productShareChart');
+        if (shareCanvas && Array.isArray(productShareValues) && productShareValues.length) {
+            const shareContext = shareCanvas.getContext('2d');
+            const colors = productShareLabels.map((_, index) => productShareColors[index % productShareColors.length]);
+
+            new Chart(shareContext, {
+                type: 'doughnut',
+                data: {
+                    labels: productShareLabels,
+                    datasets: [{
+                        data: productShareValues,
+                        backgroundColor: colors,
+                        borderWidth: 0,
+                        hoverOffset: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '55%',
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                            titleColor: '#f8fafc',
+                            bodyColor: '#e2e8f0',
+                            cornerRadius: 12,
+                            padding: 14,
+                            callbacks: {
+                                label: (context) => {
+                                    const amount = numberFormatter.format(context.parsed);
+                                    const percentageValue = Array.isArray(productSharePercentages)
+                                        ? productSharePercentages[context.dataIndex]
+                                        : null;
+                                    const percentage = typeof percentageValue === 'number'
+                                        ? percentageValue.toLocaleString('vi-VN', { maximumFractionDigits: 2 })
+                                        : '0';
+                                    return `${context.label}: ${amount} đ (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
 
         const setupResetButtons = () => {
             const primaryReset = document.getElementById('resetPrimaryFilters');

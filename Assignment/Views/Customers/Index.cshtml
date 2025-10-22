@@ -150,9 +150,9 @@
                                 </tbody>
                             </table>
                         </div>
-                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
-                            <div id="customerPaginationSummary" class="text-muted small"></div>
-                            <div class="d-flex gap-2">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3 management-pagination">
+                            <div id="customerPaginationSummary" class="text-muted small management-pagination__summary"></div>
+                            <div class="d-flex gap-2 management-pagination__actions">
                                 <button type="button" class="btn btn-outline-secondary btn-sm" id="customerPrevPageBtn">
                                     <i class="fas fa-angle-left me-1"></i>Trước
                                 </button>
@@ -198,13 +198,15 @@
                                     <select id="topMonthSelect" class="form-select form-select-sm" style="width: 120px;">
                                         @for (var month = 1; month <= 12; month++)
                                         {
-                                            <option value="@month">Tháng @month</option>
+                                            var isCurrentMonth = month == DateTime.Now.Month;
+                                            <option value="@month" @(isCurrentMonth ? "selected" : null)>Tháng @month</option>
                                         }
                                     </select>
                                     <select id="topQuarterSelect" class="form-select form-select-sm d-none" style="width: 120px;">
                                         @for (var quarter = 1; quarter <= 4; quarter++)
                                         {
-                                            <option value="@quarter">Quý @quarter</option>
+                                            var currentQuarter = (DateTime.Now.Month - 1) / 3 + 1;
+                                            <option value="@quarter" @(quarter == currentQuarter ? "selected" : null)>Quý @quarter</option>
                                         }
                                     </select>
                                     <input type="number" class="form-control form-control-sm" id="topYearInput" style="width: 100px;" value="@DateTime.Now.Year" />
