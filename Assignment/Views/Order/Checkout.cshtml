@@ -444,6 +444,12 @@
                         .appendTo(infoList);
                 }
 
+                if (option.isForNewUsersOnly) {
+                    $('<span class="badge bg-light text-dark border"></span>')
+                        .text('Chỉ khách hàng mới')
+                        .appendTo(infoList);
+                }
+
                 const remaining = Number(option.quantity || 0) - Number(option.used || 0);
                 if (Number(option.quantity || 0) > 0 && remaining > 0) {
                     $('<span class="badge bg-light text-dark border"></span>')

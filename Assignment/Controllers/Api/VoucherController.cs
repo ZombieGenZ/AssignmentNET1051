@@ -172,6 +172,7 @@ namespace Assignment.Controllers.Api
                 MaxCombinedUsageCount = request.HasCombinedUsageLimit ? request.MaxCombinedUsageCount : null,
                 IsPublish = request.IsPublish,
                 IsShow = request.Type == VoucherType.Public ? request.IsShow : false,
+                IsForNewUsersOnly = request.IsForNewUsersOnly,
                 Used = 0,
                 CreateBy = CurrentUserId,
                 CreatedAt = now,
@@ -247,6 +248,7 @@ namespace Assignment.Controllers.Api
             voucher.MaxCombinedUsageCount = request.HasCombinedUsageLimit ? request.MaxCombinedUsageCount : null;
             voucher.IsPublish = request.IsPublish;
             voucher.IsShow = voucher.Type == VoucherType.Public ? request.IsShow : false;
+            voucher.IsForNewUsersOnly = request.IsForNewUsersOnly;
             voucher.UserId = voucher.Type == VoucherType.Public ? null : voucher.UserId;
             voucher.UpdatedAt = DateTime.Now;
 
@@ -1113,6 +1115,7 @@ namespace Assignment.Controllers.Api
                 MaxCombinedUsageCount = voucher.MaxCombinedUsageCount,
                 IsPublish = voucher.IsPublish,
                 IsShow = voucher.IsShow,
+                IsForNewUsersOnly = voucher.IsForNewUsersOnly,
                 IsLifeTime = voucher.IsLifeTime,
                 StartTime = voucher.StartTime,
                 EndTime = voucher.EndTime,
@@ -1210,6 +1213,7 @@ namespace Assignment.Controllers.Api
                 MaxCombinedUsageCount = voucher.MaxCombinedUsageCount,
                 IsPublish = voucher.IsPublish,
                 IsShow = voucher.IsShow,
+                IsForNewUsersOnly = voucher.IsForNewUsersOnly,
                 CreatedAt = voucher.CreatedAt,
                 UpdatedAt = voucher.UpdatedAt,
                 Users = selectedUserIds.Select(id => new UserOption
@@ -1339,6 +1343,8 @@ namespace Assignment.Controllers.Api
 
             public bool IsShow { get; set; }
 
+            public bool IsForNewUsersOnly { get; set; }
+
             public List<string>? UserIds { get; set; }
 
             public List<long>? ProductIds { get; set; }
@@ -1362,6 +1368,7 @@ namespace Assignment.Controllers.Api
             public int? MaxCombinedUsageCount { get; set; }
             public bool IsPublish { get; set; }
             public bool IsShow { get; set; }
+            public bool IsForNewUsersOnly { get; set; }
             public bool IsLifeTime { get; set; }
             public DateTime StartTime { get; set; }
             public DateTime? EndTime { get; set; }

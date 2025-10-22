@@ -91,7 +91,8 @@ namespace Assignment.Controllers
                     IsLifeTime = v.IsLifeTime,
                     StartTime = v.StartTime,
                     EndTime = v.EndTime,
-                    IsSaved = savedIds.Contains(v.Id)
+                    IsSaved = savedIds.Contains(v.Id),
+                    IsForNewUsersOnly = v.IsForNewUsersOnly
                 })
                 .ToList();
 
@@ -238,7 +239,8 @@ namespace Assignment.Controllers
                     EndTime = v.EndTime,
                     IsPublish = v.IsPublish,
                     IsShow = v.IsShow,
-                    IsSaved = false
+                    IsSaved = false,
+                    IsForNewUsersOnly = v.IsForNewUsersOnly
                 })
                 .ToList();
 
@@ -264,7 +266,8 @@ namespace Assignment.Controllers
                     EndTime = v.EndTime,
                     IsPublish = v.IsPublish,
                     IsShow = v.IsShow,
-                    IsSaved = true
+                    IsSaved = true,
+                    IsForNewUsersOnly = v.IsForNewUsersOnly
                 })
                 .ToList();
 

@@ -22,6 +22,7 @@ namespace Assignment.ViewModels.Vouchers
         public DateTime StartTime { get; set; }
         public DateTime? EndTime { get; set; }
         public bool IsSaved { get; set; }
+        public bool IsForNewUsersOnly { get; set; }
 
         public bool IsAvailable => Quantity <= 0 || Used < Quantity;
 
