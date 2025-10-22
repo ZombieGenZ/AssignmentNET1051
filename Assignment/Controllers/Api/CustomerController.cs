@@ -75,7 +75,8 @@ namespace Assignment.Controllers.Api
                 Point = user.Point,
                 TotalPoint = user.TotalPoint,
                 Rank = user.Rank,
-                ExcludeFromLeaderboard = user.ExcludeFromLeaderboard
+                ExcludeFromLeaderboard = user.ExcludeFromLeaderboard,
+                Booster = user.Booster
             }).ToList();
 
             var response = new PagedResponse<CustomerListItem>
@@ -96,7 +97,8 @@ namespace Assignment.Controllers.Api
             [FromQuery] string period = "month",
             [FromQuery] int? month = null,
             [FromQuery] int? quarter = null,
-            [FromQuery] int? year = null)
+            [FromQuery] int? year = null,
+            [FromQuery] string? search = null)
         {
             if (!User.HasPermission("ViewTopUserAll"))
             {
@@ -166,11 +168,22 @@ namespace Assignment.Controllers.Api
                 return Ok(new List<TopCustomerItem>());
             }
 
-            var users = await _userManager.Users
+            IQueryable<ApplicationUser> userQuery = _userManager.Users
                 .AsNoTracking()
                 .Where(u => userIds.Contains(u.Id))
-                .Where(u => !u.ExcludeFromLeaderboard)
-                .ToListAsync();
+                .Where(u => !u.ExcludeFromLeaderboard);
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                var like = $"%{term}%";
+                userQuery = userQuery.Where(u =>
+                    EF.Functions.Like(u.FullName ?? string.Empty, like) ||
+                    EF.Functions.Like(u.Email ?? string.Empty, like) ||
+                    EF.Functions.Like(u.UserName ?? string.Empty, like));
+            }
+
+            var users = await userQuery.ToListAsync();
 
             var userMap = users.ToDictionary(u => u.Id, u => u);
 
@@ -186,6 +199,9 @@ namespace Assignment.Controllers.Api
                 var pointsRedeemed = redemptionLookup.TryGetValue(userId, out var redeemed) ? redeemed : 0;
                 var rawAmount = orderInfo?.TotalAmount ?? 0;
                 var baseValue = (long)Math.Round(rawAmount, MidpointRounding.AwayFromZero);
+                var booster = user.Booster <= 0 ? 1m : user.Booster;
+                var expEarned = (long)Math.Floor(baseValue * 2m * booster);
+                var pointsEarned = (long)Math.Floor(baseValue * booster);
 
                 topCustomers.Add(new TopCustomerItem
                 {
@@ -193,11 +209,12 @@ namespace Assignment.Controllers.Api
                     FullName = user.FullName ?? string.Empty,
                     Email = user.Email ?? string.Empty,
                     Rank = user.Rank,
-                    ExpEarned = baseValue * 2,
-                    PointsEarned = baseValue,
+                    ExpEarned = expEarned,
+                    PointsEarned = pointsEarned,
                     PointsRedeemed = pointsRedeemed,
                     TotalPoint = user.TotalPoint,
-                    OrderCount = orderInfo?.OrderCount ?? 0
+                    OrderCount = orderInfo?.OrderCount ?? 0,
+                    Booster = booster
                 });
             }
 
@@ -258,6 +275,7 @@ namespace Assignment.Controllers.Api
             public long TotalPoint { get; set; }
             public CustomerRank Rank { get; set; }
             public bool ExcludeFromLeaderboard { get; set; }
+            public decimal Booster { get; set; }
         }
 
         public class UpdateLeaderboardVisibilityRequest
@@ -276,6 +294,7 @@ namespace Assignment.Controllers.Api
             public long PointsRedeemed { get; set; }
             public long TotalPoint { get; set; }
             public int OrderCount { get; set; }
+            public decimal Booster { get; set; }
         }
 
         public class PagedResponse<T>

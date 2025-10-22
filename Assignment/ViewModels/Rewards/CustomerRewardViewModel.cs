@@ -29,5 +29,6 @@ namespace Assignment.ViewModels.Rewards
         public CustomerRank Rank { get; set; }
         public CustomerRank? NextRank { get; set; }
         public long? NextRankExp { get; set; }
+        public decimal Booster { get; set; }
     }
 }

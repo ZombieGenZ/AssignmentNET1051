@@ -49,14 +49,33 @@
                 </div>
             </div>
 
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-3">
+                <div class="text-muted" id="selectedUsersCount">Đã chọn 0 người dùng.</div>
+                <div class="d-flex gap-2 mt-2 mt-md-0">
+                    <button type="button" class="btn btn-outline-primary btn-sm" id="bulkEditBtn" disabled>
+                        <i class="fas fa-sliders-h me-1"></i>Chỉnh sửa hàng loạt
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="clearSelectionBtn" disabled>
+                        <i class="fas fa-xmark me-1"></i>Bỏ chọn
+                    </button>
+                </div>
+            </div>
+
             <div class="table-responsive">
                 <table class="table table-hover align-middle" id="userTable">
                     <thead class="table-light">
                         <tr>
+                            <th style="width: 40px;" class="text-center">
+                                <div class="form-check m-0">
+                                    <input class="form-check-input" type="checkbox" id="selectAllUsersCheckbox" />
+                                </div>
+                            </th>
                             <th>Email</th>
                             <th>Tên đăng nhập</th>
                             <th>Họ tên</th>
                             <th>Vai trò</th>
+                            <th style="width: 140px;">Trạng thái BXH</th>
+                            <th style="width: 90px;">Booster</th>
                             <th style="width: 150px;">Trạng thái</th>
                             <th style="width: 150px;">Khóa đến</th>
                             <th style="width: 120px;" class="text-center">Hành động</th>
@@ -64,7 +83,7 @@
                     </thead>
                     <tbody id="userTableBody">
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
+                            <td colspan="10" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
                         </tr>
                     </tbody>
                 </table>
@@ -121,6 +140,22 @@
                     <div id="permissionCheckboxContainer"></div>
                 </div>
 
+                <div class="border rounded p-3 mb-4">
+                    <h6 class="text-primary"><i class="fas fa-trophy me-2"></i>Bảng xếp hạng</h6>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" id="userExcludeFromLeaderboard">
+                        <label class="form-check-label" for="userExcludeFromLeaderboard">Ẩn khỏi bảng xếp hạng khách hàng</label>
+                    </div>
+                    <div>
+                        <label class="form-label" for="userBoosterInput">Booster</label>
+                        <div class="input-group">
+                            <span class="input-group-text">x</span>
+                            <input type="number" class="form-control" id="userBoosterInput" min="1" step="0.1" value="1" />
+                        </div>
+                        <div class="form-text">Booster nhân với điểm thưởng và EXP nhận được của khách hàng.</div>
+                    </div>
+                </div>
+
                 <div class="border rounded p-3">
                     <h6 class="text-primary"><i class="fas fa-lock me-2"></i>Khóa tài khoản</h6>
                     <div class="row g-3 align-items-end" id="lockSection">
@@ -157,6 +192,93 @@
     </div>
 </div>
 
+<div class="modal fade" id="bulkUserModal" tabindex="-1" aria-labelledby="bulkUserModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkUserModalLabel">Chỉnh sửa người dùng hàng loạt</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="bulkUserAlert"></div>
+                <p class="mb-4">Đang áp dụng cho <strong id="bulkSelectedCount">0</strong> người dùng.</p>
+
+                <div class="border rounded p-3 mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="bulkApplyRoles">
+                        <label class="form-check-label" for="bulkApplyRoles">Cập nhật vai trò</label>
+                    </div>
+                    <div class="mt-3 d-none" id="bulkRolesContainer"></div>
+                </div>
+
+                <div class="border rounded p-3 mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="bulkApplyPermissions">
+                        <label class="form-check-label" for="bulkApplyPermissions">Cập nhật quyền trực tiếp</label>
+                    </div>
+                    <div class="mt-3 d-none" id="bulkPermissionsContainer"></div>
+                </div>
+
+                <div class="border rounded p-3 mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="bulkApplyExclude">
+                        <label class="form-check-label" for="bulkApplyExclude">Cập nhật hiển thị bảng xếp hạng</label>
+                    </div>
+                    <div class="mt-3 ms-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="bulkExcludeCheckbox" disabled>
+                            <label class="form-check-label" for="bulkExcludeCheckbox">Ẩn khỏi bảng xếp hạng khách hàng</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="border rounded p-3 mb-4">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" id="bulkApplyBooster">
+                        <label class="form-check-label" for="bulkApplyBooster">Cập nhật booster</label>
+                    </div>
+                    <div class="mt-3 ms-4">
+                        <div class="input-group">
+                            <span class="input-group-text">x</span>
+                            <input type="number" class="form-control" id="bulkBoosterInput" min="1" step="0.1" value="1" disabled>
+                        </div>
+                        <div class="form-text">Áp dụng cùng một booster cho các tài khoản đã chọn.</div>
+                    </div>
+                </div>
+
+                <div class="border rounded p-3">
+                    <label class="form-label" for="bulkLockAction">Khóa tài khoản</label>
+                    <select class="form-select" id="bulkLockAction">
+                        <option value="none" selected>Không thay đổi</option>
+                        <option value="lock">Khóa tài khoản</option>
+                        <option value="unlock">Mở khóa tài khoản</option>
+                    </select>
+                    <div class="row g-3 align-items-end mt-2 d-none" id="bulkLockFields">
+                        <div class="col-6 col-md-4">
+                            <label class="form-label" for="bulkLockDurationValue">Thời gian</label>
+                            <input type="number" class="form-control" id="bulkLockDurationValue" min="1" value="30">
+                        </div>
+                        <div class="col-6 col-md-4">
+                            <label class="form-label" for="bulkLockDurationUnit">Đơn vị</label>
+                            <select class="form-select" id="bulkLockDurationUnit">
+                                <option value="minute">Phút</option>
+                                <option value="hour">Giờ</option>
+                                <option value="day">Ngày</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="button" class="btn btn-primary" id="bulkUserSaveBtn">
+                    <i class="fas fa-save me-1"></i>Áp dụng
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         (() => {
@@ -174,6 +296,10 @@
             const statusFilter = document.getElementById('userStatusFilter');
             const pageSizeSelect = document.getElementById('userPageSize');
             const refreshBtn = document.getElementById('refreshUsersBtn');
+            const selectAllUsersCheckbox = document.getElementById('selectAllUsersCheckbox');
+            const selectedUsersCountText = document.getElementById('selectedUsersCount');
+            const bulkEditBtn = document.getElementById('bulkEditBtn');
+            const clearSelectionBtn = document.getElementById('clearSelectionBtn');
 
             const userModalEl = document.getElementById('userModal');
             const userModal = new bootstrap.Modal(userModalEl);
@@ -186,12 +312,32 @@
             const superAdminWarning = document.getElementById('superAdminWarning');
             const roleContainer = document.getElementById('roleCheckboxContainer');
             const permissionContainer = document.getElementById('permissionCheckboxContainer');
+            const userExcludeFromLeaderboard = document.getElementById('userExcludeFromLeaderboard');
+            const userBoosterInput = document.getElementById('userBoosterInput');
             const lockSection = document.getElementById('lockSection');
             const lockDurationValue = document.getElementById('lockDurationValue');
             const lockDurationUnit = document.getElementById('lockDurationUnit');
             const lockUserBtn = document.getElementById('lockUserBtn');
             const unlockUserBtn = document.getElementById('unlockUserBtn');
             const saveUserChangesBtn = document.getElementById('saveUserChangesBtn');
+
+            const bulkUserModalEl = document.getElementById('bulkUserModal');
+            const bulkUserModal = bulkUserModalEl ? new bootstrap.Modal(bulkUserModalEl) : null;
+            const bulkUserAlert = document.getElementById('bulkUserAlert');
+            const bulkSelectedCount = document.getElementById('bulkSelectedCount');
+            const bulkApplyRoles = document.getElementById('bulkApplyRoles');
+            const bulkRolesContainer = document.getElementById('bulkRolesContainer');
+            const bulkApplyPermissions = document.getElementById('bulkApplyPermissions');
+            const bulkPermissionsContainer = document.getElementById('bulkPermissionsContainer');
+            const bulkApplyExclude = document.getElementById('bulkApplyExclude');
+            const bulkExcludeCheckbox = document.getElementById('bulkExcludeCheckbox');
+            const bulkApplyBooster = document.getElementById('bulkApplyBooster');
+            const bulkBoosterInput = document.getElementById('bulkBoosterInput');
+            const bulkLockActionSelect = document.getElementById('bulkLockAction');
+            const bulkLockFields = document.getElementById('bulkLockFields');
+            const bulkLockDurationValue = document.getElementById('bulkLockDurationValue');
+            const bulkLockDurationUnit = document.getElementById('bulkLockDurationUnit');
+            const bulkUserSaveBtn = document.getElementById('bulkUserSaveBtn');
 
             const antiForgeryForm = document.getElementById('userAntiForgeryForm');
             const requestToken = () => antiForgeryForm.querySelector('input[name="__RequestVerificationToken"]').value;
@@ -205,6 +351,8 @@
                 rolesCache: [],
                 currentPermissions: [],
                 isSuperAdmin: false,
+                permissionsCache: [],
+                selectedUserIds: new Set(),
             };
 
             const updatePermissionVisibility = () => {
@@ -263,7 +411,48 @@
                 return date.toLocaleString('vi-VN');
             };
 
+            const formatBooster = (value) => {
+                const numeric = Number(value);
+                if (!Number.isFinite(numeric) || numeric <= 0) {
+                    return 'x1';
+                }
+                const options = Number.isInteger(numeric)
+                    ? undefined
+                    : { minimumFractionDigits: 0, maximumFractionDigits: 2 };
+                const formatted = options
+                    ? numeric.toLocaleString('vi-VN', options)
+                    : numeric.toLocaleString('vi-VN');
+                return `x${formatted}`;
+            };
+
+            const normalizeBoosterValue = (value) => {
+                let numeric = Number(value);
+                if (!Number.isFinite(numeric) || numeric <= 0) {
+                    return 1;
+                }
+
+                numeric = Math.round(numeric * 100) / 100;
+                if (numeric < 1) {
+                    numeric = 1;
+                }
+
+                return numeric;
+            };
+
+            const syncBoosterInputValue = (input) => {
+                if (!input) {
+                    return 1;
+                }
+
+                const normalized = normalizeBoosterValue(input.value ?? '1');
+                input.value = normalized.toString();
+                return normalized;
+            };
+
             const renderAlert = (container, message, type = 'success') => {
+                if (!container) {
+                    return;
+                }
                 container.innerHTML = `
                     <div class="alert alert-${type} alert-dismissible fade show" role="alert">
                         ${message}
@@ -272,6 +461,9 @@
             };
 
             const clearAlert = (container) => {
+                if (!container) {
+                    return;
+                }
                 container.innerHTML = '';
             };
 
@@ -286,6 +478,77 @@
                 params.append('page', state.page);
                 params.append('pageSize', state.pageSize);
                 return params.toString();
+            };
+
+            const updateSelectionUI = () => {
+                const selectedCount = state.selectedUserIds.size;
+                if (selectedUsersCountText) {
+                    selectedUsersCountText.textContent = selectedCount > 0
+                        ? `Đã chọn ${selectedCount.toLocaleString('vi-VN')} người dùng.`
+                        : 'Đã chọn 0 người dùng.';
+                }
+
+                const hasSelection = selectedCount > 0;
+                if (bulkEditBtn) {
+                    bulkEditBtn.disabled = !hasSelection || !bulkUserModal;
+                }
+                if (clearSelectionBtn) {
+                    clearSelectionBtn.disabled = !hasSelection;
+                }
+
+                if (selectAllUsersCheckbox) {
+                    const checkboxes = Array.from(userTableBody?.querySelectorAll('.user-select-checkbox') ?? []);
+                    const enabledCheckboxes = checkboxes.filter(cb => !cb.disabled);
+                    if (enabledCheckboxes.length === 0) {
+                        selectAllUsersCheckbox.checked = false;
+                        selectAllUsersCheckbox.indeterminate = false;
+                    } else {
+                        const checkedCount = enabledCheckboxes.filter(cb => cb.checked).length;
+                        selectAllUsersCheckbox.checked = checkedCount > 0 && checkedCount === enabledCheckboxes.length;
+                        selectAllUsersCheckbox.indeterminate = checkedCount > 0 && checkedCount < enabledCheckboxes.length;
+                    }
+                }
+            };
+
+            const clearSelection = () => {
+                state.selectedUserIds.clear();
+                if (selectAllUsersCheckbox) {
+                    selectAllUsersCheckbox.checked = false;
+                    selectAllUsersCheckbox.indeterminate = false;
+                }
+                userTableBody?.querySelectorAll('.user-select-checkbox').forEach(cb => {
+                    cb.checked = false;
+                });
+                updateSelectionUI();
+            };
+
+            const loadUsers = async () => {
+                clearAlert(alertPlaceholder);
+                userTableBody.innerHTML = `
+                    <tr>
+                        <td colspan="10" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
+                    </tr>`;
+                statusText.textContent = 'Đang tải dữ liệu...';
+                try {
+                    const response = await fetch(`/UserManagement/users?${buildQuery()}`);
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách người dùng.');
+                    }
+                    const json = await response.json();
+                    if (!json.success) {
+                        throw new Error(json.message || 'Không thể tải danh sách người dùng.');
+                    }
+                    renderTable(json.data);
+                } catch (error) {
+                    userTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="10" class="text-center py-4 text-danger">${error.message}</td>
+                        </tr>`;
+                    tableSummary.textContent = '';
+                    paginationEl.innerHTML = '';
+                    statusText.textContent = 'Không thể tải dữ liệu.';
+                    updateSelectionUI();
+                }
             };
 
             const loadRoles = async () => {
@@ -304,31 +567,20 @@
                 return state.rolesCache;
             };
 
-            const loadUsers = async () => {
-                clearAlert(alertPlaceholder);
-                userTableBody.innerHTML = `
-                    <tr>
-                        <td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td>
-                    </tr>`;
-                statusText.textContent = 'Đang tải dữ liệu...';
-                try {
-                    const response = await fetch(`/UserManagement/users?${buildQuery()}`);
-                    if (!response.ok) {
-                        throw new Error('Không thể tải danh sách người dùng.');
-                    }
-                    const json = await response.json();
-                    if (!json.success) {
-                        throw new Error(json.message || 'Không thể tải danh sách người dùng.');
-                    }
-                    renderTable(json.data);
-                } catch (error) {
-                    userTableBody.innerHTML = `
-                        <tr>
-                            <td colspan="7" class="text-center py-4 text-danger">${error.message}</td>
-                        </tr>`;
-                    tableSummary.textContent = '';
-                    paginationEl.innerHTML = '';
+            const loadPermissions = async () => {
+                if (state.permissionsCache.length > 0) {
+                    return state.permissionsCache;
                 }
+                const response = await fetch('/UserManagement/permissions');
+                if (!response.ok) {
+                    throw new Error('Không thể tải danh sách quyền.');
+                }
+                const json = await response.json();
+                if (!json.success) {
+                    throw new Error(json.message || 'Không thể tải danh sách quyền.');
+                }
+                state.permissionsCache = json.data || [];
+                return state.permissionsCache;
             };
 
             const renderTable = (paged) => {
@@ -346,10 +598,12 @@
                 if (!items || items.length === 0) {
                     userTableBody.innerHTML = `
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">Không có dữ liệu.</td>
+                            <td colspan="10" class="text-center py-4 text-muted">Không có dữ liệu.</td>
                         </tr>`;
                     tableSummary.textContent = 'Không có dữ liệu để hiển thị.';
                     paginationEl.innerHTML = '';
+                    statusText.textContent = 'Không có dữ liệu.';
+                    updateSelectionUI();
                     return;
                 }
 
@@ -364,12 +618,28 @@
                     const superAdminIcon = user.isSuperAdmin
                         ? '<span class="badge bg-warning text-dark ms-1">Superadmin</span>'
                         : '';
+                    const isSuperAdmin = Boolean(user.isSuperAdmin);
+                    if (isSuperAdmin && state.selectedUserIds.has(user.id)) {
+                        state.selectedUserIds.delete(user.id);
+                    }
+                    const isSelected = state.selectedUserIds.has(user.id);
+                    const checkboxHtml = isSuperAdmin
+                        ? '<div class="form-check m-0" title="Không thể chọn superadmin"><input class="form-check-input" type="checkbox" disabled></div>'
+                        : `<div class="form-check m-0"><input class="form-check-input user-select-checkbox" type="checkbox" data-id="${user.id}" ${isSelected ? 'checked' : ''}></div>`;
+                    const leaderboardBadge = user.excludeFromLeaderboard
+                        ? '<span class="badge bg-secondary">Ẩn BXH</span>'
+                        : '<span class="badge bg-success">Hiển thị</span>';
+                    const boosterText = formatBooster(user.booster);
+
                     return `
-                        <tr>
+                        <tr data-user-id="${user.id}" data-superadmin="${isSuperAdmin ? 'true' : 'false'}">
+                            <td class="text-center align-middle">${checkboxHtml}</td>
                             <td>${user.email ?? ''}</td>
                             <td>${user.userName ?? ''}</td>
                             <td>${user.fullName ?? ''}</td>
                             <td>${roles}${superAdminIcon}</td>
+                            <td>${leaderboardBadge}</td>
+                            <td>${boosterText}</td>
                             <td>${statusBadge}</td>
                             <td>${lockoutText}</td>
                             <td class="text-center">
@@ -379,8 +649,11 @@
                 }).join('');
 
                 userTableBody.innerHTML = rows;
+                updateSelectionUI();
                 tableSummary.textContent = `Hiển thị ${startItem} - ${endItem} / ${totalItems} người dùng.`;
                 renderPagination(currentPage, totalPages);
+                const totalPageCount = totalPages && totalPages > 0 ? totalPages : 1;
+                statusText.textContent = `Trang ${currentPage} / ${totalPageCount} · Tổng ${totalItems.toLocaleString('vi-VN')} người dùng`;
             };
 
             const renderPagination = (currentPage, totalPages) => {
@@ -473,6 +746,82 @@
                 updatePermissionVisibility();
             };
 
+            const renderBulkRoles = (roles) => {
+                if (!bulkRolesContainer) {
+                    return;
+                }
+
+                bulkRolesContainer.innerHTML = '';
+
+                if (!roles || roles.length === 0) {
+                    bulkRolesContainer.innerHTML = '<div class="text-muted small">Không có vai trò nào.</div>';
+                    return;
+                }
+
+                const row = document.createElement('div');
+                row.className = 'row g-2';
+                roles.forEach(role => {
+                    const col = document.createElement('div');
+                    col.className = 'col-12 col-sm-6 col-lg-4';
+                    const checkboxId = `bulkRole_${role.id}`;
+                    col.innerHTML = `
+                        <div class="form-check">
+                            <input class="form-check-input bulk-role-checkbox" type="checkbox" value="${role.name}" id="${checkboxId}">
+                            <label class="form-check-label" for="${checkboxId}">${role.name}</label>
+                        </div>`;
+                    row.appendChild(col);
+                });
+
+                bulkRolesContainer.appendChild(row);
+            };
+
+            const renderBulkPermissions = (permissions) => {
+                if (!bulkPermissionsContainer) {
+                    return;
+                }
+
+                bulkPermissionsContainer.innerHTML = '';
+
+                if (!permissions || permissions.length === 0) {
+                    bulkPermissionsContainer.innerHTML = '<div class="text-muted small">Không có quyền khả dụng.</div>';
+                    return;
+                }
+
+                const groups = permissions.reduce((acc, permission) => {
+                    const group = permission.group ?? permission.Group;
+                    (acc[group] = acc[group] || []).push(permission);
+                    return acc;
+                }, {});
+
+                Object.entries(groups).forEach(([groupName, items]) => {
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'mb-3';
+                    const title = document.createElement('div');
+                    title.className = 'fw-semibold mb-2';
+                    title.textContent = groupName;
+                    wrapper.appendChild(title);
+
+                    const row = document.createElement('div');
+                    row.className = 'row g-2';
+                    items.forEach(item => {
+                        const col = document.createElement('div');
+                        col.className = 'col-12 col-sm-6 col-lg-4';
+                        const key = item.key ?? item.Key;
+                        const checkboxId = `bulkPermission_${key}`;
+                        const displayName = item.displayName ?? item.DisplayName ?? key;
+                        col.innerHTML = `
+                            <div class="form-check">
+                                <input class="form-check-input bulk-permission-checkbox" type="checkbox" value="${key}" id="${checkboxId}">
+                                <label class="form-check-label" for="${checkboxId}">${displayName}</label>
+                            </div>`;
+                        row.appendChild(col);
+                    });
+
+                    wrapper.appendChild(row);
+                    bulkPermissionsContainer.appendChild(wrapper);
+                });
+            };
+
             permissionContainer.addEventListener('change', (event) => {
                 const checkbox = event.target.closest('.user-permission-checkbox');
                 if (!checkbox || checkbox.disabled) {
@@ -481,6 +830,87 @@
                 checkbox.dataset.isInherited = 'false';
                 updatePermissionVisibility();
             });
+
+            const getBulkSelectedRoles = () => Array.from(bulkRolesContainer?.querySelectorAll('.bulk-role-checkbox:checked') ?? []).map(cb => cb.value);
+
+            const getBulkSelectedPermissions = () => Array.from(bulkPermissionsContainer?.querySelectorAll('.bulk-permission-checkbox:checked') ?? []).map(cb => cb.value);
+
+            const openBulkModal = async () => {
+                if (!bulkUserModal) {
+                    return;
+                }
+
+                const selectedIds = Array.from(state.selectedUserIds);
+                if (selectedIds.length === 0) {
+                    return;
+                }
+
+                clearAlert(bulkUserAlert);
+
+                if (bulkSelectedCount) {
+                    bulkSelectedCount.textContent = selectedIds.length.toLocaleString('vi-VN');
+                }
+
+                if (bulkApplyRoles) {
+                    bulkApplyRoles.checked = false;
+                }
+                if (bulkRolesContainer) {
+                    bulkRolesContainer.classList.add('d-none');
+                    bulkRolesContainer.innerHTML = '<div class="text-muted small">Đang tải vai trò...</div>';
+                }
+
+                if (bulkApplyPermissions) {
+                    bulkApplyPermissions.checked = false;
+                }
+                if (bulkPermissionsContainer) {
+                    bulkPermissionsContainer.classList.add('d-none');
+                    bulkPermissionsContainer.innerHTML = '<div class="text-muted small">Đang tải quyền...</div>';
+                }
+
+                if (bulkApplyExclude) {
+                    bulkApplyExclude.checked = false;
+                }
+                if (bulkExcludeCheckbox) {
+                    bulkExcludeCheckbox.checked = false;
+                    bulkExcludeCheckbox.disabled = true;
+                }
+
+                if (bulkApplyBooster) {
+                    bulkApplyBooster.checked = false;
+                }
+                if (bulkBoosterInput) {
+                    bulkBoosterInput.value = '1';
+                    bulkBoosterInput.disabled = true;
+                }
+
+                if (bulkLockActionSelect) {
+                    bulkLockActionSelect.value = 'none';
+                }
+                if (bulkLockFields) {
+                    bulkLockFields.classList.add('d-none');
+                }
+                if (bulkLockDurationValue) {
+                    bulkLockDurationValue.value = '30';
+                }
+                if (bulkLockDurationUnit) {
+                    bulkLockDurationUnit.value = 'minute';
+                }
+
+                try {
+                    const [roles, permissions] = await Promise.all([loadRoles(), loadPermissions()]);
+                    renderBulkRoles(roles);
+                    renderBulkPermissions(permissions);
+                    if (bulkRolesContainer) {
+                        bulkRolesContainer.classList.add('d-none');
+                    }
+                    if (bulkPermissionsContainer) {
+                        bulkPermissionsContainer.classList.add('d-none');
+                    }
+                    bulkUserModal.show();
+                } catch (error) {
+                    renderAlert(alertPlaceholder, error.message || 'Không thể tải dữ liệu hàng loạt.', 'danger');
+                }
+            };
 
             const openUserModal = async (userId) => {
                 state.selectedUserId = userId;
@@ -512,6 +942,18 @@
                     state.currentPermissions = user.permissions || [];
                     state.isSuperAdmin = !!user.isSuperAdmin;
 
+                    if (userExcludeFromLeaderboard) {
+                        userExcludeFromLeaderboard.checked = !!user.excludeFromLeaderboard;
+                        userExcludeFromLeaderboard.disabled = state.isSuperAdmin;
+                    }
+
+                    if (userBoosterInput) {
+                        const boosterValue = Number(user.booster ?? 1);
+                        userBoosterInput.value = Number.isFinite(boosterValue) && boosterValue > 0 ? boosterValue : 1;
+                        syncBoosterInputValue(userBoosterInput);
+                        userBoosterInput.disabled = state.isSuperAdmin;
+                    }
+
                     userEmailEl.textContent = user.email ?? '';
                     userUserNameEl.textContent = user.userName ?? '';
                     userFullNameEl.textContent = user.fullName ?? '';
@@ -532,6 +974,19 @@
                         lockUserBtn.disabled = true;
                         unlockUserBtn.disabled = true;
                         saveUserChangesBtn.disabled = true;
+                        if (userExcludeFromLeaderboard) {
+                            userExcludeFromLeaderboard.disabled = true;
+                        }
+                        if (userBoosterInput) {
+                            userBoosterInput.disabled = true;
+                        }
+                    } else {
+                        if (userExcludeFromLeaderboard) {
+                            userExcludeFromLeaderboard.disabled = false;
+                        }
+                        if (userBoosterInput) {
+                            userBoosterInput.disabled = false;
+                        }
                     }
 
                     userModal.show();
@@ -577,6 +1032,41 @@
                 return json.message || 'Đã cập nhật quyền.';
             };
 
+            const updateUserSettings = async () => {
+                if (state.isSuperAdmin) {
+                    return null;
+                }
+
+                if (!userExcludeFromLeaderboard || !userBoosterInput) {
+                    return null;
+                }
+
+                const exclude = userExcludeFromLeaderboard.checked;
+                const boosterValue = syncBoosterInputValue(userBoosterInput);
+                if (!Number.isFinite(boosterValue) || boosterValue <= 0) {
+                    throw new Error('Booster phải lớn hơn 0.');
+                }
+
+                const response = await fetch(`/UserManagement/users/${state.selectedUserId}/settings`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'RequestVerificationToken': requestToken()
+                    },
+                    body: JSON.stringify({
+                        excludeFromLeaderboard: exclude,
+                        booster: boosterValue
+                    })
+                });
+
+                const json = await response.json();
+                if (!response.ok || !json.success) {
+                    throw new Error(json.message || 'Không thể cập nhật thiết lập.');
+                }
+
+                return json.message || 'Đã cập nhật thiết lập.';
+            };
+
             saveUserChangesBtn.addEventListener('click', async () => {
                 if (!state.selectedUserId) {
                     return;
@@ -588,6 +1078,12 @@
                     const messages = [];
                     messages.push(await updateUserRoles());
                     messages.push(await updateUserPermissions());
+                    if (!state.isSuperAdmin) {
+                        const settingsMessage = await updateUserSettings();
+                        if (settingsMessage) {
+                            messages.push(settingsMessage);
+                        }
+                    }
                     renderAlert(userModalAlert, messages.join('<br/>'));
                     loadUsers();
                 } catch (error) {
@@ -717,6 +1213,243 @@
                 const userId = button.dataset.id;
                 openUserModal(userId);
             });
+
+            userTableBody.addEventListener('change', (event) => {
+                const checkbox = event.target.closest('.user-select-checkbox');
+                if (!checkbox || checkbox.disabled) {
+                    return;
+                }
+
+                const row = checkbox.closest('tr[data-user-id]');
+                const userId = checkbox.dataset.id;
+                const isSuperAdmin = row?.dataset.superadmin === 'true';
+                if (!userId || isSuperAdmin) {
+                    checkbox.checked = false;
+                    return;
+                }
+
+                if (checkbox.checked) {
+                    state.selectedUserIds.add(userId);
+                } else {
+                    state.selectedUserIds.delete(userId);
+                }
+
+                updateSelectionUI();
+            });
+
+            if (selectAllUsersCheckbox) {
+                selectAllUsersCheckbox.addEventListener('change', () => {
+                    const shouldSelect = selectAllUsersCheckbox.checked;
+                    const checkboxes = Array.from(userTableBody.querySelectorAll('.user-select-checkbox'));
+                    checkboxes.forEach(cb => {
+                        if (cb.disabled) {
+                            return;
+                        }
+                        const userId = cb.dataset.id;
+                        if (!userId) {
+                            return;
+                        }
+                        cb.checked = shouldSelect;
+                        if (shouldSelect) {
+                            state.selectedUserIds.add(userId);
+                        } else {
+                            state.selectedUserIds.delete(userId);
+                        }
+                    });
+                    updateSelectionUI();
+                });
+            }
+
+            if (bulkEditBtn) {
+                bulkEditBtn.addEventListener('click', openBulkModal);
+            }
+
+            if (clearSelectionBtn) {
+                clearSelectionBtn.addEventListener('click', () => {
+                    clearSelection();
+                });
+            }
+
+            if (bulkApplyRoles && bulkRolesContainer) {
+                bulkApplyRoles.addEventListener('change', () => {
+                    const enabled = bulkApplyRoles.checked;
+                    bulkRolesContainer.classList.toggle('d-none', !enabled);
+                    if (!enabled) {
+                        bulkRolesContainer.querySelectorAll('.bulk-role-checkbox').forEach(cb => {
+                            cb.checked = false;
+                        });
+                    }
+                });
+            }
+
+            if (bulkApplyPermissions && bulkPermissionsContainer) {
+                bulkApplyPermissions.addEventListener('change', () => {
+                    const enabled = bulkApplyPermissions.checked;
+                    bulkPermissionsContainer.classList.toggle('d-none', !enabled);
+                    if (!enabled) {
+                        bulkPermissionsContainer.querySelectorAll('.bulk-permission-checkbox').forEach(cb => {
+                            cb.checked = false;
+                        });
+                    }
+                });
+            }
+
+            if (bulkApplyExclude && bulkExcludeCheckbox) {
+                bulkApplyExclude.addEventListener('change', () => {
+                    const enabled = bulkApplyExclude.checked;
+                    bulkExcludeCheckbox.disabled = !enabled;
+                    if (!enabled) {
+                        bulkExcludeCheckbox.checked = false;
+                    }
+                });
+            }
+
+            if (bulkApplyBooster && bulkBoosterInput) {
+                bulkApplyBooster.addEventListener('change', () => {
+                    const enabled = bulkApplyBooster.checked;
+                    bulkBoosterInput.disabled = !enabled;
+                    if (!enabled) {
+                        bulkBoosterInput.value = '1';
+                    } else {
+                        syncBoosterInputValue(bulkBoosterInput);
+                    }
+                });
+
+                bulkBoosterInput.addEventListener('change', () => {
+                    if (bulkBoosterInput.disabled) {
+                        return;
+                    }
+                    syncBoosterInputValue(bulkBoosterInput);
+                });
+            }
+
+            if (bulkLockActionSelect && bulkLockFields) {
+                bulkLockActionSelect.addEventListener('change', () => {
+                    const value = bulkLockActionSelect.value;
+                    const shouldShow = value === 'lock';
+                    bulkLockFields.classList.toggle('d-none', !shouldShow);
+                });
+            }
+
+            if (bulkUserSaveBtn) {
+                bulkUserSaveBtn.addEventListener('click', async () => {
+                    if (!bulkUserModal || state.selectedUserIds.size === 0) {
+                        renderAlert(bulkUserAlert, 'Không có người dùng nào được chọn.', 'danger');
+                        return;
+                    }
+
+                    clearAlert(bulkUserAlert);
+
+                    const payload = {
+                        userIds: Array.from(state.selectedUserIds),
+                        applyRoles: !!(bulkApplyRoles && bulkApplyRoles.checked),
+                        roles: [],
+                        applyPermissions: !!(bulkApplyPermissions && bulkApplyPermissions.checked),
+                        permissions: [],
+                        applyExcludeFromLeaderboard: !!(bulkApplyExclude && bulkApplyExclude.checked),
+                        excludeFromLeaderboard: null,
+                        applyBooster: !!(bulkApplyBooster && bulkApplyBooster.checked),
+                        booster: null,
+                        applyLock: false,
+                        unlock: false,
+                        durationValue: null,
+                        durationUnit: null
+                    };
+
+                    if (payload.applyRoles) {
+                        payload.roles = getBulkSelectedRoles();
+                    }
+
+                    if (payload.applyPermissions) {
+                        payload.permissions = getBulkSelectedPermissions();
+                    }
+
+                    if (payload.applyExcludeFromLeaderboard && bulkExcludeCheckbox) {
+                        payload.excludeFromLeaderboard = !!bulkExcludeCheckbox.checked;
+                    }
+
+                    if (payload.applyBooster && bulkBoosterInput) {
+                        const normalized = syncBoosterInputValue(bulkBoosterInput);
+                        if (!Number.isFinite(normalized) || normalized <= 0) {
+                            renderAlert(bulkUserAlert, 'Booster phải lớn hơn 0.', 'danger');
+                            return;
+                        }
+                        payload.booster = normalized;
+                    }
+
+                    const lockAction = bulkLockActionSelect ? bulkLockActionSelect.value : 'none';
+                    if (lockAction === 'lock') {
+                        const duration = parseInt(bulkLockDurationValue.value, 10);
+                        if (Number.isNaN(duration) || duration <= 0) {
+                            renderAlert(bulkUserAlert, 'Thời gian khóa phải lớn hơn 0.', 'danger');
+                            return;
+                        }
+                        payload.applyLock = true;
+                        payload.unlock = false;
+                        payload.durationValue = duration;
+                        payload.durationUnit = bulkLockDurationUnit ? bulkLockDurationUnit.value : 'minute';
+                    } else if (lockAction === 'unlock') {
+                        payload.applyLock = true;
+                        payload.unlock = true;
+                        payload.durationValue = 0;
+                        payload.durationUnit = bulkLockDurationUnit ? bulkLockDurationUnit.value : 'minute';
+                    }
+
+                    const hasChanges = payload.applyRoles || payload.applyPermissions || payload.applyExcludeFromLeaderboard || payload.applyBooster || payload.applyLock;
+                    if (!hasChanges) {
+                        renderAlert(bulkUserAlert, 'Vui lòng chọn ít nhất một thay đổi để áp dụng.', 'warning');
+                        return;
+                    }
+
+                    bulkUserSaveBtn.disabled = true;
+                    bulkUserSaveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang áp dụng...';
+
+                    try {
+                        const response = await fetch('/UserManagement/users/bulk-update', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': requestToken()
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        const json = await response.json();
+                        if (!response.ok || !json.success) {
+                            throw new Error(json.message || 'Không thể áp dụng thay đổi.');
+                        }
+
+                        let message = json.message || 'Đã cập nhật người dùng.';
+                        if (json.skipped) {
+                            message += `<br/><span class="text-muted">Đã bỏ qua ${json.skipped} người dùng.</span>`;
+                        }
+
+                        if (Array.isArray(json.errors) && json.errors.length > 0) {
+                            const errors = json.errors.map(error => `<li>${error}</li>`).join('');
+                            message += `<br/><strong>Lỗi:</strong><ul class="mb-0 mt-2 ps-3">${errors}</ul>`;
+                            renderAlert(bulkUserAlert, message, 'warning');
+                        } else {
+                            renderAlert(bulkUserAlert, message);
+                        }
+
+                        loadUsers();
+                    } catch (error) {
+                        renderAlert(bulkUserAlert, error.message || 'Không thể áp dụng thay đổi.', 'danger');
+                    } finally {
+                        bulkUserSaveBtn.disabled = false;
+                        bulkUserSaveBtn.innerHTML = '<i class="fas fa-save me-1"></i>Áp dụng';
+                    }
+                });
+            }
+
+            if (userBoosterInput) {
+                userBoosterInput.addEventListener('change', () => {
+                    if (userBoosterInput.disabled) {
+                        return;
+                    }
+                    syncBoosterInputValue(userBoosterInput);
+                });
+            }
 
             userModalEl.addEventListener('hidden.bs.modal', () => {
                 state.selectedUserId = null;

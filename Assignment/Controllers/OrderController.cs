@@ -705,13 +705,23 @@ namespace Assignment.Controllers
                 return;
             }
 
-            var expEarned = baseValue * 2;
-            var pointEarned = baseValue;
+            var booster = user.Booster <= 0 ? 1m : user.Booster;
+            var expEarned = (long)Math.Floor(baseValue * 2m * booster);
+            var pointEarned = (long)Math.Floor(baseValue * booster);
 
             user.Exp += expEarned;
             user.Point += pointEarned;
             user.TotalPoint += pointEarned;
             user.Rank = CustomerRankCalculator.CalculateRank(user.Exp);
+
+            if (user.Rank == CustomerRank.Emerald && user.Booster < 2m)
+            {
+                user.Booster = 2m;
+            }
+            else if (user.Booster <= 0)
+            {
+                user.Booster = 1m;
+            }
 
             order.LoyaltyRewardsApplied = true;
 

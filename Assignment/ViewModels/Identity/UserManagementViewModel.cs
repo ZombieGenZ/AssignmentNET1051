@@ -22,6 +22,10 @@ namespace Assignment.ViewModels.Identity
         public IReadOnlyList<PermissionViewModel> Permissions { get; set; } = Array.Empty<PermissionViewModel>();
 
         public bool IsSuperAdmin { get; set; }
+
+        public bool ExcludeFromLeaderboard { get; set; }
+
+        public decimal Booster { get; set; }
     }
 
     public class UserListItemViewModel
@@ -41,5 +45,9 @@ namespace Assignment.ViewModels.Identity
         public bool IsSuperAdmin { get; set; }
 
         public IReadOnlyList<string> Roles { get; set; } = Array.Empty<string>();
+
+        public bool ExcludeFromLeaderboard { get; set; }
+
+        public decimal Booster { get; set; }
     }
 }

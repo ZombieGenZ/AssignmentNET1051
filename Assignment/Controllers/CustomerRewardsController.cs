@@ -94,6 +94,18 @@ namespace Assignment.Controllers
 
             var (nextRank, requiredExp) = CustomerRankCalculator.GetNextRankInfo(user.Exp);
 
+            var sanitizedBooster = user.Booster <= 0 ? 1m : user.Booster;
+            if (user.Rank == CustomerRank.Emerald && sanitizedBooster < 2m)
+            {
+                sanitizedBooster = 2m;
+            }
+
+            if (sanitizedBooster != user.Booster)
+            {
+                user.Booster = sanitizedBooster;
+                await _userManager.UpdateAsync(user);
+            }
+
             var viewModel = new CustomerRewardIndexViewModel
             {
                 Rewards = pagedResult,
@@ -102,7 +114,8 @@ namespace Assignment.Controllers
                 Exp = user.Exp,
                 Rank = user.Rank,
                 NextRank = nextRank,
-                NextRankExp = requiredExp
+                NextRankExp = requiredExp,
+                Booster = sanitizedBooster
             };
 
             ViewData["Title"] = "Đổi thưởng";
@@ -171,8 +184,10 @@ namespace Assignment.Controllers
                 var rewardProductIds = reward.RewardProducts?.Where(rp => !rp.IsDeleted).Select(rp => rp.ProductId).ToList() ?? new List<long>();
                 var rewardComboIds = reward.RewardCombos?.Where(rc => !rc.IsDeleted).Select(rc => rc.ComboId).ToList() ?? new List<long>();
                 var createdCodes = new List<string>();
+                var vouchersPerItem = Math.Max(1, reward.VoucherQuantity);
+                var totalVouchersToCreate = vouchersPerItem * sanitizedQuantity;
 
-                for (var i = 0; i < sanitizedQuantity; i++)
+                for (var i = 0; i < totalVouchersToCreate; i++)
                 {
                     var code = await GenerateUniqueCodeAsync(generatedCodes);
                     generatedCodes.Add(code);
@@ -190,7 +205,7 @@ namespace Assignment.Controllers
                         Discount = reward.VoucherDiscount,
                         DiscountType = reward.VoucherDiscountType,
                         Used = 0,
-                        Quantity = reward.VoucherQuantity,
+                        Quantity = 1,
                         StartTime = validFrom,
                         IsLifeTime = reward.IsValidityUnlimited,
                         EndTime = reward.IsValidityUnlimited ? null : validTo,
