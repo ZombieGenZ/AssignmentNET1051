@@ -1,0 +1,216 @@
+@model Assignment.ViewModels.Rewards.CustomerRewardIndexViewModel
+@using Assignment.Enums
+@using Assignment.Extensions
+@using System.Globalization
+@using System.Linq
+
+@{
+    ViewData["Title"] = ViewData["Title"] ?? "Đổi thưởng";
+    var rewards = Model?.Rewards?.Items ?? Enumerable.Empty<Assignment.ViewModels.Rewards.CustomerRewardItemViewModel>();
+    var hasRewards = rewards.Any();
+    var successMessage = TempData["RewardSuccess"] as string;
+    var errorMessage = TempData["RewardError"] as string;
+    var rewardCode = TempData["RewardCode"] as string;
+    var validFromString = TempData["RewardValidFrom"] as string;
+    var validToString = TempData["RewardValidTo"] as string;
+
+    DateTime? rewardValidFrom = null;
+    if (!string.IsNullOrEmpty(validFromString) && DateTime.TryParse(validFromString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedFrom))
+    {
+        rewardValidFrom = parsedFrom;
+    }
+
+    DateTime? rewardValidTo = null;
+    if (!string.IsNullOrEmpty(validToString) && DateTime.TryParse(validToString, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var parsedTo))
+    {
+        rewardValidTo = parsedTo;
+    }
+
+    var currentRankName = Model?.Rank.GetDisplayName() ?? CustomerRank.Potential.GetDisplayName();
+    var nextRankName = Model?.NextRank?.GetDisplayName();
+    long? expToNextRank = null;
+    if (Model?.NextRankExp.HasValue == true)
+    {
+        expToNextRank = Math.Max(0, Model.NextRankExp.Value - Model.Exp);
+    }
+
+    var pageSizeOptions = Model?.Rewards?.PageSizeOptions ?? Array.Empty<int>();
+}
+
+<div class="container my-4">
+    <div class="row g-4 align-items-stretch">
+        <div class="col-12 col-lg-4">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body p-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="rounded-circle bg-primary bg-opacity-10 text-primary d-inline-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                            <i class="fas fa-crown"></i>
+                        </div>
+                        <div class="ms-3">
+                            <h5 class="mb-0 text-primary">Thứ hạng của bạn</h5>
+                            <p class="mb-0 text-muted">@currentRankName</p>
+                        </div>
+                    </div>
+                    <dl class="row mb-0">
+                        <dt class="col-6 text-muted">EXP hiện tại</dt>
+                        <dd class="col-6 text-end fw-semibold">@Model?.Exp.ToString("N0")</dd>
+                        <dt class="col-6 text-muted">Điểm hiện có</dt>
+                        <dd class="col-6 text-end fw-semibold text-success">@Model?.CurrentPoint.ToString("N0")</dd>
+                        <dt class="col-6 text-muted">Tổng điểm tích lũy</dt>
+                        <dd class="col-6 text-end fw-semibold">@Model?.TotalPoint.ToString("N0")</dd>
+                    </dl>
+                    @if (!string.IsNullOrEmpty(nextRankName) && expToNextRank.HasValue && expToNextRank.Value > 0)
+                    {
+                        <div class="alert alert-info mt-3 mb-0" role="alert">
+                            <div class="fw-semibold">Còn @expToNextRank.Value.ToString("N0") EXP để đạt @nextRankName.</div>
+                        </div>
+                    }
+                    else if (!string.IsNullOrEmpty(nextRankName))
+                    {
+                        <div class="alert alert-success mt-3 mb-0" role="alert">
+                            <div class="fw-semibold">Bạn đã đạt cấp cao nhất!</div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-8">
+            <div class="card shadow-sm h-100 border-0">
+                <div class="card-body p-4">
+                    <h4 class="mb-3 text-primary"><i class="fas fa-gift me-2"></i>Đổi quà với điểm thưởng</h4>
+                    <p class="text-muted mb-0">Chọn những phần quà phù hợp với cấp bậc và số điểm hiện có của bạn. Điểm sẽ được trừ ngay khi đổi thưởng.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(successMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show mt-4" role="alert">
+            <strong>@successMessage</strong>
+            @if (!string.IsNullOrEmpty(rewardCode))
+            {
+                <div class="mt-2">
+                    Mã đổi thưởng: <span class="badge bg-dark text-uppercase">@rewardCode</span>
+                </div>
+            }
+            @if (rewardValidFrom.HasValue && rewardValidTo.HasValue)
+            {
+                <div class="text-muted small mt-1">
+                    Hiệu lực từ @rewardValidFrom.Value.ToString("dd/MM/yyyy HH:mm") đến @rewardValidTo.Value.ToString("dd/MM/yyyy HH:mm").
+                </div>
+            }
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(errorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show mt-4" role="alert">
+            @errorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-4 mb-3">
+        <h5 class="mb-0 text-secondary">Vật phẩm phù hợp với cấp bậc của bạn</h5>
+        @if (pageSizeOptions.Any())
+        {
+            <form class="d-flex align-items-center gap-2" method="get">
+                <input type="hidden" name="page" value="1" />
+                <label class="form-label mb-0" for="pageSizeSelect">Hiển thị</label>
+                <select id="pageSizeSelect" name="pageSize" class="form-select form-select-sm" onchange="this.form.submit()">
+                    @foreach (var option in pageSizeOptions)
+                    {
+                        <option value="@option" selected="@(option == Model?.Rewards?.PageSize)">@option</option>
+                    }
+                </select>
+                <span class="text-muted small">vật phẩm / trang</span>
+            </form>
+        }
+    </div>
+
+    @if (!hasRewards)
+    {
+        <div class="text-center py-5 bg-light rounded-3 border border-dashed">
+            <i class="fas fa-gift fa-3x text-muted mb-3"></i>
+            <h5>Hiện chưa có vật phẩm đổi thưởng nào phù hợp.</h5>
+            <p class="text-muted mb-0">Hãy quay lại sau khi chúng tôi cập nhật thêm ưu đãi mới cho bạn.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var reward in rewards)
+            {
+                var remaining = reward.Quantity > 0 ? Math.Max(0, reward.Quantity - reward.Redeemed) : (long?)null;
+                var rankRequirement = reward.MinimumRank?.GetDisplayName() ?? "Không yêu cầu";
+                var canRedeem = reward.IsAvailable && reward.PointCost <= (Model?.CurrentPoint ?? 0);
+                var validityText = reward.ValidityUnit switch
+                {
+                    RewardValidityUnit.Week => $"{reward.ValidityValue:N0} tuần",
+                    RewardValidityUnit.Month => $"{reward.ValidityValue:N0} tháng",
+                    RewardValidityUnit.Year => $"{reward.ValidityValue:N0} năm",
+                    _ => $"{reward.ValidityValue:N0} ngày"
+                };
+                <div class="col-12 col-md-6 col-xl-4">
+                    <div class="card h-100 shadow-sm border-0">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                <span class="badge bg-primary bg-opacity-10 text-primary">@rankRequirement</span>
+                                <span class="badge @(reward.IsAvailable ? "bg-success" : "bg-secondary")">@(reward.IsAvailable ? "Còn hàng" : "Hết hàng")</span>
+                            </div>
+                            <h5 class="card-title">@reward.Name</h5>
+                            <p class="card-text text-muted flex-grow-1">@reward.Description</p>
+                            <ul class="list-unstyled small text-muted mb-3">
+                                <li><i class="fas fa-coins me-2"></i>Giá đổi: <strong class="text-success">@reward.PointCost.ToString("N0") điểm</strong></li>
+                                <li><i class="fas fa-clock me-2"></i>Hiệu lực: @validityText kể từ khi đổi</li>
+                                <li><i class="fas fa-box me-2"></i>@(remaining.HasValue ? $"Còn {remaining.Value:N0}/{reward.Quantity:N0}" : "Không giới hạn")</li>
+                            </ul>
+                            <form method="post" asp-action="Redeem" class="mt-auto">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="id" value="@reward.Id" />
+                                <input type="hidden" name="page" value="@Model?.Rewards?.CurrentPage" />
+                                <input type="hidden" name="pageSize" value="@Model?.Rewards?.PageSize" />
+                                <button type="submit" class="btn btn-primary w-100" @(canRedeem ? null : "disabled")>
+                                    <i class="fas fa-gift me-2"></i>Đổi thưởng
+                                </button>
+                                @if (!canRedeem)
+                                {
+                                    if (!reward.IsAvailable)
+                                    {
+                                        <div class="text-muted small mt-2">Vật phẩm đã hết số lượng đổi thưởng.</div>
+                                    }
+                                    else
+                                    {
+                                        <div class="text-muted small mt-2">@("Bạn cần thêm " + Math.Max(0, reward.PointCost - (Model?.CurrentPoint ?? 0)).ToString("N0") + " điểm để đổi vật phẩm này.")</div>
+                                    }
+                                }
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (Model?.Rewards?.TotalPages > 1)
+        {
+            <nav class="mt-4" aria-label="Danh sách vật phẩm đổi thưởng">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item @(Model.Rewards.CurrentPage <= 1 ? "disabled" : string.Empty)">
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.Rewards.CurrentPage - 1)" asp-route-pageSize="@Model.Rewards.PageSize">Trước</a>
+                    </li>
+                    @for (var i = 1; i <= Model.Rewards.TotalPages; i++)
+                    {
+                        <li class="page-item @(i == Model.Rewards.CurrentPage ? "active" : string.Empty)">
+                            <a class="page-link" asp-action="Index" asp-route-page="@i" asp-route-pageSize="@Model.Rewards.PageSize">@i</a>
+                        </li>
+                    }
+                    <li class="page-item @(Model.Rewards.CurrentPage >= Model.Rewards.TotalPages ? "disabled" : string.Empty)">
+                        <a class="page-link" asp-action="Index" asp-route-page="@(Model.Rewards.CurrentPage + 1)" asp-route-pageSize="@Model.Rewards.PageSize">Sau</a>
+                    </li>
+                </ul>
+            </nav>
+        }
+    }
+</div>

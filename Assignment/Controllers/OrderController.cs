@@ -76,6 +76,7 @@ namespace Assignment.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
+            var user = await _userManager.GetUserAsync(User);
 
             if (cart == null || !cart.CartItems.Any())
             {
@@ -163,7 +164,7 @@ namespace Assignment.Controllers
                     }
                     else
                     {
-                        var calculationResult = TryCalculateVoucherDiscounts(appliedVouchers, filteredItems, subtotal, userId, isNewCustomer);
+                        var calculationResult = TryCalculateVoucherDiscounts(appliedVouchers, filteredItems, subtotal, userId, isNewCustomer, user);
                         if (!calculationResult.Success)
                         {
                             ModelState.AddModelError(string.Empty, calculationResult.ErrorMessage ?? "Không thể áp dụng voucher.");
@@ -209,6 +210,23 @@ namespace Assignment.Controllers
             var priceAfterDiscount = subtotal - order.Discount;
             order.Vat = priceAfterDiscount * 0.15;
             order.TotalBill = priceAfterDiscount + order.Vat;
+
+            if (user != null)
+            {
+                var baseValue = (long)Math.Round(order.TotalBill, MidpointRounding.AwayFromZero);
+                if (baseValue > 0)
+                {
+                    var expEarned = baseValue * 2;
+                    var pointEarned = baseValue;
+
+                    user.Exp += expEarned;
+                    user.Point += pointEarned;
+                    user.TotalPoint += pointEarned;
+                    user.Rank = CustomerRankCalculator.CalculateRank(user.Exp);
+
+                    _context.Users.Update(user);
+                }
+            }
 
             _context.Orders.Add(order);
             _context.CartItems.RemoveRange(filteredItems);
@@ -272,6 +290,9 @@ namespace Assignment.Controllers
 
             var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             var isNewCustomer = await IsNewCustomerAsync(userId);
+            var user = string.IsNullOrWhiteSpace(userId)
+                ? null
+                : await _userManager.FindByIdAsync(userId);
 
             var existingVouchers = await _context.Vouchers
                 .Include(v => v.VoucherUsers)
@@ -312,7 +333,7 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = limitError });
             }
 
-            var calculationResult = TryCalculateVoucherDiscounts(combinedVouchers, filteredItems, subtotal, userId, isNewCustomer);
+            var calculationResult = TryCalculateVoucherDiscounts(combinedVouchers, filteredItems, subtotal, userId, isNewCustomer, user);
             if (!calculationResult.Success)
             {
                 return Json(new { success = false, error = calculationResult.ErrorMessage ?? "Không thể áp dụng voucher." });
@@ -366,6 +387,9 @@ namespace Assignment.Controllers
 
             var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             var isNewCustomer = await IsNewCustomerAsync(userId);
+            var user = string.IsNullOrWhiteSpace(userId)
+                ? null
+                : await _userManager.FindByIdAsync(userId);
 
             if (!sanitizedVoucherIds.Any())
             {
@@ -403,7 +427,7 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = limitError });
             }
 
-            var calculationResult = TryCalculateVoucherDiscounts(vouchers, filteredItems, subtotal, userId, isNewCustomer);
+            var calculationResult = TryCalculateVoucherDiscounts(vouchers, filteredItems, subtotal, userId, isNewCustomer, user);
             if (!calculationResult.Success)
             {
                 return Json(new { success = false, error = calculationResult.ErrorMessage ?? "Không thể áp dụng voucher." });
@@ -795,7 +819,8 @@ namespace Assignment.Controllers
             IReadOnlyCollection<CartItem> filteredItems,
             double subtotal,
             string? userId,
-            bool isNewCustomer)
+            bool isNewCustomer,
+            ApplicationUser? user)
         {
             if (voucher == null)
             {
@@ -812,6 +837,19 @@ namespace Assignment.Controllers
                 if (string.IsNullOrWhiteSpace(userId) || !isNewCustomer)
                 {
                     return (false, "Voucher chỉ áp dụng cho khách hàng mới.", 0);
+                }
+            }
+
+            if (voucher.MinimumRank.HasValue)
+            {
+                if (user == null)
+                {
+                    return (false, "Vui lòng đăng nhập để sử dụng voucher này.", 0);
+                }
+
+                if (user.Rank < voucher.MinimumRank.Value)
+                {
+                    return (false, $"Voucher yêu cầu khách hàng đạt cấp {voucher.MinimumRank.Value.GetDisplayName()} trở lên.", 0);
                 }
             }
 
@@ -932,7 +970,8 @@ namespace Assignment.Controllers
             IReadOnlyCollection<CartItem> filteredItems,
             double subtotal,
             string? userId,
-            bool isNewCustomer)
+            bool isNewCustomer,
+            ApplicationUser? user)
         {
             var summaries = new List<VoucherDiscountSummary>();
             double totalDiscount = 0;
@@ -944,7 +983,7 @@ namespace Assignment.Controllers
 
             foreach (var voucher in vouchers)
             {
-                var result = TryCalculateVoucherDiscount(voucher, filteredItems, subtotal, userId, isNewCustomer);
+                var result = TryCalculateVoucherDiscount(voucher, filteredItems, subtotal, userId, isNewCustomer, user);
                 if (!result.Success)
                 {
                     return (false, BuildVoucherErrorMessage(voucher, result.ErrorMessage), new List<VoucherDiscountSummary>(), 0);
@@ -1015,6 +1054,7 @@ namespace Assignment.Controllers
                 return new CheckoutVoucherOptionsViewModel();
             }
 
+            var user = await _userManager.FindByIdAsync(userId);
             var sanitizedAppliedIds = appliedVoucherIds?
                 .Where(id => id > 0)
                 .Distinct()
@@ -1065,7 +1105,8 @@ namespace Assignment.Controllers
                 subtotal,
                 userId,
                 false,
-                isNewCustomer);
+                isNewCustomer,
+                user);
 
             var savedOptions = BuildVoucherOptionsList(
                 savedVouchers,
@@ -1075,7 +1116,8 @@ namespace Assignment.Controllers
                 subtotal,
                 userId,
                 true,
-                isNewCustomer);
+                isNewCustomer,
+                user);
 
             return new CheckoutVoucherOptionsViewModel
             {
@@ -1092,7 +1134,8 @@ namespace Assignment.Controllers
             double subtotal,
             string? userId,
             bool isSavedGroup,
-            bool isNewCustomer)
+            bool isNewCustomer,
+            ApplicationUser? user)
         {
             var options = new List<CheckoutVoucherOptionViewModel>();
             if (candidates == null)
@@ -1117,7 +1160,7 @@ namespace Assignment.Controllers
                     continue;
                 }
 
-                var calculation = TryCalculateVoucherDiscount(voucher, filteredItems, subtotal, userId, isNewCustomer);
+                var calculation = TryCalculateVoucherDiscount(voucher, filteredItems, subtotal, userId, isNewCustomer, user);
                 if (!calculation.Success || calculation.DiscountAmount <= 0)
                 {
                     continue;

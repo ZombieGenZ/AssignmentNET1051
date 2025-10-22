@@ -73,6 +73,7 @@ namespace Assignment.Models
         [DefaultValue(false)]
         [DisplayName("Chỉ áp dụng cho khách hàng mới")]
         public bool IsForNewUsersOnly { get; set; } = false;
+        public CustomerRank? MinimumRank { get; set; }
         public virtual ICollection<VoucherUser>? VoucherUsers { get; set; }
         public virtual ICollection<VoucherProduct>? VoucherProducts { get; set; }
         public virtual ICollection<VoucherCombo>? VoucherCombos { get; set; }

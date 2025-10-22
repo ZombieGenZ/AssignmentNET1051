@@ -139,6 +139,15 @@
                     </a>
                 </li>
             }
+            @if (User.HasAnyPermission("GetRewardAll", "GetReward"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Rewards" class="sidebar-menu-link">
+                        <i class="fa-solid fa-gift"></i>
+                        <span>Vật phẩm đổi thưởng</span>
+                    </a>
+                </li>
+            }
             @if (User.HasPermission("GetOrderAll"))
             {
                 <li class="sidebar-menu-item">
@@ -160,6 +169,15 @@
                     <a asp-action="Index" asp-controller="UserManagement" class="sidebar-menu-link">
                         <i class="fa-solid fa-users"></i>
                         <span>Người dùng</span>
+                    </a>
+                </li>
+            }
+            @if (User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Customers" class="sidebar-menu-link">
+                        <i class="fa-solid fa-user-check"></i>
+                        <span>Khách hàng</span>
                     </a>
                 </li>
             }

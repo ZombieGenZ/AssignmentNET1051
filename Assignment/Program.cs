@@ -196,6 +196,37 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
+    options.AddPolicy("GetRewardPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetRewardAll") ||
+            (ctx.User.HasPermission("GetReward") &&
+             ctx.Resource is Reward reward &&
+             reward.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateRewardPolicy", policy =>
+        policy.RequireClaim("CreateReward")
+    );
+
+    options.AddPolicy("UpdateRewardPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("UpdateRewardAll") ||
+            (ctx.User.HasPermission("UpdateReward") &&
+             ctx.Resource is Reward reward &&
+             reward.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteRewardPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("DeleteRewardAll") ||
+            (ctx.User.HasPermission("DeleteReward") &&
+             ctx.Resource is Reward reward &&
+             reward.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
     options.AddPolicy("ViewStatisticsPolicy", policy =>
         policy.RequireClaim("ViewStatistics")
     );

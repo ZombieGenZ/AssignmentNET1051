@@ -1,0 +1,655 @@
+@using Assignment.Enums
+@{
+    ViewData["Title"] = "Quản lý khách hàng";
+    Layout = "_AdminLayout";
+
+    var canViewCustomers = ViewData["CanViewCustomers"] as bool? ?? false;
+    var canViewTop = ViewData["CanViewTop"] as bool? ?? false;
+}
+
+<div class="container-fluid pt-4 px-4" id="customer-app"
+     data-can-view-customers="@(canViewCustomers ? "true" : "false")"
+     data-can-view-top="@(canViewTop ? "true" : "false")">
+    <div class="row g-4">
+        @if (canViewCustomers)
+        {
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            <div>
+                                <h4 class="mb-1 text-primary">
+                                    <i class="fas fa-users me-2"></i>Danh sách khách hàng
+                                </h4>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <div class="input-group input-group-sm" style="width: auto;">
+                                    <label class="input-group-text" for="customerPageSizeSelect">Số dòng</label>
+                                    <select id="customerPageSizeSelect" class="form-select">
+                                        @foreach (var size in Assignment.Options.PaginationDefaults.PageSizeOptions)
+                                        {
+                                            <option value="@size">@size</option>
+                                        }
+                                    </select>
+                                </div>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshCustomersBtn">
+                                    <i class="fas fa-rotate-right me-1"></i>Tải lại
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="customerAlertPlaceholder"></div>
+                        <div class="filter-toolbar mb-4">
+                            <div class="row g-3 align-items-end">
+                                <div class="col-12 col-lg-6">
+                                    <label class="form-label filter-label" for="customerSearchInput">Tìm kiếm</label>
+                                    <div class="filter-input-icon">
+                                        <i class="fas fa-search filter-icon"></i>
+                                        <input type="search" class="form-control" id="customerSearchInput" placeholder="Tên hoặc email khách hàng" />
+                                    </div>
+                                </div>
+                                <div class="col-12 col-sm-6 col-lg-2 ms-lg-auto d-flex align-items-end">
+                                    <button type="button" class="btn btn-outline-secondary w-100" id="customerResetFilters">
+                                        <i class="fas fa-eraser me-1"></i>Xóa lọc
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Họ và tên</th>
+                                        <th>Email</th>
+                                        <th>Số điện thoại</th>
+                                        <th>EXP</th>
+                                        <th>Điểm hiện tại</th>
+                                        <th>Tổng điểm tích lũy</th>
+                                        <th>Cấp bậc</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="customersTableBody">
+                                    <tr>
+                                        <td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
+                            <div id="customerPaginationSummary" class="text-muted small"></div>
+                            <div class="d-flex gap-2">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="customerPrevPageBtn">
+                                    <i class="fas fa-angle-left me-1"></i>Trước
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="customerNextPageBtn">
+                                    Sau<i class="fas fa-angle-right ms-1"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (canViewTop)
+        {
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-light">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                            <div>
+                                <h4 class="mb-1 text-primary">
+                                    <i class="fas fa-trophy me-2"></i>Bảng xếp hạng khách hàng
+                                </h4>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
+                                <select id="topPeriodSelect" class="form-select form-select-sm" style="width: 140px;">
+                                    <option value="month">Theo tháng</option>
+                                    <option value="quarter">Theo quý</option>
+                                    <option value="year">Theo năm</option>
+                                </select>
+                                <select id="topMonthSelect" class="form-select form-select-sm" style="width: 120px;">
+                                    @for (var month = 1; month <= 12; month++)
+                                    {
+                                        <option value="@month">Tháng @month</option>
+                                    }
+                                </select>
+                                <select id="topQuarterSelect" class="form-select form-select-sm d-none" style="width: 120px;">
+                                    @for (var quarter = 1; quarter <= 4; quarter++)
+                                    {
+                                        <option value="@quarter">Quý @quarter</option>
+                                    }
+                                </select>
+                                <input type="number" class="form-control form-control-sm" id="topYearInput" style="width: 100px;" value="@DateTime.Now.Year" />
+                                <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshTopBtn">
+                                    <i class="fas fa-rotate-right me-1"></i>Tải lại
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="topAlertPlaceholder"></div>
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 60px;" class="text-center">#</th>
+                                        <th>Khách hàng</th>
+                                        <th>Email</th>
+                                        <th>Cấp bậc</th>
+                                        <th>EXP nhận</th>
+                                        <th>Điểm nhận</th>
+                                        <th>Tổng điểm tích lũy</th>
+                                        <th>Điểm đổi</th>
+                                        <th>Đơn hàng</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="topCustomersTableBody">
+                                    <tr>
+                                        <td colspan="9" class="text-center py-4 text-muted">Đang tải bảng xếp hạng...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        @if (!canViewCustomers && !canViewTop)
+        {
+            <div class="col-12">
+                <div class="alert alert-warning mb-0">Bạn không có quyền xem thông tin khách hàng.</div>
+            </div>
+        }
+    </div>
+</div>
+
+<form id="customerAntiForgery" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('customer-app');
+            if (!app) {
+                return;
+            }
+
+            const canViewCustomers = app.dataset.canViewCustomers === 'true';
+            const canViewTop = app.dataset.canViewTop === 'true';
+
+            const API_CUSTOMERS = '/api/customers';
+            const API_TOP = '/api/customers/top';
+
+            const rankLabels = {
+                none: 'Không xác định',
+                '@((int)CustomerRank.Potential)': 'Khách hàng tiềm năng',
+                '@((int)CustomerRank.Bronze)': 'Khách hàng cấp đồng',
+                '@((int)CustomerRank.Silver)': 'Khách hàng cấp bạc',
+                '@((int)CustomerRank.Gold)': 'Khách hàng cấp vàng',
+                '@((int)CustomerRank.Platinum)': 'Khách hàng bạch kim',
+                '@((int)CustomerRank.Diamond)': 'Khách hàng kim cương',
+                '@((int)CustomerRank.Emerald)': 'Khách hàng lục bảo'
+            };
+
+            const customersTableBody = document.getElementById('customersTableBody');
+            const customerAlertPlaceholder = document.getElementById('customerAlertPlaceholder');
+            const customerPageSizeSelect = document.getElementById('customerPageSizeSelect');
+            const customerSearchInput = document.getElementById('customerSearchInput');
+            const customerPaginationSummary = document.getElementById('customerPaginationSummary');
+            const customerPrevPageBtn = document.getElementById('customerPrevPageBtn');
+            const customerNextPageBtn = document.getElementById('customerNextPageBtn');
+            const customerResetFiltersBtn = document.getElementById('customerResetFilters');
+            const refreshCustomersBtn = document.getElementById('refreshCustomersBtn');
+
+            const topAlertPlaceholder = document.getElementById('topAlertPlaceholder');
+            const topTableBody = document.getElementById('topCustomersTableBody');
+            const topPeriodSelect = document.getElementById('topPeriodSelect');
+            const topMonthSelect = document.getElementById('topMonthSelect');
+            const topQuarterSelect = document.getElementById('topQuarterSelect');
+            const topYearInput = document.getElementById('topYearInput');
+            const refreshTopBtn = document.getElementById('refreshTopBtn');
+
+            const now = new Date();
+
+            const customerState = {
+                items: [],
+                page: 1,
+                pageSize: Number(customerPageSizeSelect?.value || 25),
+                totalItems: 0,
+                totalPages: 0,
+                search: ''
+            };
+
+            const topState = {
+                items: [],
+                period: topPeriodSelect?.value || 'month',
+                month: Number(topMonthSelect?.value || (now.getMonth() + 1)),
+                quarter: Number(topQuarterSelect?.value || Math.floor(now.getMonth() / 3) + 1),
+                year: Number(topYearInput?.value || now.getFullYear())
+            };
+
+            function escapeHtml(value) {
+                if (typeof value !== 'string') {
+                    return value ?? '';
+                }
+                return value
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function formatNumber(value) {
+                const numeric = Number(value || 0);
+                if (Number.isNaN(numeric)) {
+                    return '0';
+                }
+                return numeric.toLocaleString('vi-VN');
+            }
+
+            function showAlert(placeholder, message, type = 'info') {
+                if (!placeholder || !message) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+
+                placeholder.innerHTML = '';
+                placeholder.append(wrapper);
+            }
+
+            function clearAlert(placeholder) {
+                if (placeholder) {
+                    placeholder.innerHTML = '';
+                }
+            }
+
+            function updateCustomerPaginationSummary() {
+                if (!customerPaginationSummary) {
+                    return;
+                }
+
+                if (!canViewCustomers) {
+                    customerPaginationSummary.textContent = '';
+                    return;
+                }
+
+                if (customerState.totalItems === 0) {
+                    customerPaginationSummary.textContent = 'Không có khách hàng nào.';
+                    return;
+                }
+
+                const startItem = (customerState.page - 1) * customerState.pageSize + 1;
+                const endItem = Math.min(customerState.totalItems, customerState.page * customerState.pageSize);
+                customerPaginationSummary.textContent = `Hiển thị ${startItem.toLocaleString('vi-VN')} - ${endItem.toLocaleString('vi-VN')} trong tổng số ${customerState.totalItems.toLocaleString('vi-VN')} khách hàng.`;
+            }
+
+            function setCustomerPaginationButtons() {
+                if (customerPrevPageBtn) {
+                    customerPrevPageBtn.disabled = !canViewCustomers || customerState.page <= 1;
+                }
+
+                if (customerNextPageBtn) {
+                    const hasPages = customerState.totalPages > 0;
+                    const isLastPage = hasPages && customerState.page >= customerState.totalPages;
+                    customerNextPageBtn.disabled = !canViewCustomers || !hasPages || isLastPage;
+                }
+            }
+
+            function renderCustomers() {
+                if (!customersTableBody) {
+                    return;
+                }
+
+                if (!canViewCustomers) {
+                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách khách hàng.</td></tr>';
+                    updateCustomerPaginationSummary();
+                    setCustomerPaginationButtons();
+                    return;
+                }
+
+                if (!customerState.items.length) {
+                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Không có khách hàng nào để hiển thị.</td></tr>';
+                    updateCustomerPaginationSummary();
+                    setCustomerPaginationButtons();
+                    return;
+                }
+
+                const rows = customerState.items.map(item => {
+                    const rankKey = item.rank === null || item.rank === undefined ? 'none' : String(item.rank);
+                    const rankText = rankLabels[rankKey] ?? rankLabels.none;
+
+                    return `
+                        <tr>
+                            <td class="fw-semibold">${escapeHtml(item.fullName) || '(Chưa cập nhật)'}</td>
+                            <td>${escapeHtml(item.email) || '-'}</td>
+                            <td>${escapeHtml(item.phone) || '-'}</td>
+                            <td>${formatNumber(item.exp)}</td>
+                            <td>${formatNumber(item.point)}</td>
+                            <td>${formatNumber(item.totalPoint)}</td>
+                            <td>${escapeHtml(rankText)}</td>
+                        </tr>`;
+                });
+
+                customersTableBody.innerHTML = rows.join('');
+                updateCustomerPaginationSummary();
+                setCustomerPaginationButtons();
+            }
+
+            function renderTopTable() {
+                if (!topTableBody) {
+                    return;
+                }
+
+                if (!canViewTop) {
+                    topTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Bạn không có quyền xem bảng xếp hạng khách hàng.</td></tr>';
+                    return;
+                }
+
+                if (!topState.items.length) {
+                    topTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Không có dữ liệu cho khoảng thời gian đã chọn.</td></tr>';
+                    return;
+                }
+
+                const rows = topState.items.map((item, index) => {
+                    const rankKey = item.rank === null || item.rank === undefined ? 'none' : String(item.rank);
+                    const rankText = rankLabels[rankKey] ?? rankLabels.none;
+
+                    return `
+                        <tr>
+                            <td class="text-center fw-semibold">${index + 1}</td>
+                            <td class="fw-semibold">${escapeHtml(item.fullName) || '(Chưa cập nhật)'}</td>
+                            <td>${escapeHtml(item.email) || '-'}</td>
+                            <td>${escapeHtml(rankText)}</td>
+                            <td>${formatNumber(item.expEarned)}</td>
+                            <td>${formatNumber(item.pointsEarned)}</td>
+                            <td>${formatNumber(item.totalPoint)}</td>
+                            <td>${formatNumber(item.pointsRedeemed)}</td>
+                            <td>${formatNumber(item.orderCount)}</td>
+                        </tr>`;
+                });
+
+                topTableBody.innerHTML = rows.join('');
+            }
+
+            function loadCustomers() {
+                if (!canViewCustomers) {
+                    renderCustomers();
+                    return;
+                }
+
+                if (customersTableBody) {
+                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td></tr>';
+                }
+
+                clearAlert(customerAlertPlaceholder);
+
+                const params = new URLSearchParams({
+                    page: String(customerState.page),
+                    pageSize: String(customerState.pageSize)
+                });
+
+                if (customerState.search) {
+                    params.append('search', customerState.search);
+                }
+
+                fetch(`${API_CUSTOMERS}?${params.toString()}`, { headers: { 'Accept': 'application/json' } })
+                    .then(response => {
+                        if (response.status === 403) {
+                            throw new Error('Bạn không có quyền xem danh sách khách hàng.');
+                        }
+
+                        if (!response.ok) {
+                            throw new Error('Không thể tải danh sách khách hàng.');
+                        }
+
+                        return response.json();
+                    })
+                    .then(data => {
+                        customerState.items = Array.isArray(data?.items) ? data.items : [];
+                        customerState.totalItems = Number(data?.totalItems ?? 0);
+                        customerState.totalPages = Number(data?.totalPages ?? 0);
+                        customerState.page = Number(data?.currentPage ?? customerState.page);
+                        customerState.pageSize = Number(data?.pageSize ?? customerState.pageSize);
+                        renderCustomers();
+                    })
+                    .catch(error => {
+                        renderCustomers();
+                        showAlert(customerAlertPlaceholder, error.message || 'Không thể tải danh sách khách hàng.', 'danger');
+                    });
+            }
+
+            function normalizeYear(value) {
+                const numeric = Number(value);
+                if (Number.isNaN(numeric)) {
+                    return now.getFullYear();
+                }
+                return Math.min(9999, Math.max(2000, numeric));
+            }
+
+            function updatePeriodControls() {
+                if (!topPeriodSelect) {
+                    return;
+                }
+
+                const period = topState.period;
+
+                if (topMonthSelect) {
+                    const shouldShowMonth = period === 'month';
+                    topMonthSelect.classList.toggle('d-none', !shouldShowMonth);
+                    topMonthSelect.disabled = !canViewTop || !shouldShowMonth;
+                }
+
+                if (topQuarterSelect) {
+                    const shouldShowQuarter = period === 'quarter';
+                    topQuarterSelect.classList.toggle('d-none', !shouldShowQuarter);
+                    topQuarterSelect.disabled = !canViewTop || !shouldShowQuarter;
+                }
+
+                if (topYearInput) {
+                    topYearInput.disabled = !canViewTop;
+                }
+            }
+
+            function loadTopCustomers() {
+                if (!canViewTop) {
+                    renderTopTable();
+                    return;
+                }
+
+                if (topTableBody) {
+                    topTableBody.innerHTML = '<tr><td colspan="9" class="text-center py-4 text-muted">Đang tải bảng xếp hạng...</td></tr>';
+                }
+
+                clearAlert(topAlertPlaceholder);
+
+                const params = new URLSearchParams({
+                    period: topState.period,
+                    year: String(topState.year)
+                });
+
+                if (topState.period === 'month') {
+                    params.append('month', String(topState.month));
+                }
+
+                if (topState.period === 'quarter') {
+                    params.append('quarter', String(topState.quarter));
+                }
+
+                fetch(`${API_TOP}?${params.toString()}`, { headers: { 'Accept': 'application/json' } })
+                    .then(response => {
+                        if (response.status === 403) {
+                            throw new Error('Bạn không có quyền xem bảng xếp hạng khách hàng.');
+                        }
+
+                        if (!response.ok) {
+                            throw new Error('Không thể tải bảng xếp hạng khách hàng.');
+                        }
+
+                        return response.json();
+                    })
+                    .then(data => {
+                        topState.items = Array.isArray(data) ? data : [];
+                        renderTopTable();
+                    })
+                    .catch(error => {
+                        renderTopTable();
+                        showAlert(topAlertPlaceholder, error.message || 'Không thể tải bảng xếp hạng khách hàng.', 'danger');
+                    });
+            }
+
+            function changeCustomerPage(delta) {
+                const newPage = customerState.page + delta;
+                if (newPage < 1) {
+                    return;
+                }
+
+                if (customerState.totalPages > 0 && newPage > customerState.totalPages) {
+                    return;
+                }
+
+                customerState.page = newPage;
+                loadCustomers();
+            }
+
+            function resetCustomerFilters() {
+                customerState.search = '';
+                customerState.page = 1;
+                if (customerSearchInput) {
+                    customerSearchInput.value = '';
+                }
+                loadCustomers();
+            }
+
+            function debounce(fn, delay = 300) {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+                    timeoutId = window.setTimeout(() => fn(...args), delay);
+                };
+            }
+
+            if (!canViewCustomers) {
+                [customerPageSizeSelect, customerSearchInput, customerPrevPageBtn, customerNextPageBtn, customerResetFiltersBtn, refreshCustomersBtn]
+                    .forEach(element => {
+                        if (element) {
+                            element.disabled = true;
+                        }
+                    });
+            }
+
+            if (!canViewTop) {
+                [topPeriodSelect, topMonthSelect, topQuarterSelect, topYearInput, refreshTopBtn]
+                    .forEach(element => {
+                        if (element) {
+                            element.disabled = true;
+                        }
+                    });
+            }
+
+            if (customerPageSizeSelect) {
+                customerPageSizeSelect.addEventListener('change', () => {
+                    customerState.pageSize = Number(customerPageSizeSelect.value || customerState.pageSize);
+                    customerState.page = 1;
+                    loadCustomers();
+                });
+            }
+
+            if (customerPrevPageBtn) {
+                customerPrevPageBtn.addEventListener('click', () => changeCustomerPage(-1));
+            }
+
+            if (customerNextPageBtn) {
+                customerNextPageBtn.addEventListener('click', () => changeCustomerPage(1));
+            }
+
+            if (customerSearchInput) {
+                const debouncedSearch = debounce(() => {
+                    customerState.search = customerSearchInput.value?.trim() ?? '';
+                    customerState.page = 1;
+                    loadCustomers();
+                }, 400);
+                customerSearchInput.addEventListener('input', debouncedSearch);
+            }
+
+            if (customerResetFiltersBtn) {
+                customerResetFiltersBtn.addEventListener('click', resetCustomerFilters);
+            }
+
+            if (refreshCustomersBtn) {
+                refreshCustomersBtn.addEventListener('click', () => {
+                    loadCustomers();
+                });
+            }
+
+            if (topPeriodSelect) {
+                topPeriodSelect.addEventListener('change', () => {
+                    topState.period = topPeriodSelect.value || 'month';
+                    if (topState.period === 'month' && topMonthSelect) {
+                        topState.month = Number(topMonthSelect.value || (now.getMonth() + 1));
+                    }
+                    if (topState.period === 'quarter' && topQuarterSelect) {
+                        topState.quarter = Number(topQuarterSelect.value || Math.floor(now.getMonth() / 3) + 1);
+                    }
+                    updatePeriodControls();
+                    loadTopCustomers();
+                });
+            }
+
+            if (topMonthSelect) {
+                topMonthSelect.addEventListener('change', () => {
+                    topState.month = Number(topMonthSelect.value || topState.month);
+                    topState.period = 'month';
+                    loadTopCustomers();
+                });
+            }
+
+            if (topQuarterSelect) {
+                topQuarterSelect.addEventListener('change', () => {
+                    topState.quarter = Number(topQuarterSelect.value || topState.quarter);
+                    topState.period = 'quarter';
+                    loadTopCustomers();
+                });
+            }
+
+            if (topYearInput) {
+                topYearInput.addEventListener('change', () => {
+                    topState.year = normalizeYear(topYearInput.value);
+                    topYearInput.value = String(topState.year);
+                    loadTopCustomers();
+                });
+            }
+
+            if (refreshTopBtn) {
+                refreshTopBtn.addEventListener('click', () => {
+                    loadTopCustomers();
+                });
+            }
+
+            if (topMonthSelect) {
+                topMonthSelect.value = String(topState.month);
+            }
+
+            if (topQuarterSelect) {
+                topQuarterSelect.value = String(topState.quarter);
+            }
+
+            updatePeriodControls();
+            renderCustomers();
+            renderTopTable();
+            loadCustomers();
+            loadTopCustomers();
+        })();
+    </script>
+}
+

@@ -173,6 +173,7 @@ namespace Assignment.Controllers.Api
                 IsPublish = request.IsPublish,
                 IsShow = request.Type == VoucherType.Public ? request.IsShow : false,
                 IsForNewUsersOnly = request.IsForNewUsersOnly,
+                MinimumRank = request.MinimumRank,
                 Used = 0,
                 CreateBy = CurrentUserId,
                 CreatedAt = now,
@@ -249,6 +250,7 @@ namespace Assignment.Controllers.Api
             voucher.IsPublish = request.IsPublish;
             voucher.IsShow = voucher.Type == VoucherType.Public ? request.IsShow : false;
             voucher.IsForNewUsersOnly = request.IsForNewUsersOnly;
+            voucher.MinimumRank = request.MinimumRank;
             voucher.UserId = voucher.Type == VoucherType.Public ? null : voucher.UserId;
             voucher.UpdatedAt = DateTime.Now;
 
@@ -1122,6 +1124,7 @@ namespace Assignment.Controllers.Api
                 MinimumRequirements = voucher.MinimumRequirements,
                 UnlimitedPercentageDiscount = voucher.UnlimitedPercentageDiscount,
                 MaximumPercentageReduction = voucher.MaximumPercentageReduction,
+                MinimumRank = voucher.MinimumRank,
                 CreatedAt = voucher.CreatedAt,
                 UpdatedAt = voucher.UpdatedAt
             };
@@ -1214,6 +1217,7 @@ namespace Assignment.Controllers.Api
                 IsPublish = voucher.IsPublish,
                 IsShow = voucher.IsShow,
                 IsForNewUsersOnly = voucher.IsForNewUsersOnly,
+                MinimumRank = voucher.MinimumRank,
                 CreatedAt = voucher.CreatedAt,
                 UpdatedAt = voucher.UpdatedAt,
                 Users = selectedUserIds.Select(id => new UserOption
@@ -1345,6 +1349,8 @@ namespace Assignment.Controllers.Api
 
             public bool IsForNewUsersOnly { get; set; }
 
+            public CustomerRank? MinimumRank { get; set; }
+
             public List<string>? UserIds { get; set; }
 
             public List<long>? ProductIds { get; set; }
@@ -1377,6 +1383,7 @@ namespace Assignment.Controllers.Api
             public double? MaximumPercentageReduction { get; set; }
             public DateTime CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
+            public CustomerRank? MinimumRank { get; set; }
         }
 
         public class VoucherDetailResponse : VoucherListItem

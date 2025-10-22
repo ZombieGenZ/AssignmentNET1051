@@ -1,0 +1,901 @@
+@using Assignment.Enums
+@{
+    ViewData["Title"] = "Quản lý vật phẩm đổi thưởng";
+    Layout = "_AdminLayout";
+
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
+}
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm" id="reward-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
+        <div class="card-header bg-light">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h4 class="mb-1 text-primary">
+                        <i class="fas fa-gift me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                <div class="d-flex flex-wrap gap-2 justify-content-end">
+                    @if (canCreate)
+                    {
+                        <button type="button" class="btn btn-primary" id="createRewardBtn">
+                            <i class="fas fa-plus me-2"></i>Thêm vật phẩm
+                        </button>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="alertPlaceholder"></div>
+            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-3 mb-3">
+                <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu vật phẩm..." : "Bạn không có quyền xem danh sách vật phẩm.")</div>
+                <div class="d-flex flex-wrap gap-2 align-items-center">
+                    <div class="input-group input-group-sm" style="width: auto;">
+                        <label class="input-group-text" for="pageSizeSelect">Số dòng</label>
+                        <select id="pageSizeSelect" class="form-select">
+                            @foreach (var size in Assignment.Options.PaginationDefaults.PageSizeOptions)
+                            {
+                                <option value="@size">@size</option>
+                            }
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshRewardsBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
+                    @if (canDelete)
+                    {
+                        <div class="d-none" id="bulkActions">
+                            <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                                <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="filter-toolbar mb-4" id="rewardFilters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-5">
+                        <label class="form-label filter-label" for="rewardSearchInput">Tìm kiếm</label>
+                        <div class="filter-input-icon">
+                            <i class="fas fa-search filter-icon"></i>
+                            <input type="search" class="form-control" id="rewardSearchInput" placeholder="Tên hoặc mô tả vật phẩm" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <label class="form-label filter-label" for="rewardStatusFilter">Trạng thái</label>
+                        <select id="rewardStatusFilter" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option value="true">Cho phép</option>
+                            <option value="false">Tạm khóa</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-2 ms-lg-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="rewardResetFilters">
+                            <i class="fas fa-eraser me-1"></i>Xóa lọc
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            @if (canDelete)
+                            {
+                                <th style="width: 50px;" class="text-center">
+                                    <input type="checkbox" id="selectAllRewards" class="form-check-input" />
+                                </th>
+                            }
+                            <th>Tên vật phẩm</th>
+                            <th>Điểm đổi thưởng</th>
+                            <th>Yêu cầu cấp bậc</th>
+                            <th>Số lượng</th>
+                            <th>Thời hạn hiệu lực</th>
+                            <th>Trạng thái</th>
+                            <th style="width: 150px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rewardsTableBody">
+                        <tr>
+                            <td colspan="@(canDelete ? 8 : 7)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mt-3">
+                <div id="paginationSummary" class="text-muted small"></div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="prevPageBtn">
+                        <i class="fas fa-angle-left me-1"></i>Trước
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="nextPageBtn">
+                        Sau<i class="fas fa-angle-right ms-1"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="antiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="rewardModal" tabindex="-1" aria-labelledby="rewardModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <form id="rewardForm" class="modal-content" novalidate>
+            <div class="modal-header">
+                <h5 class="modal-title" id="rewardModalLabel">Thêm vật phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="rewardFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="rewardName" class="form-label">Tên vật phẩm<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="rewardName" maxlength="300" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardPointCost" class="form-label">Điểm đổi thưởng<span class="text-danger">*</span></label>
+                        <input type="number" min="0" step="1" class="form-control" id="rewardPointCost" required />
+                    </div>
+                    <div class="col-12">
+                        <label for="rewardDescription" class="form-label">Mô tả<span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="rewardDescription" rows="3" maxlength="1000" required></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardMinimumRank" class="form-label">Yêu cầu cấp bậc</label>
+                        <select id="rewardMinimumRank" class="form-select">
+                            <option value="">Không yêu cầu</option>
+                            <option value="@((int)CustomerRank.Potential)">Cấp tiềm năng trở lên</option>
+                            <option value="@((int)CustomerRank.Bronze)">Cấp đồng trở lên</option>
+                            <option value="@((int)CustomerRank.Silver)">Cấp bạc trở lên</option>
+                            <option value="@((int)CustomerRank.Gold)">Cấp vàng trở lên</option>
+                            <option value="@((int)CustomerRank.Platinum)">Cấp bạch kim trở lên</option>
+                            <option value="@((int)CustomerRank.Diamond)">Cấp kim cương trở lên</option>
+                            <option value="@((int)CustomerRank.Emerald)">Cấp lục bảo trở lên</option>
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardQuantity" class="form-label">Số lượng</label>
+                        <input type="number" min="0" step="1" class="form-control" id="rewardQuantity" />
+                        <small class="text-muted">Nhập 0 để không giới hạn.</small>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="rewardValidityValue" class="form-label">Thời hạn hiệu lực<span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <input type="number" min="1" step="1" class="form-control" id="rewardValidityValue" required />
+                            <select id="rewardValidityUnit" class="form-select" style="max-width: 160px;">
+                                <option value="@((int)RewardValidityUnit.Day)">Ngày</option>
+                                <option value="@((int)RewardValidityUnit.Week)">Tuần</option>
+                                <option value="@((int)RewardValidityUnit.Month)">Tháng</option>
+                                <option value="@((int)RewardValidityUnit.Year)">Năm</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="rewardIsPublish" />
+                            <label class="form-check-label" for="rewardIsPublish">Cho phép sử dụng</label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="submit" class="btn btn-primary" id="rewardSubmitBtn">Lưu</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal fade" id="rewardDetailModal" tabindex="-1" aria-labelledby="rewardDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rewardDetailModalLabel">Chi tiết vật phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="rewardDetailBody">
+                <div class="text-center text-muted py-4">Đang tải thông tin...</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rewardDeleteModal" tabindex="-1" aria-labelledby="rewardDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rewardDeleteModalLabel">Xóa vật phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa vật phẩm <strong id="deleteRewardName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteRewardBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="rewardBulkDeleteModal" tabindex="-1" aria-labelledby="rewardBulkDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rewardBulkDeleteModalLabel">Xóa nhiều vật phẩm</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa các vật phẩm đã chọn? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmBulkDeleteRewardBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('reward-app');
+            if (!app) {
+                return;
+            }
+
+            const canCreate = app.dataset.canCreate === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+            const canView = app.dataset.canView === 'true';
+            const API_BASE_URL = '/api/rewards';
+
+            const tableBody = document.getElementById('rewardsTableBody');
+            const tableStatus = document.getElementById('tableStatus');
+            const alertPlaceholder = document.getElementById('alertPlaceholder');
+            const refreshBtn = document.getElementById('refreshRewardsBtn');
+            const pageSizeSelect = document.getElementById('pageSizeSelect');
+            const prevPageBtn = document.getElementById('prevPageBtn');
+            const nextPageBtn = document.getElementById('nextPageBtn');
+            const paginationSummary = document.getElementById('paginationSummary');
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const selectAllCheckbox = document.getElementById('selectAllRewards');
+            const createBtn = document.getElementById('createRewardBtn');
+            const searchInput = document.getElementById('rewardSearchInput');
+            const statusFilterSelect = document.getElementById('rewardStatusFilter');
+            const resetFiltersBtn = document.getElementById('rewardResetFilters');
+
+            const rewardModalEl = document.getElementById('rewardModal');
+            const rewardModal = new bootstrap.Modal(rewardModalEl);
+            const rewardForm = document.getElementById('rewardForm');
+            const rewardFormErrors = document.getElementById('rewardFormErrors');
+            const rewardModalLabel = document.getElementById('rewardModalLabel');
+            const rewardSubmitBtn = document.getElementById('rewardSubmitBtn');
+
+            const detailModal = new bootstrap.Modal(document.getElementById('rewardDetailModal'));
+            const detailModalBody = document.getElementById('rewardDetailBody');
+
+            const deleteModal = new bootstrap.Modal(document.getElementById('rewardDeleteModal'));
+            const deleteRewardName = document.getElementById('deleteRewardName');
+            const confirmDeleteRewardBtn = document.getElementById('confirmDeleteRewardBtn');
+
+            const bulkDeleteModal = new bootstrap.Modal(document.getElementById('rewardBulkDeleteModal'));
+            const confirmBulkDeleteRewardBtn = document.getElementById('confirmBulkDeleteRewardBtn');
+
+            const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
+
+            const formFields = {
+                nameInput: document.getElementById('rewardName'),
+                descriptionInput: document.getElementById('rewardDescription'),
+                pointCostInput: document.getElementById('rewardPointCost'),
+                minimumRankSelect: document.getElementById('rewardMinimumRank'),
+                quantityInput: document.getElementById('rewardQuantity'),
+                validityValueInput: document.getElementById('rewardValidityValue'),
+                validityUnitSelect: document.getElementById('rewardValidityUnit'),
+                isPublishSwitch: document.getElementById('rewardIsPublish')
+            };
+
+            const rankLabels = {
+                none: 'Không yêu cầu',
+                '@((int)CustomerRank.Potential)': 'Khách hàng tiềm năng',
+                '@((int)CustomerRank.Bronze)': 'Khách hàng cấp đồng',
+                '@((int)CustomerRank.Silver)': 'Khách hàng cấp bạc',
+                '@((int)CustomerRank.Gold)': 'Khách hàng cấp vàng',
+                '@((int)CustomerRank.Platinum)': 'Khách hàng bạch kim',
+                '@((int)CustomerRank.Diamond)': 'Khách hàng kim cương',
+                '@((int)CustomerRank.Emerald)': 'Khách hàng lục bảo'
+            };
+
+            const validityUnitLabels = {
+                '@((int)RewardValidityUnit.Day)': 'Ngày',
+                '@((int)RewardValidityUnit.Week)': 'Tuần',
+                '@((int)RewardValidityUnit.Month)': 'Tháng',
+                '@((int)RewardValidityUnit.Year)': 'Năm'
+            };
+
+            const state = {
+                items: [],
+                page: 1,
+                pageSize: Number(pageSizeSelect?.value || 25),
+                totalItems: 0,
+                totalPages: 0,
+                selectedIds: new Set(),
+                formMode: 'create',
+                editingId: null,
+                deletingId: null,
+                filters: {
+                    search: '',
+                    isPublish: ''
+                }
+            };
+
+            function showAlert(message, type = 'info') {
+                if (!alertPlaceholder || !message) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    ${message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+
+                alertPlaceholder.append(wrapper);
+            }
+
+            function formatCurrency(value) {
+                const number = Number(value || 0);
+                if (Number.isNaN(number)) {
+                    return '0';
+                }
+                return number.toLocaleString('vi-VN');
+            }
+
+            function formatValidity(item) {
+                if (!item || !item.validityValue) {
+                    return 'Không xác định';
+                }
+                const unitKey = String(item.validityUnit);
+                const unitText = validityUnitLabels[unitKey] ?? 'Ngày';
+                return `${Number(item.validityValue).toLocaleString('vi-VN')} ${unitText}`;
+            }
+
+            function updateBulkActionsVisibility() {
+                if (!canDelete || !bulkActions) {
+                    return;
+                }
+
+                const hasSelection = state.selectedIds.size > 0;
+                bulkActions.classList.toggle('d-none', !hasSelection);
+                if (bulkDeleteBtn) {
+                    bulkDeleteBtn.disabled = !hasSelection;
+                }
+            }
+
+            function renderPagination() {
+                if (!paginationSummary) {
+                    return;
+                }
+
+                if (state.totalItems === 0) {
+                    paginationSummary.textContent = 'Không có vật phẩm nào.';
+                    return;
+                }
+
+                const startItem = (state.page - 1) * state.pageSize + 1;
+                const endItem = Math.min(state.totalItems, state.page * state.pageSize);
+                paginationSummary.textContent = `Hiển thị ${startItem.toLocaleString('vi-VN')} - ${endItem.toLocaleString('vi-VN')} trong tổng số ${state.totalItems.toLocaleString('vi-VN')} vật phẩm.`;
+            }
+
+            function renderTable() {
+                if (!canView) {
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 8 : 7}" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách vật phẩm.</td></tr>`;
+                    tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
+                    return;
+                }
+
+                if (!state.items.length) {
+                    tableBody.innerHTML = `<tr><td colspan="${canDelete ? 8 : 7}" class="text-center py-4 text-muted">Không có vật phẩm nào để hiển thị.</td></tr>`;
+                    tableStatus.textContent = 'Không có dữ liệu để hiển thị.';
+                    return;
+                }
+
+                const rows = state.items.map(item => {
+                    const rankKey = item.minimumRank === null || item.minimumRank === undefined ? 'none' : String(item.minimumRank);
+                    const rankText = rankLabels[rankKey] ?? rankLabels.none;
+                    const quantityText = Number(item.quantity) > 0
+                        ? `${Number(item.redeemed).toLocaleString('vi-VN')} / ${Number(item.quantity).toLocaleString('vi-VN')}`
+                        : `${Number(item.redeemed).toLocaleString('vi-VN')} / Không giới hạn`;
+                    const validityText = formatValidity(item);
+
+                    const statusBadge = item.isPublish
+                        ? '<span class="badge bg-success">Cho phép</span>'
+                        : '<span class="badge bg-secondary">Tạm khóa</span>';
+
+                    const actions = [];
+                    actions.push(`<button type="button" class="btn btn-sm btn-outline-info me-1" data-action="detail" data-id="${item.id}"><i class="fas fa-eye"></i></button>`);
+
+                    if (canUpdate) {
+                        actions.push(`<button type="button" class="btn btn-sm btn-outline-warning me-1" data-action="edit" data-id="${item.id}"><i class="fas fa-pen"></i></button>`);
+                    }
+
+                    if (canDelete) {
+                        actions.push(`<button type="button" class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${item.id}" data-name="${item.name}"><i class="fas fa-trash"></i></button>`);
+                    }
+
+                    const selectCell = canDelete
+                        ? `<td class="text-center"><input type="checkbox" class="form-check-input reward-select" data-id="${item.id}" ${state.selectedIds.has(item.id) ? 'checked' : ''}></td>`
+                        : '';
+
+                    return `
+                        <tr data-id="${item.id}">
+                            ${selectCell}
+                            <td class="fw-semibold">${item.name}</td>
+                            <td>${formatCurrency(item.pointCost)} điểm</td>
+                            <td>${rankText}</td>
+                            <td>${quantityText}</td>
+                            <td>${validityText}</td>
+                            <td>${statusBadge}</td>
+                            <td class="text-center">${actions.join('')}</td>
+                        </tr>`;
+                });
+
+                tableBody.innerHTML = rows.join('');
+                tableStatus.textContent = `Hiển thị ${state.items.length.toLocaleString('vi-VN')} / ${state.totalItems.toLocaleString('vi-VN')} vật phẩm.`;
+
+                if (canDelete) {
+                    tableBody.querySelectorAll('.reward-select').forEach(checkbox => {
+                        checkbox.addEventListener('change', event => {
+                            const id = Number(event.target.dataset.id);
+                            if (event.target.checked) {
+                                state.selectedIds.add(id);
+                            } else {
+                                state.selectedIds.delete(id);
+                            }
+                            updateBulkActionsVisibility();
+                            if (selectAllCheckbox) {
+                                const totalSelectable = tableBody.querySelectorAll('.reward-select').length;
+                                const selectedCount = tableBody.querySelectorAll('.reward-select:checked').length;
+                                selectAllCheckbox.checked = selectedCount > 0 && selectedCount === totalSelectable;
+                                if ('indeterminate' in selectAllCheckbox) {
+                                    selectAllCheckbox.indeterminate = selectedCount > 0 && selectedCount < totalSelectable;
+                                }
+                            }
+                        });
+                    });
+                }
+
+                tableBody.querySelectorAll('button[data-action="detail"]').forEach(button => {
+                    button.addEventListener('click', () => openDetailModal(Number(button.dataset.id)));
+                });
+
+                if (canUpdate) {
+                    tableBody.querySelectorAll('button[data-action="edit"]').forEach(button => {
+                        button.addEventListener('click', () => openEditModal(Number(button.dataset.id)));
+                    });
+                }
+
+                if (canDelete) {
+                    tableBody.querySelectorAll('button[data-action="delete"]').forEach(button => {
+                        button.addEventListener('click', () => openDeleteModal(Number(button.dataset.id), button.dataset.name));
+                    });
+                }
+            }
+
+            function resetForm() {
+                rewardForm.reset();
+                rewardFormErrors.classList.add('d-none');
+                rewardFormErrors.innerHTML = '';
+                state.formMode = 'create';
+                state.editingId = null;
+                formFields.minimumRankSelect.value = '';
+                formFields.isPublishSwitch.checked = true;
+            }
+
+            async function loadRewards() {
+                if (!canView) {
+                    renderTable();
+                    return;
+                }
+
+                const params = new URLSearchParams();
+                params.set('page', state.page.toString());
+                params.set('pageSize', state.pageSize.toString());
+                if (state.filters.search) {
+                    params.set('search', state.filters.search);
+                }
+                if (state.filters.isPublish) {
+                    params.set('isPublish', state.filters.isPublish);
+                }
+
+                tableStatus.textContent = 'Đang tải dữ liệu vật phẩm...';
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}?${params.toString()}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải dữ liệu vật phẩm.');
+                    }
+
+                    const result = await response.json();
+                    state.items = result.items || [];
+                    state.page = Number(result.currentPage || 1);
+                    state.pageSize = Number(result.pageSize || state.pageSize);
+                    state.totalItems = Number(result.totalItems || 0);
+                    state.totalPages = Number(result.totalPages || 0);
+                    renderTable();
+                    renderPagination();
+                    updateBulkActionsVisibility();
+                } catch (error) {
+                    state.items = [];
+                    renderTable();
+                    renderPagination();
+                    showAlert(error.message || 'Không thể tải dữ liệu vật phẩm.', 'danger');
+                }
+            }
+
+            function collectFormData() {
+                return {
+                    name: formFields.nameInput.value?.trim(),
+                    description: formFields.descriptionInput.value?.trim(),
+                    pointCost: Number(formFields.pointCostInput.value || 0),
+                    minimumRank: formFields.minimumRankSelect.value ? Number(formFields.minimumRankSelect.value) : null,
+                    quantity: Number(formFields.quantityInput.value || 0),
+                    validityValue: Number(formFields.validityValueInput.value || 0),
+                    validityUnit: Number(formFields.validityUnitSelect.value || 0),
+                    isPublish: formFields.isPublishSwitch.checked
+                };
+            }
+            async function submitForm(event) {
+                event.preventDefault();
+                rewardFormErrors.classList.add('d-none');
+                rewardFormErrors.innerHTML = '';
+
+                const payload = collectFormData();
+                const method = state.formMode === 'edit' ? 'PUT' : 'POST';
+                const url = state.formMode === 'edit'
+                    ? `${API_BASE_URL}/${state.editingId}`
+                    : API_BASE_URL;
+
+                rewardSubmitBtn.disabled = true;
+                rewardSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Đang lưu...';
+
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 400 || response.status === 422) {
+                        const errorData = await response.json().catch(() => null);
+                        const errors = errorData?.errors;
+                        if (errors) {
+                            const messages = [];
+                            Object.keys(errors).forEach(key => {
+                                const fieldErrors = errors[key];
+                                if (Array.isArray(fieldErrors)) {
+                                    messages.push(...fieldErrors);
+                                }
+                            });
+
+                            if (messages.length) {
+                                rewardFormErrors.innerHTML = messages.map(message => `<div>${message}</div>`).join('');
+                                rewardFormErrors.classList.remove('d-none');
+                            }
+                        }
+                        throw new Error(errorData?.title || 'Không thể lưu vật phẩm.');
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể lưu vật phẩm đổi thưởng.');
+                    }
+
+                    rewardModal.hide();
+                    showAlert('Đã lưu vật phẩm đổi thưởng thành công.', 'success');
+                    await loadRewards();
+                } catch (error) {
+                    if (!rewardFormErrors.classList.contains('d-none') && rewardFormErrors.innerHTML) {
+                        showAlert(error.message || 'Không thể lưu vật phẩm.', 'danger');
+                    } else {
+                        showAlert(error.message || 'Không thể lưu vật phẩm.', 'danger');
+                    }
+                } finally {
+                    rewardSubmitBtn.disabled = false;
+                    rewardSubmitBtn.innerHTML = 'Lưu';
+                }
+            }
+
+            function openCreateModal() {
+                resetForm();
+                rewardModalLabel.textContent = 'Thêm vật phẩm';
+                rewardSubmitBtn.textContent = 'Thêm mới';
+                rewardModal.show();
+            }
+
+            async function openEditModal(id) {
+                resetForm();
+                rewardModalLabel.textContent = 'Chỉnh sửa vật phẩm';
+                rewardSubmitBtn.textContent = 'Cập nhật';
+                state.formMode = 'edit';
+                state.editingId = id;
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        headers: { 'Accept': 'application/json' }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải thông tin vật phẩm.');
+                    }
+
+                    const reward = await response.json();
+                    formFields.nameInput.value = reward.name || '';
+                    formFields.descriptionInput.value = reward.description || '';
+                    formFields.pointCostInput.value = Number(reward.pointCost || 0);
+                    formFields.minimumRankSelect.value = reward.minimumRank ?? '';
+                    formFields.quantityInput.value = Number(reward.quantity || 0);
+                    formFields.validityValueInput.value = Number(reward.validityValue || 1);
+                    formFields.validityUnitSelect.value = String(reward.validityUnit ?? @((int)RewardValidityUnit.Day));
+                    formFields.isPublishSwitch.checked = Boolean(reward.isPublish);
+
+                    rewardModal.show();
+                } catch (error) {
+                    showAlert(error.message || 'Không thể tải thông tin vật phẩm.', 'danger');
+                }
+            }
+
+            function openDetailModal(id) {
+                detailModalBody.innerHTML = '<div class="text-center text-muted py-4">Đang tải thông tin...</div>';
+                detailModal.show();
+
+                fetch(`${API_BASE_URL}/${id}`, {
+                    headers: { 'Accept': 'application/json' }
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Không thể tải thông tin vật phẩm.');
+                        }
+                        return response.json();
+                    })
+                    .then(reward => {
+                        const rankKey = reward.minimumRank === null || reward.minimumRank === undefined ? 'none' : String(reward.minimumRank);
+                        const rankText = rankLabels[rankKey] ?? rankLabels.none;
+                        const quantityText = Number(reward.quantity) > 0
+                            ? `${Number(reward.redeemed).toLocaleString('vi-VN')} / ${Number(reward.quantity).toLocaleString('vi-VN')}`
+                            : `${Number(reward.redeemed).toLocaleString('vi-VN')} / Không giới hạn`;
+                        const validityText = formatValidity(reward);
+                        const statusText = reward.isPublish ? 'Cho phép sử dụng' : 'Tạm khóa';
+
+                        detailModalBody.innerHTML = `
+                            <h5 class="text-primary mb-3">${reward.name}</h5>
+                            <dl class="row mb-0">
+                                <dt class="col-sm-4">Điểm đổi thưởng</dt>
+                                <dd class="col-sm-8">${formatCurrency(reward.pointCost)} điểm</dd>
+                                <dt class="col-sm-4">Yêu cầu cấp bậc</dt>
+                                <dd class="col-sm-8">${rankText}</dd>
+                                <dt class="col-sm-4">Số lượng</dt>
+                                <dd class="col-sm-8">${quantityText}</dd>
+                                <dt class="col-sm-4">Thời hạn hiệu lực</dt>
+                                <dd class="col-sm-8">${validityText}</dd>
+                                <dt class="col-sm-4">Trạng thái</dt>
+                                <dd class="col-sm-8">${statusText}</dd>
+                                <dt class="col-sm-4">Mô tả</dt>
+                                <dd class="col-sm-8">${reward.description}</dd>
+                            </dl>`;
+                    })
+                    .catch(error => {
+                        detailModalBody.innerHTML = `<div class="alert alert-danger">${error.message || 'Không thể tải thông tin vật phẩm.'}</div>`;
+                    });
+            }
+
+            function openDeleteModal(id, name) {
+                state.deletingId = id;
+                deleteRewardName.textContent = name || `#${id}`;
+                deleteModal.show();
+            }
+
+            async function deleteReward(id) {
+                if (!canDelete) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        }
+                    });
+
+                    if (!response.ok && response.status !== 204) {
+                        throw new Error('Không thể xóa vật phẩm.');
+                    }
+
+                    deleteModal.hide();
+                    showAlert('Đã xóa vật phẩm đổi thưởng.', 'success');
+                    state.selectedIds.delete(id);
+                    await loadRewards();
+                } catch (error) {
+                    showAlert(error.message || 'Không thể xóa vật phẩm.', 'danger');
+                }
+            }
+
+            async function bulkDeleteRewards() {
+                if (!canDelete || state.selectedIds.size === 0) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-delete`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify({ ids: Array.from(state.selectedIds) })
+                    });
+
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => null);
+                        throw new Error(errorData?.message || 'Không thể xóa các vật phẩm đã chọn.');
+                    }
+
+                    bulkDeleteModal.hide();
+                    showAlert('Đã xóa các vật phẩm đã chọn.', 'success');
+                    state.selectedIds.clear();
+                    await loadRewards();
+                } catch (error) {
+                    showAlert(error.message || 'Không thể xóa các vật phẩm đã chọn.', 'danger');
+                }
+            }
+
+            function changePage(delta) {
+                const newPage = state.page + delta;
+                if (newPage < 1 || (state.totalPages > 0 && newPage > state.totalPages)) {
+                    return;
+                }
+                state.page = newPage;
+                loadRewards();
+            }
+
+            function resetFilters() {
+                state.filters.search = '';
+                state.filters.isPublish = '';
+                if (searchInput) searchInput.value = '';
+                if (statusFilterSelect) statusFilterSelect.value = '';
+                state.page = 1;
+                loadRewards();
+            }
+
+            if (createBtn && canCreate) {
+                createBtn.addEventListener('click', openCreateModal);
+            }
+
+            if (rewardForm) {
+                rewardForm.addEventListener('submit', submitForm);
+            }
+
+            if (refreshBtn) {
+                refreshBtn.addEventListener('click', () => {
+                    loadRewards();
+                });
+            }
+
+            if (pageSizeSelect) {
+                pageSizeSelect.addEventListener('change', () => {
+                    state.pageSize = Number(pageSizeSelect.value || state.pageSize);
+                    state.page = 1;
+                    loadRewards();
+                });
+            }
+
+            if (prevPageBtn) {
+                prevPageBtn.addEventListener('click', () => changePage(-1));
+            }
+
+            if (nextPageBtn) {
+                nextPageBtn.addEventListener('click', () => changePage(1));
+            }
+
+            if (searchInput) {
+                const debouncedSearch = debounce(() => {
+                    state.filters.search = searchInput.value?.trim() ?? '';
+                    state.page = 1;
+                    loadRewards();
+                }, 400);
+                searchInput.addEventListener('input', debouncedSearch);
+            }
+
+            if (statusFilterSelect) {
+                statusFilterSelect.addEventListener('change', () => {
+                    state.filters.isPublish = statusFilterSelect.value;
+                    state.page = 1;
+                    loadRewards();
+                });
+            }
+
+            if (resetFiltersBtn) {
+                resetFiltersBtn.addEventListener('click', resetFilters);
+            }
+
+            if (selectAllCheckbox && canDelete) {
+                selectAllCheckbox.addEventListener('change', event => {
+                    const checkboxes = tableBody.querySelectorAll('.reward-select');
+                    checkboxes.forEach(checkbox => {
+                        checkbox.checked = event.target.checked;
+                        const id = Number(checkbox.dataset.id);
+                        if (event.target.checked) {
+                            state.selectedIds.add(id);
+                        } else {
+                            state.selectedIds.delete(id);
+                        }
+                    });
+                    updateBulkActionsVisibility();
+                });
+            }
+
+            if (bulkDeleteBtn && canDelete) {
+                bulkDeleteBtn.addEventListener('click', () => {
+                    if (state.selectedIds.size === 0) {
+                        showAlert('Vui lòng chọn ít nhất một vật phẩm để xóa.', 'warning');
+                        return;
+                    }
+                    bulkDeleteModal.show();
+                });
+            }
+
+            if (confirmDeleteRewardBtn) {
+                confirmDeleteRewardBtn.addEventListener('click', () => {
+                    if (state.deletingId) {
+                        deleteReward(state.deletingId);
+                    }
+                });
+            }
+
+            if (confirmBulkDeleteRewardBtn) {
+                confirmBulkDeleteRewardBtn.addEventListener('click', () => {
+                    bulkDeleteRewards();
+                });
+            }
+
+            function debounce(fn, delay = 300) {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+                    timeoutId = window.setTimeout(() => {
+                        fn(...args);
+                    }, delay);
+                };
+            }
+
+            loadRewards();
+        })();
+    </script>
+}
