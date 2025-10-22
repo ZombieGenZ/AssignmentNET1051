@@ -8,6 +8,7 @@
     var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
     var canDelete = ViewData["CanDelete"] as bool? ?? false;
     var canView = ViewData["CanView"] as bool? ?? false;
+    var canBulkManage = canDelete || canUpdate;
 
     var discountLabels = new Dictionary<DiscountType, string>
     {
@@ -116,12 +117,35 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductsBtn">
                         <i class="fas fa-rotate-right me-1"></i>Tải lại
                     </button>
-                    @if (canDelete)
+                    @if (canBulkManage)
                     {
-                        <div class="d-none" id="bulkActions">
-                            <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
-                                <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
-                            </button>
+                        <div class="d-none d-flex flex-wrap gap-2" id="bulkActions">
+                            @if (canUpdate)
+                            {
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" id="bulkPublishDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-bullhorn me-1"></i>Trạng thái công khai
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="bulkPublishDropdown">
+                                        <li>
+                                            <button type="button" class="dropdown-item" data-bulk-publish="publish">
+                                                <i class="fas fa-globe me-2"></i>Xuất bản đã chọn
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item" data-bulk-publish="unpublish">
+                                                <i class="fas fa-eye-slash me-2"></i>Ẩn khỏi công khai
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            }
+                            @if (canDelete)
+                            {
+                                <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                                    <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
+                                </button>
+                            }
                         </div>
                     }
                 </div>
@@ -160,7 +184,7 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
-                            @if (canDelete)
+                            @if (canBulkManage)
                             {
                                 <th style="width: 50px;" class="text-center">
                                     <input type="checkbox" id="selectAllProducts" class="form-check-input" />
@@ -177,7 +201,7 @@
                     </thead>
                     <tbody id="productsTableBody">
                         <tr>
-                            <td colspan="@(canDelete ? 8 : 7)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="@(canBulkManage ? 8 : 7)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -358,8 +382,9 @@
             const canView = app.dataset.canView === 'true';
             const canUpdate = app.dataset.canUpdate === 'true';
             const canDelete = app.dataset.canDelete === 'true';
+            const canBulkManage = canDelete || canUpdate;
             const API_BASE_URL = '/api/products';
-            const columnCount = @(canDelete ? 8 : 7);
+            const columnCount = @(canBulkManage ? 8 : 7);
 
             const tableBody = document.getElementById('productsTableBody');
             const tableStatus = document.getElementById('tableStatus');
@@ -372,6 +397,7 @@
             const resetFiltersBtn = document.getElementById('productResetFilters');
             const bulkActions = document.getElementById('bulkActions');
             const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const bulkPublishButtons = document.querySelectorAll('[data-bulk-publish]');
             const selectAllCheckbox = document.getElementById('selectAllProducts');
             const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
             const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
@@ -885,7 +911,7 @@
                         selectAllCheckbox.checked = false;
                         selectAllCheckbox.indeterminate = false;
                     }
-                    if (canDelete && bulkActions) {
+                    if (canBulkManage && bulkActions) {
                         bulkActions.classList.add('d-none');
                     }
                     return;
@@ -893,7 +919,7 @@
 
                 updateProductTableStatus(list.length);
 
-                if (canDelete) {
+                if (canBulkManage) {
                     const visibleIds = new Set(list.map(product => product.id));
                     Array.from(selectedProductIds).forEach(id => {
                         if (!visibleIds.has(id)) {
@@ -905,7 +931,7 @@
                 list.forEach(product => {
                     const tr = document.createElement('tr');
 
-                    if (canDelete) {
+                    if (canBulkManage) {
                         const selectCell = document.createElement('td');
                         selectCell.className = 'text-center';
                         const checkbox = document.createElement('input');
@@ -1080,7 +1106,7 @@
             }
 
             function updateBulkActionsVisibility() {
-                if (!canDelete || !bulkActions) {
+                if (!canBulkManage || !bulkActions) {
                     return;
                 }
 
@@ -1092,7 +1118,7 @@
             }
 
             function handleSelectAllChange() {
-                if (!canDelete || !selectAllCheckbox) {
+                if (!canBulkManage || !selectAllCheckbox) {
                     return;
                 }
 
@@ -1142,7 +1168,7 @@
                     setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
                     allProducts = [];
                     filteredProducts = [];
-                    if (canDelete) {
+                    if (canBulkManage) {
                         selectedProductIds.clear();
                         updateBulkActionsVisibility();
                         syncSelectAllState();
@@ -1159,7 +1185,7 @@
                             setTableLoading('Bạn không có quyền xem danh sách sản phẩm.');
                             allProducts = [];
                             filteredProducts = [];
-                            if (canDelete) {
+                            if (canBulkManage) {
                                 selectedProductIds.clear();
                                 updateBulkActionsVisibility();
                                 syncSelectAllState();
@@ -1171,7 +1197,7 @@
 
                     const products = await response.json();
                     allProducts = Array.isArray(products) ? products : [];
-                    if (canDelete) {
+                    if (canBulkManage) {
                         const validIds = new Set(allProducts.map(product => product.id));
                         Array.from(selectedProductIds).forEach(id => {
                             if (!validIds.has(id)) {
@@ -1186,7 +1212,7 @@
                     allProducts = [];
                     filteredProducts = [];
                     showAlert('Không thể tải danh sách sản phẩm. Vui lòng thử lại sau.', 'danger');
-                    if (canDelete) {
+                    if (canBulkManage) {
                         selectedProductIds.clear();
                         updateBulkActionsVisibility();
                         syncSelectAllState();
@@ -1264,6 +1290,63 @@
                     await loadProducts();
                 } catch (error) {
                     showAlert('Không thể xóa sản phẩm đã chọn. Vui lòng thử lại sau.', 'danger');
+                }
+            }
+
+            async function bulkUpdatePublishState(isPublish, ids = Array.from(selectedProductIds)) {
+                if (!canUpdate || !canBulkManage || !Array.isArray(ids) || ids.length === 0) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-publish`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify({
+                            ids,
+                            isPublish
+                        })
+                    });
+
+                    if (response.status === 403) {
+                        showAlert('Bạn không có quyền cập nhật trạng thái công khai.', 'warning');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Failed to bulk update publish status');
+                    }
+
+                    const result = await response.json().catch(() => ({}));
+                    const updated = Number(result.updated || 0);
+                    const unauthorized = Number(result.unauthorized || 0);
+
+                    if (updated > 0) {
+                        const actionLabel = isPublish ? 'xuất bản' : 'ẩn';
+                        showAlert(`Đã ${actionLabel} ${updated} sản phẩm.`, 'success');
+                    }
+
+                    if (unauthorized > 0) {
+                        showAlert(`${unauthorized} sản phẩm không đủ quyền cập nhật.`, 'warning');
+                    }
+
+                    if (updated === 0 && unauthorized === 0) {
+                        showAlert('Không có sản phẩm nào được cập nhật.', 'info');
+                    }
+
+                    selectedProductIds.clear();
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    updateBulkActionsVisibility();
+                    await loadProducts();
+                } catch (error) {
+                    showAlert('Không thể cập nhật trạng thái công khai. Vui lòng thử lại sau.', 'danger');
                 }
             }
 
@@ -1692,8 +1775,25 @@
                 createBtn.addEventListener('click', () => openCreateModal());
             }
 
-            if (selectAllCheckbox && canDelete) {
+            if (selectAllCheckbox && canBulkManage) {
                 selectAllCheckbox.addEventListener('change', handleSelectAllChange);
+            }
+
+            if (bulkPublishButtons.length && canUpdate) {
+                bulkPublishButtons.forEach(button => {
+                    button.addEventListener('click', async (event) => {
+                        event.preventDefault();
+
+                        if (selectedProductIds.size === 0) {
+                            showAlert('Vui lòng chọn ít nhất một sản phẩm để cập nhật trạng thái.', 'warning');
+                            return;
+                        }
+
+                        const action = button.dataset.bulkPublish;
+                        const publish = action === 'publish';
+                        await bulkUpdatePublishState(publish);
+                    });
+                });
             }
 
             if (bulkDeleteBtn && canDelete) {

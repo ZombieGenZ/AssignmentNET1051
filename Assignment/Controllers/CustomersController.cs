@@ -17,6 +17,7 @@ namespace Assignment.Controllers
 
             ViewData["CanViewCustomers"] = User.HasPermission("ViewCustomerAll");
             ViewData["CanViewTop"] = User.HasPermission("ViewTopUserAll");
+            ViewData["CanManageLeaderboard"] = User.HasPermission("ViewTopUserAll");
             return View();
         }
     }

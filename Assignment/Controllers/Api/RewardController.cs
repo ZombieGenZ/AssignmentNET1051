@@ -301,6 +301,59 @@ namespace Assignment.Controllers.Api
             return Ok(new { message = "Đã xóa các vật phẩm đổi thưởng đã chọn." });
         }
 
+        [HttpPost("bulk-publish")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkPublish([FromBody] BulkPublishRequest request)
+        {
+            if (request?.Ids == null || request.Ids.Count == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn ít nhất một vật phẩm để cập nhật." });
+            }
+
+            var rewards = await _context.Rewards
+                .Where(r => request.Ids.Contains(r.Id) && !r.IsDeleted)
+                .ToListAsync();
+
+            if (!rewards.Any())
+            {
+                return NotFound(new { message = "Không tìm thấy vật phẩm hợp lệ để cập nhật." });
+            }
+
+            var updatedCount = 0;
+            var unauthorizedCount = 0;
+            var now = DateTime.Now;
+
+            foreach (var reward in rewards)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, reward, "UpdateRewardPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                if (reward.IsPublish == request.IsPublish)
+                {
+                    continue;
+                }
+
+                reward.IsPublish = request.IsPublish;
+                reward.UpdatedAt = now;
+                updatedCount++;
+            }
+
+            if (updatedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new
+            {
+                updated = updatedCount,
+                unauthorized = unauthorizedCount
+            });
+        }
+
         [HttpPost("import-products")]
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> ImportProducts([FromForm] IFormFile? file)
@@ -1103,6 +1156,12 @@ namespace Assignment.Controllers.Api
         public class BulkDeleteRequest
         {
             public List<long> Ids { get; set; } = new();
+        }
+
+        public class BulkPublishRequest
+        {
+            public List<long> Ids { get; set; } = new();
+            public bool IsPublish { get; set; }
         }
     }
 }

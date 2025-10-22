@@ -418,6 +418,59 @@ namespace Assignment.Controllers.Api
             });
         }
 
+        [HttpPost("bulk-publish")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkPublish([FromBody] BulkPublishRequest request)
+        {
+            if (request?.Ids == null || request.Ids.Count == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn ít nhất một voucher để cập nhật." });
+            }
+
+            var vouchers = await _context.Vouchers
+                .Where(v => request.Ids.Contains(v.Id) && !v.IsDeleted)
+                .ToListAsync();
+
+            if (!vouchers.Any())
+            {
+                return NotFound(new { message = "Không tìm thấy voucher hợp lệ để cập nhật." });
+            }
+
+            var updatedCount = 0;
+            var unauthorizedCount = 0;
+            var now = DateTime.Now;
+
+            foreach (var voucher in vouchers)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, voucher, "UpdateVoucherPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                if (voucher.IsPublish == request.IsPublish)
+                {
+                    continue;
+                }
+
+                voucher.IsPublish = request.IsPublish;
+                voucher.UpdatedAt = now;
+                updatedCount++;
+            }
+
+            if (updatedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new
+            {
+                updated = updatedCount,
+                unauthorized = unauthorizedCount
+            });
+        }
+
         [HttpGet("form-options")]
         public async Task<IActionResult> GetFormOptions()
         {
@@ -1450,6 +1503,13 @@ namespace Assignment.Controllers.Api
         public class BulkDeleteRequest
         {
             public List<long> Ids { get; set; } = new();
+        }
+
+        public class BulkPublishRequest
+        {
+            public List<long> Ids { get; set; } = new();
+
+            public bool IsPublish { get; set; }
         }
     }
 }

@@ -338,6 +338,60 @@ namespace Assignment.Controllers.Api
             });
         }
 
+        [HttpPost("bulk-publish")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> BulkPublish([FromBody] BulkPublishRequest request)
+        {
+            if (request?.Ids == null || request.Ids.Count == 0)
+            {
+                ModelState.AddModelError(nameof(request.Ids), "Vui lòng chọn ít nhất một combo để cập nhật.");
+                return ValidationProblem(ModelState);
+            }
+
+            var combos = await _context.Combos
+                .Where(c => request.Ids.Contains(c.Id) && !c.IsDeleted)
+                .ToListAsync();
+
+            if (!combos.Any())
+            {
+                return NotFound(new { message = "Không tìm thấy combo hợp lệ để cập nhật." });
+            }
+
+            var updatedCount = 0;
+            var unauthorizedCount = 0;
+            var now = DateTime.Now;
+
+            foreach (var combo in combos)
+            {
+                var authResult = await _authorizationService.AuthorizeAsync(User, combo, "UpdateComboPolicy");
+                if (!authResult.Succeeded)
+                {
+                    unauthorizedCount++;
+                    continue;
+                }
+
+                if (combo.IsPublish == request.IsPublish)
+                {
+                    continue;
+                }
+
+                combo.IsPublish = request.IsPublish;
+                combo.UpdatedAt = now;
+                updatedCount++;
+            }
+
+            if (updatedCount > 0)
+            {
+                await _context.SaveChangesAsync();
+            }
+
+            return Ok(new
+            {
+                updated = updatedCount,
+                unauthorized = unauthorizedCount
+            });
+        }
+
         [HttpGet("products")]
         public async Task<IActionResult> GetProducts()
         {
@@ -781,6 +835,13 @@ namespace Assignment.Controllers.Api
         public class BulkDeleteRequest
         {
             public List<long> Ids { get; set; } = new();
+        }
+
+        public class BulkPublishRequest
+        {
+            public List<long> Ids { get; set; } = new();
+
+            public bool IsPublish { get; set; }
         }
     }
 }

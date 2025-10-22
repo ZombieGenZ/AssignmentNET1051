@@ -5,11 +5,87 @@
 
     var canViewCustomers = ViewData["CanViewCustomers"] as bool? ?? false;
     var canViewTop = ViewData["CanViewTop"] as bool? ?? false;
+    var canManageLeaderboard = ViewData["CanManageLeaderboard"] as bool? ?? false;
+}
+
+@section Styles {
+    <style>
+        .leaderboard-table .leaderboard-rank {
+            font-weight: 700;
+            font-size: 1.05rem;
+        }
+
+        .leaderboard-table .leaderboard-medal {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            font-size: 0.95rem;
+            color: #fff;
+            background: var(--bs-secondary);
+        }
+
+        .leaderboard-table .leaderboard-medal.gold {
+            background: linear-gradient(135deg, #f5c542, #f1a500);
+            box-shadow: 0 0.25rem 0.5rem rgba(241, 165, 0, 0.3);
+        }
+
+        .leaderboard-table .leaderboard-medal.silver {
+            background: linear-gradient(135deg, #d7d7d7, #b5b5b5);
+            box-shadow: 0 0.25rem 0.5rem rgba(181, 181, 181, 0.25);
+        }
+
+        .leaderboard-table .leaderboard-medal.bronze {
+            background: linear-gradient(135deg, #d08b5b, #a85f32);
+            box-shadow: 0 0.25rem 0.5rem rgba(168, 95, 50, 0.25);
+        }
+
+        .leaderboard-table tr.top-1 {
+            border-left: 4px solid #f1a500;
+        }
+
+        .leaderboard-table tr.top-2 {
+            border-left: 4px solid #b5b5b5;
+        }
+
+        .leaderboard-table tr.top-3 {
+            border-left: 4px solid #a85f32;
+        }
+
+        .leaderboard-table .leaderboard-name {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .leaderboard-table .leaderboard-avatar {
+            width: 42px;
+            height: 42px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            background: var(--bs-primary-bg-subtle);
+            color: var(--bs-primary);
+        }
+
+        @media (max-width: 768px) {
+            .leaderboard-table .leaderboard-avatar {
+                width: 36px;
+                height: 36px;
+                font-size: 0.85rem;
+            }
+        }
+    </style>
 }
 
 <div class="container-fluid pt-4 px-4" id="customer-app"
      data-can-view-customers="@(canViewCustomers ? "true" : "false")"
-     data-can-view-top="@(canViewTop ? "true" : "false")">
+     data-can-view-top="@(canViewTop ? "true" : "false")"
+     data-can-manage-leaderboard="@(canManageLeaderboard ? "true" : "false")">
     <div class="row g-4">
         @if (canViewCustomers)
         {
@@ -67,11 +143,12 @@
                                         <th>Điểm hiện tại</th>
                                         <th>Tổng điểm tích lũy</th>
                                         <th>Cấp bậc</th>
+                                        <th class="text-center" style="width: 160px;">Hiển thị BXH</th>
                                     </tr>
                                 </thead>
                                 <tbody id="customersTableBody">
                                     <tr>
-                                        <td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td>
+                                        <td colspan="8" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td>
                                     </tr>
                                 </tbody>
                             </table>
@@ -130,7 +207,7 @@
                     <div class="card-body">
                         <div id="topAlertPlaceholder"></div>
                         <div class="table-responsive">
-                            <table class="table table-hover align-middle">
+                            <table class="table table-hover align-middle leaderboard-table">
                                 <thead class="table-light">
                                     <tr>
                                         <th style="width: 60px;" class="text-center">#</th>
@@ -178,6 +255,7 @@
 
             const canViewCustomers = app.dataset.canViewCustomers === 'true';
             const canViewTop = app.dataset.canViewTop === 'true';
+            const canManageLeaderboard = app.dataset.canManageLeaderboard === 'true';
 
             const API_CUSTOMERS = '/api/customers';
             const API_TOP = '/api/customers/top';
@@ -210,6 +288,9 @@
             const topQuarterSelect = document.getElementById('topQuarterSelect');
             const topYearInput = document.getElementById('topYearInput');
             const refreshTopBtn = document.getElementById('refreshTopBtn');
+
+            const antiForgeryInput = document.querySelector('#customerAntiForgery input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryInput ? antiForgeryInput.value : '';
 
             const now = new Date();
 
@@ -248,6 +329,21 @@
                     return '0';
                 }
                 return numeric.toLocaleString('vi-VN');
+            }
+
+            function getInitials(value) {
+                if (typeof value !== 'string' || !value.trim()) {
+                    return '?';
+                }
+
+                const parts = value.trim().split(/\s+/);
+                if (parts.length === 1) {
+                    return parts[0].charAt(0).toUpperCase();
+                }
+
+                const first = parts[0].charAt(0);
+                const last = parts[parts.length - 1].charAt(0);
+                return `${first}${last}`.toUpperCase();
             }
 
             function showAlert(placeholder, message, type = 'info') {
@@ -310,14 +406,14 @@
                 }
 
                 if (!canViewCustomers) {
-                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách khách hàng.</td></tr>';
+                    customersTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách khách hàng.</td></tr>';
                     updateCustomerPaginationSummary();
                     setCustomerPaginationButtons();
                     return;
                 }
 
                 if (!customerState.items.length) {
-                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Không có khách hàng nào để hiển thị.</td></tr>';
+                    customersTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Không có khách hàng nào để hiển thị.</td></tr>';
                     updateCustomerPaginationSummary();
                     setCustomerPaginationButtons();
                     return;
@@ -326,6 +422,17 @@
                 const rows = customerState.items.map(item => {
                     const rankKey = item.rank === null || item.rank === undefined ? 'none' : String(item.rank);
                     const rankText = rankLabels[rankKey] ?? rankLabels.none;
+                    const isExcluded = Boolean(item.excludeFromLeaderboard);
+                    const statusText = isExcluded ? 'Đang ẩn khỏi BXH' : 'Đang hiển thị BXH';
+                    const toggleHtml = canManageLeaderboard
+                        ? `
+                            <div class="d-flex flex-column align-items-center gap-1">
+                                <div class="form-check form-switch m-0">
+                                    <input class="form-check-input leaderboard-toggle" type="checkbox" data-id="${escapeHtml(item.id)}" ${isExcluded ? '' : 'checked'} />
+                                </div>
+                                <div class="small text-muted">${escapeHtml(statusText)}</div>
+                            </div>`
+                        : `<span class="badge ${isExcluded ? 'bg-secondary' : 'bg-success'}">${escapeHtml(statusText)}</span>`;
 
                     return `
                         <tr>
@@ -336,6 +443,7 @@
                             <td>${formatNumber(item.point)}</td>
                             <td>${formatNumber(item.totalPoint)}</td>
                             <td>${escapeHtml(rankText)}</td>
+                            <td class="text-center">${toggleHtml}</td>
                         </tr>`;
                 });
 
@@ -362,18 +470,42 @@
                 const rows = topState.items.map((item, index) => {
                     const rankKey = item.rank === null || item.rank === undefined ? 'none' : String(item.rank);
                     const rankText = rankLabels[rankKey] ?? rankLabels.none;
+                    const rank = index + 1;
+                    const rowClass = rank <= 3 ? `top-${rank}` : '';
+                    let rankContent = `<span class="leaderboard-rank">${rank}</span>`;
+
+                    if (rank === 1) {
+                        rankContent = '<span class="leaderboard-medal gold"><i class="fas fa-crown"></i></span>';
+                    } else if (rank === 2) {
+                        rankContent = '<span class="leaderboard-medal silver"><i class="fas fa-medal"></i></span>';
+                    } else if (rank === 3) {
+                        rankContent = '<span class="leaderboard-medal bronze"><i class="fas fa-medal"></i></span>';
+                    }
+
+                    const initials = escapeHtml(getInitials(item.fullName || item.email || ''));
+                    const displayName = escapeHtml(item.fullName) || '(Chưa cập nhật)';
+                    const email = escapeHtml(item.email) || '-';
+                    const rankBadge = `<span class="badge bg-primary-subtle text-primary fw-semibold">${escapeHtml(rankText)}</span>`;
 
                     return `
-                        <tr>
-                            <td class="text-center fw-semibold">${index + 1}</td>
-                            <td class="fw-semibold">${escapeHtml(item.fullName) || '(Chưa cập nhật)'}</td>
-                            <td>${escapeHtml(item.email) || '-'}</td>
-                            <td>${escapeHtml(rankText)}</td>
-                            <td>${formatNumber(item.expEarned)}</td>
-                            <td>${formatNumber(item.pointsEarned)}</td>
-                            <td>${formatNumber(item.totalPoint)}</td>
-                            <td>${formatNumber(item.pointsRedeemed)}</td>
-                            <td>${formatNumber(item.orderCount)}</td>
+                        <tr class="${rowClass}">
+                            <td class="text-center align-middle">${rankContent}</td>
+                            <td>
+                                <div class="leaderboard-name">
+                                    <span class="leaderboard-avatar">${initials}</span>
+                                    <div>
+                                        <div class="fw-semibold">${displayName}</div>
+                                        <div class="text-muted small">${formatNumber(item.orderCount)} đơn hàng</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>${email}</td>
+                            <td>${rankBadge}</td>
+                            <td class="fw-semibold text-end text-primary">${formatNumber(item.expEarned)}</td>
+                            <td class="fw-semibold text-end text-success">${formatNumber(item.pointsEarned)}</td>
+                            <td class="text-end">${formatNumber(item.totalPoint)}</td>
+                            <td class="text-end text-danger">${formatNumber(item.pointsRedeemed)}</td>
+                            <td class="text-end">${formatNumber(item.orderCount)}</td>
                         </tr>`;
                 });
 
@@ -387,7 +519,7 @@
                 }
 
                 if (customersTableBody) {
-                    customersTableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td></tr>';
+                    customersTableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Đang tải dữ liệu khách hàng...</td></tr>';
                 }
 
                 clearAlert(customerAlertPlaceholder);
@@ -425,6 +557,77 @@
                         renderCustomers();
                         showAlert(customerAlertPlaceholder, error.message || 'Không thể tải danh sách khách hàng.', 'danger');
                     });
+            }
+
+            function setCustomerLeaderboardFlag(userId, excluded) {
+                if (!Array.isArray(customerState.items) || !userId) {
+                    return;
+                }
+
+                const match = customerState.items.find(item => String(item.id) === String(userId));
+                if (match) {
+                    match.excludeFromLeaderboard = excluded;
+                }
+            }
+
+            async function updateLeaderboardVisibility(userId, exclude, checkbox) {
+                if (!canManageLeaderboard || !userId) {
+                    return;
+                }
+
+                const targetUrl = `${API_CUSTOMERS}/${encodeURIComponent(userId)}/leaderboard-visibility`;
+                const payload = { excludeFromLeaderboard: exclude };
+                const previousChecked = checkbox ? checkbox.checked : !exclude;
+
+                if (checkbox) {
+                    checkbox.disabled = true;
+                }
+
+                try {
+                    const response = await fetch(targetUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 403) {
+                        throw new Error('Bạn không có quyền thay đổi trạng thái bảng xếp hạng.');
+                    }
+
+                    if (response.status === 404) {
+                        throw new Error('Không tìm thấy khách hàng để cập nhật.');
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể cập nhật bảng xếp hạng của khách hàng.');
+                    }
+
+                    setCustomerLeaderboardFlag(userId, exclude);
+                    renderCustomers();
+
+                    const message = exclude
+                        ? 'Khách hàng đã được ẩn khỏi bảng xếp hạng.'
+                        : 'Khách hàng đã được hiển thị trên bảng xếp hạng.';
+                    showAlert(customerAlertPlaceholder, message, 'success');
+                } catch (error) {
+                    if (checkbox) {
+                        checkbox.checked = !previousChecked;
+                    }
+
+                    setCustomerLeaderboardFlag(userId, !exclude);
+                    renderCustomers();
+
+                    const alertMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi cập nhật bảng xếp hạng.';
+                    showAlert(customerAlertPlaceholder, alertMessage, 'danger');
+                } finally {
+                    if (checkbox) {
+                        checkbox.disabled = false;
+                    }
+                }
             }
 
             function normalizeYear(value) {
@@ -589,6 +792,23 @@
             if (refreshCustomersBtn) {
                 refreshCustomersBtn.addEventListener('click', () => {
                     loadCustomers();
+                });
+            }
+
+            if (customersTableBody && canManageLeaderboard) {
+                customersTableBody.addEventListener('change', event => {
+                    const target = event.target;
+                    if (!target || !(target instanceof HTMLInputElement) || !target.classList.contains('leaderboard-toggle')) {
+                        return;
+                    }
+
+                    const userId = target.dataset.id;
+                    if (!userId) {
+                        return;
+                    }
+
+                    const exclude = !target.checked;
+                    updateLeaderboardVisibility(userId, exclude, target);
                 });
             }
 
