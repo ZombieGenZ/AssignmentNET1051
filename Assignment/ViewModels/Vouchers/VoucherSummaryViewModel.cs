@@ -25,6 +25,7 @@ namespace Assignment.ViewModels.Vouchers
         public bool IsPublish { get; set; }
         public bool IsShow { get; set; }
         public bool IsSaved { get; set; }
+        public bool IsForNewUsersOnly { get; set; }
 
         public bool IsAvailable => Quantity <= 0 || Used < Quantity;
 

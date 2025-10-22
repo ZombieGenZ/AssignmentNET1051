@@ -25,6 +25,7 @@ namespace Assignment.ViewModels.Vouchers
         public long Used { get; set; }
         public bool HasCombinedUsageLimit { get; set; }
         public int? MaxCombinedUsageCount { get; set; }
+        public bool IsForNewUsersOnly { get; set; }
         public string Group { get; set; } = string.Empty;
     }
 

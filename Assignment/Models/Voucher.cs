@@ -69,6 +69,10 @@ namespace Assignment.Models
         [DefaultValue(false)]
         [DisplayName("Hiển thị công khai")]
         public bool IsShow { get; set; } = false;
+        [Required]
+        [DefaultValue(false)]
+        [DisplayName("Chỉ áp dụng cho khách hàng mới")]
+        public bool IsForNewUsersOnly { get; set; } = false;
         public virtual ICollection<VoucherUser>? VoucherUsers { get; set; }
         public virtual ICollection<VoucherProduct>? VoucherProducts { get; set; }
         public virtual ICollection<VoucherCombo>? VoucherCombos { get; set; }

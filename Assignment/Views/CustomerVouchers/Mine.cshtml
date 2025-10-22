@@ -74,9 +74,15 @@
                     <div class="col-12 col-md-6 col-lg-4">
                         <div class="card h-100 shadow-sm border-info">
                             <div class="card-header bg-info text-white">
-                                <div class="d-flex justify-content-between">
-                                    <span><i class="fas fa-lock me-2"></i>Riêng tư</span>
-                                    <span class="badge bg-@(isActive ? "success" : "secondary")">@(isActive ? "Đang diễn ra" : "Không hiệu lực")</span>
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <span><i class="fas fa-lock me-2"></i>Riêng tư</span>
+                                        <span class="badge bg-@(isActive ? "success" : "secondary")">@(isActive ? "Đang diễn ra" : "Không hiệu lực")</span>
+                                        @if (voucher.IsForNewUsersOnly)
+                                        {
+                                            <span class="badge bg-dark">Khách hàng mới</span>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -94,6 +100,10 @@
                                         }
                                     </li>
                                     <li><i class="fas fa-wallet me-2"></i>Đơn tối thiểu: @voucher.MinimumRequirements.ToString("N0") đ</li>
+                                    @if (voucher.IsForNewUsersOnly)
+                                    {
+                                        <li><i class="fas fa-user-plus me-2"></i>Chỉ dành cho khách hàng mới</li>
+                                    }
                                     <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @productScopeText</li>
                                     <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @comboScopeText</li>
                                     <li><i class="fas fa-ticket-alt me-2"></i>Lượt sử dụng: @voucher.Used.ToString("N0")/@(voucher.Quantity > 0 ? voucher.Quantity.ToString("N0") : "Không giới hạn")</li>
@@ -148,9 +158,15 @@
                     <div class="col-12 col-md-6 col-lg-4">
                         <div class="card h-100 shadow-sm border-warning">
                             <div class="card-header bg-warning">
-                                <div class="d-flex justify-content-between">
-                                    <span><i class="fas fa-globe me-2"></i>Công khai</span>
-                                    <span class="badge bg-@(isActive ? "success" : "secondary")">@(isActive ? "Đang diễn ra" : "Không hiệu lực")</span>
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                        <span><i class="fas fa-globe me-2"></i>Công khai</span>
+                                        <span class="badge bg-@(isActive ? "success" : "secondary")">@(isActive ? "Đang diễn ra" : "Không hiệu lực")</span>
+                                        @if (voucher.IsForNewUsersOnly)
+                                        {
+                                            <span class="badge bg-dark text-white">Khách hàng mới</span>
+                                        }
+                                    </div>
                                 </div>
                             </div>
                             <div class="card-body">
@@ -168,6 +184,10 @@
                                         }
                                     </li>
                                     <li><i class="fas fa-wallet me-2"></i>Đơn tối thiểu: @voucher.MinimumRequirements.ToString("N0") đ</li>
+                                    @if (voucher.IsForNewUsersOnly)
+                                    {
+                                        <li><i class="fas fa-user-plus me-2"></i>Chỉ dành cho khách hàng mới</li>
+                                    }
                                     <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @productScopeText</li>
                                     <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @comboScopeText</li>
                                     <li><i class="fas fa-ticket-alt me-2"></i>Lượt sử dụng: @voucher.Used.ToString("N0")/@(voucher.Quantity > 0 ? voucher.Quantity.ToString("N0") : "Không giới hạn")</li>

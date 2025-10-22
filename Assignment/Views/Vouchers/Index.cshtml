@@ -226,6 +226,10 @@
                                 <input class="form-check-input" type="checkbox" id="voucherIsShow" />
                                 <label class="form-check-label" for="voucherIsShow">Hiển thị công khai</label>
                             </div>
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input" type="checkbox" id="voucherIsForNewUsersOnly" />
+                                <label class="form-check-label" for="voucherIsForNewUsersOnly">Chỉ áp dụng cho khách hàng mới</label>
+                            </div>
                         </div>
                         <div class="col-md-6">
                             <div class="form-check form-switch">
@@ -446,6 +450,7 @@
                 isPublishSwitch: document.getElementById('voucherIsPublish'),
                 isShowSwitch: document.getElementById('voucherIsShow'),
                 isShowWrapper: document.getElementById('voucherIsShowWrapper'),
+                isForNewUsersOnlySwitch: document.getElementById('voucherIsForNewUsersOnly'),
                 hasCombinedLimitSwitch: document.getElementById('voucherHasCombinedLimit'),
                 maxCombinedInput: document.getElementById('voucherMaxCombinedUsageCount'),
                 unlimitedPercentageSwitch: document.getElementById('voucherUnlimitedPercentage'),
@@ -591,6 +596,7 @@
                 state.formMode = 'create';
                 state.editingId = null;
                 formFields.isShowSwitch.checked = false;
+                formFields.isForNewUsersOnlySwitch.checked = false;
                 formFields.isShowWrapper.classList.remove('d-none');
                 formFields.maxCombinedInput.classList.add('d-none');
                 formFields.usersWrapper.classList.add('d-none');
@@ -693,6 +699,10 @@
 
                     if (item.hasCombinedUsageLimit) {
                         statusBadges.push(`<span class="badge bg-info text-dark">Tối đa ${item.maxCombinedUsageCount}</span>`);
+                    }
+
+                    if (item.isForNewUsersOnly) {
+                        statusBadges.push('<span class="badge bg-dark text-white">Khách hàng mới</span>');
                     }
 
                     const actions = [];
@@ -1465,6 +1475,7 @@
                     formFields.endTimeInput.value = formatDateTimeForInput(voucher.endTime);
                     formFields.isPublishSwitch.checked = Boolean(voucher.isPublish);
                     formFields.isShowSwitch.checked = Boolean(voucher.isShow);
+                    formFields.isForNewUsersOnlySwitch.checked = Boolean(voucher.isForNewUsersOnly);
                     formFields.hasCombinedLimitSwitch.checked = Boolean(voucher.hasCombinedUsageLimit);
                     formFields.maxCombinedInput.value = voucher.maxCombinedUsageCount ?? '';
                     formFields.unlimitedPercentageSwitch.checked = Boolean(voucher.unlimitedPercentageDiscount);
@@ -1548,6 +1559,8 @@
                                 <dd class="col-sm-8">${timeText}</dd>
                                 <dt class="col-sm-4">Giới hạn sử dụng chung</dt>
                                 <dd class="col-sm-8">${combinedText}</dd>
+                                <dt class="col-sm-4">Chỉ khách hàng mới</dt>
+                                <dd class="col-sm-8">${voucher.isForNewUsersOnly ? 'Có' : 'Không'}</dd>
                                 <dt class="col-sm-4">Giảm % tối đa</dt>
                                 <dd class="col-sm-8">${percentageLimitText}</dd>
                                 <dt class="col-sm-4">Mô tả</dt>
@@ -1669,6 +1682,7 @@
                     endTime: formFields.isLifeTimeSwitch.checked ? null : toIsoString(formFields.endTimeInput.value),
                     isPublish: formFields.isPublishSwitch.checked,
                     isShow: typeValue === @((int)VoucherType.Public) ? formFields.isShowSwitch.checked : false,
+                    isForNewUsersOnly: formFields.isForNewUsersOnlySwitch.checked,
                     hasCombinedUsageLimit: formFields.hasCombinedLimitSwitch.checked,
                     maxCombinedUsageCount: formFields.hasCombinedLimitSwitch.checked ? Number(formFields.maxCombinedInput.value || 0) : null,
                     unlimitedPercentageDiscount: discountTypeValue === @((int)VoucherDiscountType.Percent) ? formFields.unlimitedPercentageSwitch.checked : false,
