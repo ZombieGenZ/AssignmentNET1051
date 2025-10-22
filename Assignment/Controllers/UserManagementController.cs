@@ -139,7 +139,7 @@ namespace Assignment.Controllers
                 success = true,
                 message,
                 skipped = result.Skipped,
-                errors = result.HasErrors ? result.Errors : Array.Empty<string>()
+                errors = result.HasErrors ? result.Errors.ToArray() : Array.Empty<string>()
             });
         }
 
