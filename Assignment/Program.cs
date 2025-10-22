@@ -275,6 +275,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await EnsureRoleMetadataColumnsAsync(dbContext);
+    await EnsureVoucherMinimumRankColumnAsync(dbContext);
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var usersWithoutSecurityStamp = await userManager.Users
