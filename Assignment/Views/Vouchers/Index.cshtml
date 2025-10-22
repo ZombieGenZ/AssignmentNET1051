@@ -173,6 +173,7 @@
                             <select id="voucherProductScope" class="form-select">
                                 <option value="@((int)VoucherProductScope.AllProducts)">Tất cả sản phẩm</option>
                                 <option value="@((int)VoucherProductScope.SelectedProducts)">Một số sản phẩm</option>
+                                <option value="@((int)VoucherProductScope.NoProducts)">Không áp dụng cho sản phẩm</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -180,6 +181,7 @@
                             <select id="voucherComboScope" class="form-select">
                                 <option value="@((int)VoucherComboScope.AllCombos)">Tất cả combo</option>
                                 <option value="@((int)VoucherComboScope.SelectedCombos)">Một số combo</option>
+                                <option value="@((int)VoucherComboScope.NoCombos)">Không áp dụng cho combo</option>
                             </select>
                         </div>
                         <div class="col-md-4">
@@ -474,14 +476,23 @@
                 '@((int)VoucherType.Private)': 'Riêng tư'
             };
 
+            const PRODUCT_SCOPE_ALL = @((int)VoucherProductScope.AllProducts);
+            const PRODUCT_SCOPE_SELECTED = @((int)VoucherProductScope.SelectedProducts);
+            const PRODUCT_SCOPE_NONE = @((int)VoucherProductScope.NoProducts);
+            const COMBO_SCOPE_ALL = @((int)VoucherComboScope.AllCombos);
+            const COMBO_SCOPE_SELECTED = @((int)VoucherComboScope.SelectedCombos);
+            const COMBO_SCOPE_NONE = @((int)VoucherComboScope.NoCombos);
+
             const productScopeLabels = {
                 '@((int)VoucherProductScope.AllProducts)': 'Tất cả sản phẩm',
-                '@((int)VoucherProductScope.SelectedProducts)': 'Một số sản phẩm'
+                '@((int)VoucherProductScope.SelectedProducts)': 'Một số sản phẩm',
+                '@((int)VoucherProductScope.NoProducts)': 'Không áp dụng cho sản phẩm'
             };
 
             const comboScopeLabels = {
                 '@((int)VoucherComboScope.AllCombos)': 'Tất cả combo',
-                '@((int)VoucherComboScope.SelectedCombos)': 'Một số combo'
+                '@((int)VoucherComboScope.SelectedCombos)': 'Một số combo',
+                '@((int)VoucherComboScope.NoCombos)': 'Không áp dụng cho combo'
             };
 
             const discountTypeLabels = {
@@ -1295,10 +1306,47 @@
                 updateComboControlStates();
             }
 
+            function ensureScopeOptionAvailability() {
+                let productScopeValue = Number(formFields.productScopeSelect?.value ?? PRODUCT_SCOPE_ALL);
+                let comboScopeValue = Number(formFields.comboScopeSelect?.value ?? COMBO_SCOPE_ALL);
+
+                if (!formFields.productScopeSelect || !formFields.comboScopeSelect) {
+                    return { productScopeValue, comboScopeValue };
+                }
+
+                const productNoneOption = Array.from(formFields.productScopeSelect.options || [])
+                    .find(option => Number(option.value) === PRODUCT_SCOPE_NONE);
+                const comboNoneOption = Array.from(formFields.comboScopeSelect.options || [])
+                    .find(option => Number(option.value) === COMBO_SCOPE_NONE);
+
+                if (comboNoneOption) {
+                    const hideComboNone = productScopeValue === PRODUCT_SCOPE_NONE;
+                    comboNoneOption.hidden = hideComboNone;
+                    comboNoneOption.disabled = hideComboNone;
+
+                    if (hideComboNone && comboScopeValue === COMBO_SCOPE_NONE) {
+                        formFields.comboScopeSelect.value = String(COMBO_SCOPE_ALL);
+                        comboScopeValue = Number(formFields.comboScopeSelect.value);
+                    }
+                }
+
+                if (productNoneOption) {
+                    const hideProductNone = comboScopeValue === COMBO_SCOPE_NONE;
+                    productNoneOption.hidden = hideProductNone;
+                    productNoneOption.disabled = hideProductNone;
+
+                    if (hideProductNone && productScopeValue === PRODUCT_SCOPE_NONE) {
+                        formFields.productScopeSelect.value = String(PRODUCT_SCOPE_ALL);
+                        productScopeValue = Number(formFields.productScopeSelect.value);
+                    }
+                }
+
+                return { productScopeValue, comboScopeValue };
+            }
+
             function updateDynamicFields() {
                 const typeValue = Number(formFields.typeSelect.value);
-                const productScopeValue = Number(formFields.productScopeSelect.value);
-                const comboScopeValue = Number(formFields.comboScopeSelect.value);
+                const { productScopeValue, comboScopeValue } = ensureScopeOptionAvailability();
                 const discountTypeValue = Number(formFields.discountTypeSelect.value);
 
                 if (typeValue === @((int)VoucherType.Private)) {
@@ -1313,7 +1361,7 @@
                     formFields.usersWrapper.classList.add('d-none');
                 }
 
-                if (productScopeValue === @((int)VoucherProductScope.SelectedProducts)) {
+                if (productScopeValue === PRODUCT_SCOPE_SELECTED) {
                     formFields.productsWrapper.classList.remove('d-none');
                     if (formFields.productsContainer && formFields.productsContainer.childElementCount === 0) {
                         addVoucherProductRow();
@@ -1325,7 +1373,7 @@
                     formFields.productsWrapper.classList.add('d-none');
                 }
 
-                if (comboScopeValue === @((int)VoucherComboScope.SelectedCombos)) {
+                if (comboScopeValue === COMBO_SCOPE_SELECTED) {
                     formFields.combosWrapper.classList.remove('d-none');
                     if (formFields.combosContainer && formFields.combosContainer.childElementCount === 0) {
                         addVoucherComboRow();
@@ -1588,8 +1636,7 @@
 
             function collectFormData() {
                 const typeValue = Number(formFields.typeSelect.value);
-                const productScopeValue = Number(formFields.productScopeSelect.value);
-                const comboScopeValue = Number(formFields.comboScopeSelect.value);
+                const { productScopeValue, comboScopeValue } = ensureScopeOptionAvailability();
                 const discountTypeValue = Number(formFields.discountTypeSelect.value);
                 const selectedUserIds = Array.from(formFields.usersContainer?.querySelectorAll('.voucher-user-select') || [])
                     .map(select => select.value)
@@ -1629,8 +1676,8 @@
                         ? Number(formFields.maximumPercentageInput.value || 0)
                         : null,
                     userIds: typeValue === @((int)VoucherType.Private) ? uniqueUserIds : [],
-                    productIds: productScopeValue === @((int)VoucherProductScope.SelectedProducts) ? uniqueProductIds : [],
-                    comboIds: comboScopeValue === @((int)VoucherComboScope.SelectedCombos) ? uniqueComboIds : []
+                    productIds: productScopeValue === PRODUCT_SCOPE_SELECTED ? uniqueProductIds : [],
+                    comboIds: comboScopeValue === COMBO_SCOPE_SELECTED ? uniqueComboIds : []
                 };
             }
 

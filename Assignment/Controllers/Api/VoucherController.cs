@@ -928,6 +928,11 @@ namespace Assignment.Controllers.Api
                 request.ComboIds = new List<long>();
             }
 
+            if (request.ProductScope == VoucherProductScope.NoProducts && request.ComboScope == VoucherComboScope.NoCombos)
+            {
+                ModelState.AddModelError(nameof(request.ComboScope), "Voucher phải áp dụng cho ít nhất sản phẩm hoặc combo.");
+            }
+
             if (request.Type == VoucherType.Private)
             {
                 request.UserIds = request.UserIds?
