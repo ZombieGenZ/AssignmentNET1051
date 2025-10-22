@@ -20,6 +20,11 @@ namespace Assignment.Controllers
             ViewData["CanCreate"] = User.HasPermission("CreateReward");
             ViewData["CanUpdate"] = User.HasAnyPermission("UpdateReward", "UpdateRewardAll");
             ViewData["CanDelete"] = User.HasAnyPermission("DeleteReward", "DeleteRewardAll");
+            ViewData["CanDownloadTemplates"] = User.HasAnyPermission(
+                "CreateReward",
+                "CreateRewardAll",
+                "UpdateReward",
+                "UpdateRewardAll");
             ViewData["CanView"] = canViewAll || canViewOwn;
 
             return View();
