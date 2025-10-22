@@ -849,6 +849,10 @@ namespace Assignment.Controllers
                     .Where(item => item.Product != null && allowedProductIds.Contains(item.Product.Id))
                     .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             }
+            else if (voucher.ProductScope == VoucherProductScope.NoProducts)
+            {
+                productBase = 0;
+            }
             else
             {
                 productBase = productItems
@@ -867,6 +871,10 @@ namespace Assignment.Controllers
                     .Where(item => item.Combo != null && allowedComboIds.Contains(item.Combo.Id))
                     .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
             }
+            else if (voucher.ComboScope == VoucherComboScope.NoCombos)
+            {
+                comboBase = 0;
+            }
             else
             {
                 comboBase = comboItems
@@ -877,8 +885,12 @@ namespace Assignment.Controllers
 
             if (discountBase <= 0)
             {
-                var scopeMessage = voucher.ProductScope == VoucherProductScope.SelectedProducts ||
-                                   voucher.ComboScope == VoucherComboScope.SelectedCombos
+                var hasScopeRestriction = voucher.ProductScope == VoucherProductScope.SelectedProducts
+                                           || voucher.ProductScope == VoucherProductScope.NoProducts
+                                           || voucher.ComboScope == VoucherComboScope.SelectedCombos
+                                           || voucher.ComboScope == VoucherComboScope.NoCombos;
+
+                var scopeMessage = hasScopeRestriction
                     ? "Voucher không áp dụng cho sản phẩm hoặc combo đã chọn."
                     : "Voucher không áp dụng cho giỏ hàng hiện tại.";
 

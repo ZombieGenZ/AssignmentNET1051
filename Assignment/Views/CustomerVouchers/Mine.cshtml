@@ -1,4 +1,5 @@
 @model Assignment.ViewModels.Vouchers.UserVoucherListViewModel
+@using Assignment.Enums
 
 @{
     ViewData["Title"] = "Voucher của tôi";
@@ -56,6 +57,20 @@
                     var isActive = voucher.IsActive(referenceTime);
                     var isAvailable = voucher.IsAvailable;
                     var isPercentage = voucher.DiscountType == Assignment.Enums.VoucherDiscountType.Percent;
+                    var productScopeText = voucher.ProductScope switch
+                    {
+                        VoucherProductScope.AllProducts => "Tất cả sản phẩm",
+                        VoucherProductScope.SelectedProducts => "Một số sản phẩm",
+                        VoucherProductScope.NoProducts => "Không áp dụng cho sản phẩm",
+                        _ => "Không xác định"
+                    };
+                    var comboScopeText = voucher.ComboScope switch
+                    {
+                        VoucherComboScope.AllCombos => "Tất cả combo",
+                        VoucherComboScope.SelectedCombos => "Một số combo",
+                        VoucherComboScope.NoCombos => "Không áp dụng cho combo",
+                        _ => "Không xác định"
+                    };
                     <div class="col-12 col-md-6 col-lg-4">
                         <div class="card h-100 shadow-sm border-info">
                             <div class="card-header bg-info text-white">
@@ -79,8 +94,8 @@
                                         }
                                     </li>
                                     <li><i class="fas fa-wallet me-2"></i>Đơn tối thiểu: @voucher.MinimumRequirements.ToString("N0") đ</li>
-                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @(voucher.ProductScope == Assignment.Enums.VoucherProductScope.AllProducts ? "Tất cả sản phẩm" : "Một số sản phẩm")</li>
-                                    <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @(voucher.ComboScope == Assignment.Enums.VoucherComboScope.AllCombos ? "Tất cả combo" : "Một số combo")</li>
+                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @productScopeText</li>
+                                    <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @comboScopeText</li>
                                     <li><i class="fas fa-ticket-alt me-2"></i>Lượt sử dụng: @voucher.Used.ToString("N0")/@(voucher.Quantity > 0 ? voucher.Quantity.ToString("N0") : "Không giới hạn")</li>
                                     <li>
                                         <i class="fas fa-clock me-2"></i>
@@ -116,6 +131,20 @@
                     var isActive = voucher.IsActive(referenceTime);
                     var isAvailable = voucher.IsAvailable;
                     var isPercentage = voucher.DiscountType == Assignment.Enums.VoucherDiscountType.Percent;
+                    var productScopeText = voucher.ProductScope switch
+                    {
+                        VoucherProductScope.AllProducts => "Tất cả sản phẩm",
+                        VoucherProductScope.SelectedProducts => "Một số sản phẩm",
+                        VoucherProductScope.NoProducts => "Không áp dụng cho sản phẩm",
+                        _ => "Không xác định"
+                    };
+                    var comboScopeText = voucher.ComboScope switch
+                    {
+                        VoucherComboScope.AllCombos => "Tất cả combo",
+                        VoucherComboScope.SelectedCombos => "Một số combo",
+                        VoucherComboScope.NoCombos => "Không áp dụng cho combo",
+                        _ => "Không xác định"
+                    };
                     <div class="col-12 col-md-6 col-lg-4">
                         <div class="card h-100 shadow-sm border-warning">
                             <div class="card-header bg-warning">
@@ -139,8 +168,8 @@
                                         }
                                     </li>
                                     <li><i class="fas fa-wallet me-2"></i>Đơn tối thiểu: @voucher.MinimumRequirements.ToString("N0") đ</li>
-                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @(voucher.ProductScope == Assignment.Enums.VoucherProductScope.AllProducts ? "Tất cả sản phẩm" : "Một số sản phẩm")</li>
-                                    <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @(voucher.ComboScope == Assignment.Enums.VoucherComboScope.AllCombos ? "Tất cả combo" : "Một số combo")</li>
+                                    <li><i class="fas fa-boxes me-2"></i>Phạm vi sản phẩm: @productScopeText</li>
+                                    <li><i class="fas fa-gifts me-2"></i>Phạm vi combo: @comboScopeText</li>
                                     <li><i class="fas fa-ticket-alt me-2"></i>Lượt sử dụng: @voucher.Used.ToString("N0")/@(voucher.Quantity > 0 ? voucher.Quantity.ToString("N0") : "Không giới hạn")</li>
                                     <li>
                                         <i class="fas fa-clock me-2"></i>
