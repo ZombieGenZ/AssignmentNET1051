@@ -3,6 +3,8 @@
 @using Assignment.Extensions
 @using System.Globalization
 @using System.Linq
+@using System.Collections.Generic
+@using System.Text.Json
 
 @{
     ViewData["Title"] = ViewData["Title"] ?? "Đổi thưởng";
@@ -10,7 +12,25 @@
     var hasRewards = rewards.Any();
     var successMessage = TempData["RewardSuccess"] as string;
     var errorMessage = TempData["RewardError"] as string;
+    var rewardCodesJson = TempData["RewardCodes"] as string;
+    List<string>? rewardCodes = null;
+    if (!string.IsNullOrWhiteSpace(rewardCodesJson))
+    {
+        try
+        {
+            rewardCodes = JsonSerializer.Deserialize<List<string>>(rewardCodesJson) ?? new List<string>();
+        }
+        catch (JsonException)
+        {
+            rewardCodes = null;
+        }
+    }
+
     var rewardCode = TempData["RewardCode"] as string;
+    if (rewardCodes != null && rewardCodes.Any() && string.IsNullOrEmpty(rewardCode))
+    {
+        rewardCode = rewardCodes.First();
+    }
     var validFromString = TempData["RewardValidFrom"] as string;
     var validToString = TempData["RewardValidTo"] as string;
 
@@ -88,7 +108,19 @@
     {
         <div class="alert alert-success alert-dismissible fade show mt-4" role="alert">
             <strong>@successMessage</strong>
-            @if (!string.IsNullOrEmpty(rewardCode))
+            @if (rewardCodes != null && rewardCodes.Count > 1)
+            {
+                <div class="mt-2">
+                    <div>Danh sách mã đổi thưởng:</div>
+                    <ul class="list-unstyled mb-0 mt-1 d-flex flex-wrap gap-2">
+                        @foreach (var code in rewardCodes)
+                        {
+                            <li><span class="badge bg-dark text-uppercase">@code</span></li>
+                        }
+                    </ul>
+                </div>
+            }
+            else if (!string.IsNullOrEmpty(rewardCode))
             {
                 <div class="mt-2">
                     Mã đổi thưởng: <span class="badge bg-dark text-uppercase">@rewardCode</span>
@@ -153,11 +185,20 @@
                     ? "Vĩnh viễn"
                     : reward.ValidityUnit switch
                     {
+                        RewardValidityUnit.Minute => $"{reward.ValidityValue:N0} phút",
+                        RewardValidityUnit.Day => $"{reward.ValidityValue:N0} ngày",
                         RewardValidityUnit.Week => $"{reward.ValidityValue:N0} tuần",
                         RewardValidityUnit.Month => $"{reward.ValidityValue:N0} tháng",
                         RewardValidityUnit.Year => $"{reward.ValidityValue:N0} năm",
                         _ => $"{reward.ValidityValue:N0} ngày"
                     };
+                long? maxByStock = remaining;
+                long? maxByPoints = reward.PointCost > 0 ? Math.Max(0, (Model?.CurrentPoint ?? 0) / reward.PointCost) : (long?)null;
+                long? maxRedeemable = maxByStock;
+                if (maxByPoints.HasValue)
+                {
+                    maxRedeemable = maxRedeemable.HasValue ? Math.Min(maxRedeemable.Value, maxByPoints.Value) : maxByPoints.Value;
+                }
                 <div class="col-12 col-md-6 col-xl-4">
                     <div class="card h-100 shadow-sm border-0">
                         <div class="card-body d-flex flex-column">
@@ -169,6 +210,7 @@
                             <p class="card-text text-muted flex-grow-1">@reward.Description</p>
                             <ul class="list-unstyled small text-muted mb-3">
                                 <li><i class="fas fa-coins me-2"></i>Giá đổi: <strong class="text-success">@reward.PointCost.ToString("N0") điểm</strong></li>
+                                <li><i class="fas fa-ticket-alt me-2"></i>Mỗi mã giảm giá: <strong>@reward.VoucherQuantity.ToString("N0") lượt sử dụng</strong></li>
                                 <li><i class="fas fa-clock me-2"></i>Hiệu lực: @validityText kể từ khi đổi</li>
                                 <li><i class="fas fa-box me-2"></i>@(remaining.HasValue ? $"Còn {remaining.Value:N0}/{reward.Quantity:N0}" : "Không giới hạn")</li>
                             </ul>
@@ -177,7 +219,17 @@
                                 <input type="hidden" name="id" value="@reward.Id" />
                                 <input type="hidden" name="page" value="@Model?.Rewards?.CurrentPage" />
                                 <input type="hidden" name="pageSize" value="@Model?.Rewards?.PageSize" />
-                                <button type="submit" class="btn btn-primary w-100" @(canRedeem ? null : "disabled")>
+                                <input type="hidden" name="quantity" value="1" class="redeem-quantity-input" />
+                                <button type="button"
+                                        class="btn btn-primary w-100 redeem-btn"
+                                        data-reward-id="@reward.Id"
+                                        data-reward-name="@reward.Name"
+                                        data-point-cost="@reward.PointCost.ToString(CultureInfo.InvariantCulture)"
+                                        data-remaining="@(remaining?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)"
+                                        data-max-quantity="@(maxRedeemable?.ToString(CultureInfo.InvariantCulture) ?? string.Empty)"
+                                        data-is-quantity-unlimited="@(reward.IsQuantityUnlimited ? "true" : "false")"
+                                        data-voucher-quantity="@reward.VoucherQuantity.ToString(CultureInfo.InvariantCulture)"
+                                        @(canRedeem ? null : "disabled")>
                                     <i class="fas fa-gift me-2"></i>Đổi thưởng
                                 </button>
                                 @if (!canRedeem)
@@ -219,3 +271,236 @@
         }
     }
 </div>
+
+<div class="modal fade" id="redeemQuantityModal" tabindex="-1" aria-labelledby="redeemQuantityModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="redeemQuantityModalLabel">Xác nhận đổi thưởng</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">Nhập số lượng bạn muốn đổi cho <strong id="redeemRewardName"></strong>.</p>
+                <div class="mb-3">
+                    <label for="redeemQuantityInput" class="form-label">Số lượng</label>
+                    <input type="number" min="1" step="1" class="form-control" id="redeemQuantityInput" value="1" />
+                    <div class="form-text" id="redeemQuantityHelp">Chọn số lượng vật phẩm cần đổi.</div>
+                </div>
+                <ul class="list-unstyled small mb-0">
+                    <li><i class="fas fa-coins me-2"></i>Điểm mỗi vật phẩm: <strong><span id="redeemPointCost">0</span> điểm</strong></li>
+                    <li><i class="fas fa-equals me-2"></i>Tổng điểm cần: <strong><span id="redeemTotalPoints">0</span> điểm</strong></li>
+                    <li><i class="fas fa-wallet me-2"></i>Điểm bạn đang có: <strong><span id="redeemCurrentPoints">@Model?.CurrentPoint.ToString("N0")</span> điểm</strong></li>
+                </ul>
+                <div class="text-muted small mt-3 d-none" id="redeemVoucherQuantityInfo"></div>
+                <div class="alert alert-danger d-none mt-3" id="redeemQuantityError"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-primary" id="confirmRedeemQuantityBtn">Xác nhận đổi</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const modalElement = document.getElementById('redeemQuantityModal');
+            if (!modalElement) {
+                return;
+            }
+
+            const bootstrapModal = typeof bootstrap !== 'undefined' ? new bootstrap.Modal(modalElement) : null;
+            if (!bootstrapModal) {
+                return;
+            }
+
+            const quantityInput = document.getElementById('redeemQuantityInput');
+            const quantityHelp = document.getElementById('redeemQuantityHelp');
+            const quantityError = document.getElementById('redeemQuantityError');
+            const rewardNameText = document.getElementById('redeemRewardName');
+            const pointCostText = document.getElementById('redeemPointCost');
+            const totalPointsText = document.getElementById('redeemTotalPoints');
+            const currentPointsText = document.getElementById('redeemCurrentPoints');
+            const voucherQuantityInfo = document.getElementById('redeemVoucherQuantityInfo');
+            const confirmButton = document.getElementById('confirmRedeemQuantityBtn');
+            const currentPoints = Number('@((Model?.CurrentPoint ?? 0).ToString(CultureInfo.InvariantCulture))');
+
+            let activeForm = null;
+            let pointCostPerItem = 0;
+            let maxQuantity = null;
+
+            const formatNumber = (value) => Number(value || 0).toLocaleString('vi-VN');
+
+            const resetError = () => {
+                if (!quantityError) {
+                    return;
+                }
+
+                quantityError.textContent = '';
+                quantityError.classList.add('d-none');
+            };
+
+            const updateTotals = () => {
+                if (!quantityInput || !totalPointsText) {
+                    return;
+                }
+
+                let quantity = Number(quantityInput.value);
+                if (!Number.isFinite(quantity) || quantity < 1) {
+                    quantity = 1;
+                }
+
+                if (maxQuantity !== null && Number.isFinite(maxQuantity) && quantity > maxQuantity) {
+                    quantity = maxQuantity;
+                    quantityInput.value = String(quantity);
+                }
+
+                const totalPoints = pointCostPerItem * quantity;
+                totalPointsText.textContent = formatNumber(totalPoints);
+            };
+
+            const showModalForButton = (button) => {
+                if (!quantityInput) {
+                    return;
+                }
+
+                const form = button.closest('form');
+                if (!form) {
+                    return;
+                }
+
+                activeForm = form;
+                pointCostPerItem = Number(button.dataset.pointCost || '0');
+                const rewardName = button.dataset.rewardName || '';
+                const remainingRaw = button.dataset.remaining || '';
+                const maxQuantityRaw = button.dataset.maxQuantity || '';
+                const isUnlimited = button.dataset.isQuantityUnlimited === 'true';
+                const voucherQuantityRaw = button.dataset.voucherQuantity || '';
+
+                maxQuantity = null;
+                if (maxQuantityRaw) {
+                    const parsedMax = Math.floor(Number(maxQuantityRaw));
+                    if (Number.isFinite(parsedMax) && parsedMax > 0) {
+                        maxQuantity = parsedMax;
+                    }
+                }
+
+                quantityInput.value = '1';
+                quantityInput.min = '1';
+                if (maxQuantity !== null) {
+                    quantityInput.max = String(maxQuantity);
+                } else {
+                    quantityInput.removeAttribute('max');
+                }
+
+                if (rewardNameText) {
+                    rewardNameText.textContent = rewardName;
+                }
+
+                if (pointCostText) {
+                    pointCostText.textContent = formatNumber(pointCostPerItem);
+                }
+
+                if (currentPointsText) {
+                    currentPointsText.textContent = formatNumber(currentPoints);
+                }
+
+                if (totalPointsText) {
+                    totalPointsText.textContent = formatNumber(pointCostPerItem);
+                }
+
+                if (voucherQuantityInfo) {
+                    const voucherQuantity = Math.floor(Number(voucherQuantityRaw));
+                    if (Number.isFinite(voucherQuantity) && voucherQuantity > 0) {
+                        voucherQuantityInfo.textContent = `Mỗi mã giảm giá nhận được sẽ có ${formatNumber(voucherQuantity)} lượt sử dụng.`;
+                        voucherQuantityInfo.classList.remove('d-none');
+                    } else {
+                        voucherQuantityInfo.textContent = '';
+                        voucherQuantityInfo.classList.add('d-none');
+                    }
+                }
+
+                if (quantityHelp) {
+                    let availabilityText = 'Số lượng còn lại không xác định.';
+                    if (isUnlimited) {
+                        availabilityText = 'Không giới hạn số lượng.';
+                    } else if (remainingRaw) {
+                        const remainingValue = Math.floor(Number(remainingRaw));
+                        if (Number.isFinite(remainingValue) && remainingValue >= 0) {
+                            availabilityText = `Còn lại ${formatNumber(remainingValue)} vật phẩm.`;
+                        }
+                    }
+
+                    if (maxQuantity !== null) {
+                        availabilityText += ` Bạn có thể đổi tối đa ${formatNumber(maxQuantity)} vật phẩm trong lượt này.`;
+                    }
+
+                    quantityHelp.textContent = availabilityText;
+                }
+
+                resetError();
+                bootstrapModal.show();
+                updateTotals();
+                quantityInput.focus();
+                quantityInput.select();
+            };
+
+            document.querySelectorAll('.redeem-btn').forEach(button => {
+                button.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    if (button.disabled) {
+                        return;
+                    }
+
+                    showModalForButton(button);
+                });
+            });
+
+            quantityInput?.addEventListener('input', () => {
+                resetError();
+                updateTotals();
+            });
+
+            confirmButton?.addEventListener('click', () => {
+                if (!activeForm || !quantityInput) {
+                    return;
+                }
+
+                let quantity = Math.floor(Number(quantityInput.value));
+                if (!Number.isFinite(quantity) || quantity < 1) {
+                    quantity = 1;
+                }
+
+                if (maxQuantity !== null && quantity > maxQuantity) {
+                    if (quantityError) {
+                        quantityError.textContent = `Bạn chỉ có thể đổi tối đa ${formatNumber(maxQuantity)} vật phẩm trong lượt này.`;
+                        quantityError.classList.remove('d-none');
+                    }
+                    return;
+                }
+
+                const hiddenQuantityInput = activeForm.querySelector('input[name="quantity"]');
+                if (hiddenQuantityInput) {
+                    hiddenQuantityInput.value = String(quantity);
+                } else {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'quantity';
+                    input.value = String(quantity);
+                    activeForm.appendChild(input);
+                }
+
+                bootstrapModal.hide();
+                activeForm.submit();
+            });
+
+            modalElement.addEventListener('hidden.bs.modal', () => {
+                activeForm = null;
+                maxQuantity = null;
+                pointCostPerItem = 0;
+                resetError();
+            });
+        })();
+    </script>
+}

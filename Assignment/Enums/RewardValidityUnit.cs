@@ -6,6 +6,7 @@ namespace Assignment.Enums
         Week = 1,
         Month = 2,
         Year = 3,
-        Forever = 4
+        Forever = 4,
+        Minute = 5
     }
 }
