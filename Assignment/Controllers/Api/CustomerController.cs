@@ -5,6 +5,7 @@ using Assignment.Models;
 using Assignment.Options;
 using Assignment.Extensions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -73,7 +74,8 @@ namespace Assignment.Controllers.Api
                 Exp = user.Exp,
                 Point = user.Point,
                 TotalPoint = user.TotalPoint,
-                Rank = user.Rank
+                Rank = user.Rank,
+                ExcludeFromLeaderboard = user.ExcludeFromLeaderboard
             }).ToList();
 
             var response = new PagedResponse<CustomerListItem>
@@ -167,6 +169,7 @@ namespace Assignment.Controllers.Api
             var users = await _userManager.Users
                 .AsNoTracking()
                 .Where(u => userIds.Contains(u.Id))
+                .Where(u => !u.ExcludeFromLeaderboard)
                 .ToListAsync();
 
             var userMap = users.ToDictionary(u => u.Id, u => u);
@@ -210,6 +213,40 @@ namespace Assignment.Controllers.Api
 
         private string? CurrentUserId => User.FindFirstValue(ClaimTypes.NameIdentifier);
 
+        [HttpPost("{id}/leaderboard-visibility")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateLeaderboardVisibility(string id, [FromBody] UpdateLeaderboardVisibilityRequest request)
+        {
+            if (!User.HasPermission("ViewTopUserAll"))
+            {
+                return Forbid();
+            }
+
+            if (string.IsNullOrWhiteSpace(id) || request == null)
+            {
+                return BadRequest(new { message = "Dữ liệu không hợp lệ." });
+            }
+
+            var user = await _userManager.FindByIdAsync(id);
+            if (user == null)
+            {
+                return NotFound(new { message = "Không tìm thấy khách hàng." });
+            }
+
+            user.ExcludeFromLeaderboard = request.ExcludeFromLeaderboard;
+            var result = await _userManager.UpdateAsync(user);
+            if (!result.Succeeded)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = "Không thể cập nhật bảng xếp hạng." });
+            }
+
+            return Ok(new
+            {
+                success = true,
+                excludeFromLeaderboard = user.ExcludeFromLeaderboard
+            });
+        }
+
         public class CustomerListItem
         {
             public string Id { get; set; } = string.Empty;
@@ -220,6 +257,12 @@ namespace Assignment.Controllers.Api
             public long Point { get; set; }
             public long TotalPoint { get; set; }
             public CustomerRank Rank { get; set; }
+            public bool ExcludeFromLeaderboard { get; set; }
+        }
+
+        public class UpdateLeaderboardVisibilityRequest
+        {
+            public bool ExcludeFromLeaderboard { get; set; }
         }
 
         public class TopCustomerItem

@@ -7,6 +7,7 @@
     var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
     var canDelete = ViewData["CanDelete"] as bool? ?? false;
     var canView = ViewData["CanView"] as bool? ?? false;
+    var canBulkManage = canDelete || canUpdate;
 }
 
 @section Styles {
@@ -129,11 +130,37 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshCombosBtn">
                         <i class="fas fa-rotate-right me-1"></i>Tải lại
                     </button>
-                    <div class="d-none" id="bulkActions">
-                        <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
-                            <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
-                        </button>
-                    </div>
+                    @if (canBulkManage)
+                    {
+                        <div class="d-none d-flex flex-wrap gap-2" id="bulkActions">
+                            @if (canUpdate)
+                            {
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-outline-primary btn-sm dropdown-toggle" id="comboBulkPublishDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="fas fa-bullhorn me-1"></i>Trạng thái công khai
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="comboBulkPublishDropdown">
+                                        <li>
+                                            <button type="button" class="dropdown-item" data-bulk-publish="publish">
+                                                <i class="fas fa-globe me-2"></i>Xuất bản đã chọn
+                                            </button>
+                                        </li>
+                                        <li>
+                                            <button type="button" class="dropdown-item" data-bulk-publish="unpublish">
+                                                <i class="fas fa-eye-slash me-2"></i>Ẩn khỏi công khai
+                                            </button>
+                                        </li>
+                                    </ul>
+                                </div>
+                            }
+                            @if (canDelete)
+                            {
+                                <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                                    <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
+                                </button>
+                            }
+                        </div>
+                    }
                 </div>
             </div>
             <div class="filter-toolbar mb-4" id="comboFilters">
@@ -174,9 +201,12 @@
                 <table class="table table-hover align-middle">
                     <thead class="table-light">
                         <tr>
-                            <th style="width: 50px;" class="text-center">
-                                <input type="checkbox" id="selectAllCombos" class="form-check-input" />
-                            </th>
+                            @if (canBulkManage)
+                            {
+                                <th style="width: 50px;" class="text-center">
+                                    <input type="checkbox" id="selectAllCombos" class="form-check-input" />
+                                </th>
+                            }
                             <th>Tên combo</th>
                             <th class="text-end">Giá gốc</th>
                             <th class="text-end">Giá sau giảm</th>
@@ -187,7 +217,7 @@
                     </thead>
                     <tbody id="combosTableBody">
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="@(canBulkManage ? 7 : 6)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -359,6 +389,7 @@
             const canUpdate = app.dataset.canUpdate === 'true';
             const canDelete = app.dataset.canDelete === 'true';
             const canView = app.dataset.canView === 'true';
+            const canBulkManage = canDelete || canUpdate;
 
             const tableBody = document.getElementById('combosTableBody');
             const tableStatus = document.getElementById('tableStatus');
@@ -367,6 +398,7 @@
             const selectAllCheckbox = document.getElementById('selectAllCombos');
             const bulkActions = document.getElementById('bulkActions');
             const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const bulkPublishButtons = document.querySelectorAll('[data-bulk-publish]');
             const createBtn = document.getElementById('createComboBtn');
             const searchInput = document.getElementById('comboSearchInput');
             const statusFilterSelect = document.getElementById('comboStatusFilter');
@@ -1002,8 +1034,10 @@
             }
 
             function renderCombos(list = filteredCombos) {
+                const emptyColspan = canBulkManage ? 7 : 6;
+
                 if (!canView) {
-                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách combo.</td></tr>';
+                    tableBody.innerHTML = `<tr><td colspan="${emptyColspan}" class="text-center py-4 text-muted">Bạn không có quyền xem danh sách combo.</td></tr>`;
                     tableStatus.textContent = 'Không thể tải dữ liệu combo.';
                     return;
                 }
@@ -1014,7 +1048,7 @@
                     const message = combos.length === 0
                         ? 'Chưa có combo nào.'
                         : 'Không tìm thấy combo phù hợp.';
-                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-muted">${message}</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="${emptyColspan}" class="text-center py-4 text-muted">${message}</td></tr>`;
                     updateComboTableStatus(data.length);
                     if (selectAllCheckbox) {
                         selectAllCheckbox.checked = false;
@@ -1029,23 +1063,25 @@
                 const rows = data.map(combo => {
                     const row = document.createElement('tr');
 
-                    const checkboxCell = document.createElement('td');
-                    checkboxCell.className = 'text-center';
-                    const checkbox = document.createElement('input');
-                    checkbox.type = 'checkbox';
-                    checkbox.className = 'form-check-input combo-select';
-                    checkbox.dataset.id = combo.id;
-                    checkbox.checked = selectedComboIds.has(combo.id);
-                    checkbox.addEventListener('change', () => {
-                        if (checkbox.checked) {
-                            selectedComboIds.add(combo.id);
-                        } else {
-                            selectedComboIds.delete(combo.id);
-                        }
-                        updateBulkActions();
-                    });
-                    checkboxCell.appendChild(checkbox);
-                    row.appendChild(checkboxCell);
+                    if (canBulkManage) {
+                        const checkboxCell = document.createElement('td');
+                        checkboxCell.className = 'text-center';
+                        const checkbox = document.createElement('input');
+                        checkbox.type = 'checkbox';
+                        checkbox.className = 'form-check-input combo-select';
+                        checkbox.dataset.id = combo.id;
+                        checkbox.checked = selectedComboIds.has(combo.id);
+                        checkbox.addEventListener('change', () => {
+                            if (checkbox.checked) {
+                                selectedComboIds.add(combo.id);
+                            } else {
+                                selectedComboIds.delete(combo.id);
+                            }
+                            updateBulkActions();
+                        });
+                        checkboxCell.appendChild(checkbox);
+                        row.appendChild(checkboxCell);
+                    }
 
                     const nameCell = document.createElement('td');
                     const nameWrapper = document.createElement('div');
@@ -1189,7 +1225,8 @@
                 }
 
                 tableStatus.textContent = 'Đang tải dữ liệu combo...';
-                tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>';
+                const loadingColspan = canBulkManage ? 7 : 6;
+                tableBody.innerHTML = `<tr><td colspan="${loadingColspan}" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>`;
 
                 try {
                     const response = await fetch(API_BASE_URL, {
@@ -1209,8 +1246,13 @@
                     showAlert('danger', error.message || 'Có lỗi xảy ra khi tải dữ liệu combo.');
                 }
 
-                selectedComboIds.clear();
-                selectAllCheckbox.checked = false;
+                if (canBulkManage) {
+                    selectedComboIds.clear();
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                }
                 applyComboFilters();
             }
 
@@ -1526,16 +1568,79 @@
                     }
 
                     selectedComboIds.clear();
-                    selectAllCheckbox.checked = false;
-                    selectAllCheckbox.indeterminate = false;
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
                     await fetchCombos();
                 } catch (error) {
                     showAlert('danger', error.message || 'Có lỗi xảy ra khi xóa combo.');
                 }
             }
 
+            async function bulkUpdatePublishState(isPublish, ids = Array.from(selectedComboIds)) {
+                if (!canUpdate || !canBulkManage || !Array.isArray(ids) || ids.length === 0) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-publish`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify({
+                            ids,
+                            isPublish
+                        })
+                    });
+
+                    if (response.status === 403) {
+                        showAlert('warning', 'Bạn không có quyền cập nhật trạng thái công khai.');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể cập nhật trạng thái công khai.');
+                    }
+
+                    const result = await response.json().catch(() => ({}));
+                    const updated = Number(result.updated || 0);
+                    const unauthorized = Number(result.unauthorized || 0);
+
+                    if (updated > 0) {
+                        const label = isPublish ? 'xuất bản' : 'ẩn';
+                        showAlert('success', `Đã ${label} ${updated} combo.`);
+                    }
+
+                    if (unauthorized > 0) {
+                        showAlert('warning', `${unauthorized} combo không đủ quyền cập nhật.`);
+                    }
+
+                    if (updated === 0 && unauthorized === 0) {
+                        showAlert('info', 'Không có combo nào được cập nhật.');
+                    }
+
+                    selectedComboIds.clear();
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+                    updateBulkActions();
+                    await fetchCombos();
+                } catch (error) {
+                    showAlert('danger', error instanceof Error ? error.message : 'Không thể cập nhật trạng thái công khai.');
+                }
+            }
+
             function updateBulkActions() {
-                if (!canDelete) {
+                if (!bulkActions) {
+                    return;
+                }
+
+                if (!canBulkManage) {
                     bulkActions.classList.add('d-none');
                     return;
                 }
@@ -1548,6 +1653,10 @@
             }
 
             function handleSelectAllChange() {
+                if (!canBulkManage || !selectAllCheckbox) {
+                    return;
+                }
+
                 const checkboxes = tableBody.querySelectorAll('.combo-select');
                 const isChecked = selectAllCheckbox.checked;
                 checkboxes.forEach(checkbox => {
@@ -1651,29 +1760,54 @@
                 deleteModal.hide();
             });
 
-            bulkDeleteBtn?.addEventListener('click', () => {
-                if (selectedComboIds.size === 0) {
-                    showAlert('warning', 'Vui lòng chọn ít nhất một combo để xóa.');
-                    return;
-                }
+            if (bulkPublishButtons.length && canUpdate) {
+                bulkPublishButtons.forEach(button => {
+                    button.addEventListener('click', async event => {
+                        event.preventDefault();
 
-                if (bulkDeleteCount) {
-                    bulkDeleteCount.textContent = selectedComboIds.size.toString();
-                }
+                        if (selectedComboIds.size === 0) {
+                            showAlert('warning', 'Vui lòng chọn ít nhất một combo để cập nhật trạng thái.');
+                            return;
+                        }
 
-                bulkDeleteModal?.show();
-            });
+                        const action = button.dataset.bulkPublish;
+                        const publish = action === 'publish';
+                        await bulkUpdatePublishState(publish);
+                    });
+                });
+            }
 
-            confirmBulkDeleteBtn?.addEventListener('click', async () => {
-                if (selectedComboIds.size === 0) {
-                    showAlert('warning', 'Không có combo nào được chọn.');
+            if (selectAllCheckbox && canBulkManage) {
+                selectAllCheckbox.addEventListener('change', handleSelectAllChange);
+            }
+
+            if (bulkDeleteBtn && canDelete) {
+                bulkDeleteBtn.addEventListener('click', () => {
+                    if (selectedComboIds.size === 0) {
+                        showAlert('warning', 'Vui lòng chọn ít nhất một combo để xóa.');
+                        return;
+                    }
+
+                    if (bulkDeleteCount) {
+                        bulkDeleteCount.textContent = selectedComboIds.size.toString();
+                    }
+
+                    bulkDeleteModal?.show();
+                });
+            }
+
+            if (confirmBulkDeleteBtn && canDelete) {
+                confirmBulkDeleteBtn.addEventListener('click', async () => {
+                    if (selectedComboIds.size === 0) {
+                        showAlert('warning', 'Không có combo nào được chọn.');
+                        bulkDeleteModal?.hide();
+                        return;
+                    }
+
                     bulkDeleteModal?.hide();
-                    return;
-                }
-
-                bulkDeleteModal?.hide();
-                await bulkDeleteCombos();
-            });
+                    await bulkDeleteCombos();
+                });
+            }
             selectAllCheckbox.addEventListener('change', handleSelectAllChange);
 
             comboModalEl.addEventListener('hidden.bs.modal', () => {
