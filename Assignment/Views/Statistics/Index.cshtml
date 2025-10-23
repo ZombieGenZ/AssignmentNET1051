@@ -23,18 +23,29 @@
         _ => type.ToString()
     };
 
-    var exportUrl = Url.Action("Export", new
+    string FormatRange(DateTime? start, DateTime? end, StatisticsPeriodType type)
     {
-        Model.Filter.PeriodType,
-        PrimaryStart = Model.Filter.PrimaryStart?.ToString("yyyy-MM-dd"),
-        PrimaryEnd = Model.Filter.PrimaryEnd?.ToString("yyyy-MM-dd"),
-        CompareStart = Model.CompareSeries != null ? Model.Filter.CompareStart?.ToString("yyyy-MM-dd") : null,
-        CompareEnd = Model.CompareSeries != null ? Model.Filter.CompareEnd?.ToString("yyyy-MM-dd") : null
-    });
+        if (!start.HasValue || !end.HasValue)
+        {
+            return "Không giới hạn";
+        }
 
-    var primaryRange = $"{Model.Filter.PrimaryStart?.ToString("dd/MM/yyyy") ?? "Không giới hạn"} - {Model.Filter.PrimaryEnd?.ToString("dd/MM/yyyy") ?? "Hiện tại"}";
+        return type switch
+        {
+            StatisticsPeriodType.Hour => $"{start.Value:dd/MM/yyyy HH:mm} - {end.Value:dd/MM/yyyy HH:mm}",
+            StatisticsPeriodType.Day => $"{start.Value:dd/MM/yyyy} - {end.Value:dd/MM/yyyy}",
+            StatisticsPeriodType.Month => $"{start.Value:MM/yyyy} - {end.Value:MM/yyyy}",
+            StatisticsPeriodType.Quarter => $"Q{((start.Value.Month - 1) / 3) + 1} {start.Value:yyyy} - Q{((end.Value.Month - 1) / 3) + 1} {end.Value:yyyy}",
+            StatisticsPeriodType.Year => $"{start.Value:yyyy} - {end.Value:yyyy}",
+            _ => $"{start.Value:dd/MM/yyyy} - {end.Value:dd/MM/yyyy}"
+        };
+    }
+
+    var exportUrl = Url.Action("Export", Model.Filter);
+
+    var primaryRange = FormatRange(Model.Filter.PrimaryStart, Model.Filter.PrimaryEnd, Model.Filter.PeriodType);
     var compareRange = Model.CompareSeries != null
-        ? $"{Model.Filter.CompareStart?.ToString("dd/MM/yyyy") ?? "Không giới hạn"} - {Model.Filter.CompareEnd?.ToString("dd/MM/yyyy") ?? "Hiện tại"}"
+        ? FormatRange(Model.Filter.CompareStart, Model.Filter.CompareEnd, Model.Filter.PeriodType)
         : null;
     var distributionLabelsJson = JsonSerializer.Serialize(Model.ProductDistribution.Select(p => p.Name));
     var distributionRevenueJson = JsonSerializer.Serialize(Model.ProductDistribution.Select(p => Math.Round(p.TotalBill, 2)));
@@ -82,11 +93,29 @@
                     <button class="btn btn-outline-secondary" type="button" id="resetPrimaryFilters"><i class="fas fa-rotate-left me-2"></i>Đặt lại</button>
                 </div>
             </div>
-            <div class="row g-3">
+            <div class="row g-3 align-items-end">
                 <div class="col-12 col-lg-4 col-xl-3">
                     <label asp-for="Filter.PeriodType" class="form-label">Kiểu thống kê</label>
                     <select asp-for="Filter.PeriodType" class="form-select" asp-items="Html.GetEnumSelectList<StatisticsPeriodType>()" data-default-value="@((int)StatisticsPeriodType.Day)"></select>
                 </div>
+            </div>
+
+            <div class="row g-3 period-group" data-period-group="primary" data-periods="Hour">
+                <div class="col-12 col-lg-4 col-xl-3">
+                    <label asp-for="Filter.PrimaryDay" class="form-label">Ngày thống kê</label>
+                    <input asp-for="Filter.PrimaryDay" class="form-control" type="date" />
+                </div>
+                <div class="col-12 col-lg-4 col-xl-3">
+                    <label asp-for="Filter.PrimaryStartTime" class="form-label">Bắt đầu</label>
+                    <input asp-for="Filter.PrimaryStartTime" class="form-control" type="time" step="3600" />
+                </div>
+                <div class="col-12 col-lg-4 col-xl-3">
+                    <label asp-for="Filter.PrimaryEndTime" class="form-label">Kết thúc</label>
+                    <input asp-for="Filter.PrimaryEndTime" class="form-control" type="time" step="3600" />
+                </div>
+            </div>
+
+            <div class="row g-3 period-group" data-period-group="primary" data-periods="Day,Month">
                 <div class="col-12 col-lg-4 col-xl-3">
                     <label asp-for="Filter.PrimaryStart" class="form-label">Bắt đầu</label>
                     <input asp-for="Filter.PrimaryStart" class="form-control" type="date" />
@@ -94,6 +123,48 @@
                 <div class="col-12 col-lg-4 col-xl-3">
                     <label asp-for="Filter.PrimaryEnd" class="form-label">Kết thúc</label>
                     <input asp-for="Filter.PrimaryEnd" class="form-control" type="date" />
+                </div>
+            </div>
+
+            <div class="row g-3 period-group" data-period-group="primary" data-periods="Quarter">
+                <div class="col-6 col-lg-3">
+                    <label asp-for="Filter.PrimaryStartQuarter" class="form-label">Quý bắt đầu</label>
+                    <select asp-for="Filter.PrimaryStartQuarter" class="form-select">
+                        <option value="" @(Model.Filter.PrimaryStartQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                        @for (var quarter = 1; quarter <= 4; quarter++)
+                        {
+                            <option value="@quarter" @(Model.Filter.PrimaryStartQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <label asp-for="Filter.PrimaryStartYear" class="form-label">Năm bắt đầu</label>
+                    <input asp-for="Filter.PrimaryStartYear" class="form-control" type="number" />
+                </div>
+                <div class="col-6 col-lg-3">
+                    <label asp-for="Filter.PrimaryEndQuarter" class="form-label">Quý kết thúc</label>
+                    <select asp-for="Filter.PrimaryEndQuarter" class="form-select">
+                        <option value="" @(Model.Filter.PrimaryEndQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                        @for (var quarter = 1; quarter <= 4; quarter++)
+                        {
+                            <option value="@quarter" @(Model.Filter.PrimaryEndQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-6 col-lg-3">
+                    <label asp-for="Filter.PrimaryEndYear" class="form-label">Năm kết thúc</label>
+                    <input asp-for="Filter.PrimaryEndYear" class="form-control" type="number" />
+                </div>
+            </div>
+
+            <div class="row g-3 period-group" data-period-group="primary" data-periods="Year">
+                <div class="col-6 col-lg-3">
+                    <label asp-for="Filter.PrimaryStartYear" class="form-label">Năm bắt đầu</label>
+                    <input asp-for="Filter.PrimaryStartYear" class="form-control" type="number" />
+                </div>
+                <div class="col-6 col-lg-3">
+                    <label asp-for="Filter.PrimaryEndYear" class="form-label">Năm kết thúc</label>
+                    <input asp-for="Filter.PrimaryEndYear" class="form-control" type="number" />
                 </div>
             </div>
 
@@ -108,7 +179,23 @@
                         <button type="button" class="btn btn-outline-secondary" id="resetCompareFilters"><i class="fas fa-rotate-left me-2"></i>Đặt lại so sánh</button>
                     </div>
                 </div>
-                <div class="row g-3">
+                <div class="row g-3 period-group" data-period-group="compare" data-periods="Hour">
+                    <div class="col-12 col-lg-4 col-xl-3">
+                        <label asp-for="Filter.CompareDay" class="form-label">Ngày so sánh</label>
+                        <input asp-for="Filter.CompareDay" class="form-control" type="date" />
+                        <div class="form-text">Để trống nếu không cần so sánh.</div>
+                    </div>
+                    <div class="col-12 col-lg-4 col-xl-3">
+                        <label asp-for="Filter.CompareStartTime" class="form-label">Bắt đầu (so sánh)</label>
+                        <input asp-for="Filter.CompareStartTime" class="form-control" type="time" step="3600" />
+                    </div>
+                    <div class="col-12 col-lg-4 col-xl-3">
+                        <label asp-for="Filter.CompareEndTime" class="form-label">Kết thúc (so sánh)</label>
+                        <input asp-for="Filter.CompareEndTime" class="form-control" type="time" step="3600" />
+                    </div>
+                </div>
+
+                <div class="row g-3 period-group" data-period-group="compare" data-periods="Day,Month">
                     <div class="col-12 col-lg-4 col-xl-3">
                         <label asp-for="Filter.CompareStart" class="form-label">Bắt đầu (so sánh)</label>
                         <input asp-for="Filter.CompareStart" class="form-control" type="date" />
@@ -117,6 +204,50 @@
                     <div class="col-12 col-lg-4 col-xl-3">
                         <label asp-for="Filter.CompareEnd" class="form-label">Kết thúc (so sánh)</label>
                         <input asp-for="Filter.CompareEnd" class="form-control" type="date" />
+                    </div>
+                </div>
+
+                <div class="row g-3 period-group" data-period-group="compare" data-periods="Quarter">
+                    <div class="col-6 col-lg-3">
+                        <label asp-for="Filter.CompareStartQuarter" class="form-label">Quý bắt đầu (so sánh)</label>
+                        <select asp-for="Filter.CompareStartQuarter" class="form-select">
+                            <option value="" @(Model.Filter.CompareStartQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                            @for (var quarter = 1; quarter <= 4; quarter++)
+                            {
+                                <option value="@quarter" @(Model.Filter.CompareStartQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                            }
+                        </select>
+                        <div class="form-text">Để trống nếu không cần so sánh.</div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <label asp-for="Filter.CompareStartYear" class="form-label">Năm bắt đầu (so sánh)</label>
+                        <input asp-for="Filter.CompareStartYear" class="form-control" type="number" />
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <label asp-for="Filter.CompareEndQuarter" class="form-label">Quý kết thúc (so sánh)</label>
+                        <select asp-for="Filter.CompareEndQuarter" class="form-select">
+                            <option value="" @(Model.Filter.CompareEndQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                            @for (var quarter = 1; quarter <= 4; quarter++)
+                            {
+                                <option value="@quarter" @(Model.Filter.CompareEndQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <label asp-for="Filter.CompareEndYear" class="form-label">Năm kết thúc (so sánh)</label>
+                        <input asp-for="Filter.CompareEndYear" class="form-control" type="number" />
+                    </div>
+                </div>
+
+                <div class="row g-3 period-group" data-period-group="compare" data-periods="Year">
+                    <div class="col-6 col-lg-3">
+                        <label asp-for="Filter.CompareStartYear" class="form-label">Năm bắt đầu (so sánh)</label>
+                        <input asp-for="Filter.CompareStartYear" class="form-control" type="number" />
+                        <div class="form-text">Để trống nếu không cần so sánh.</div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                        <label asp-for="Filter.CompareEndYear" class="form-label">Năm kết thúc (so sánh)</label>
+                        <input asp-for="Filter.CompareEndYear" class="form-control" type="number" />
                     </div>
                 </div>
             </div>
@@ -803,34 +934,115 @@
             });
         }
 
+        const periodSelect = document.querySelector('[name="Filter.PeriodType"]');
+        const primaryGroups = document.querySelectorAll('[data-period-group="primary"]');
+        const compareGroups = document.querySelectorAll('[data-period-group="compare"]');
+        const periodMap = {
+            '0': 'Hour',
+            '1': 'Day',
+            '2': 'Month',
+            '3': 'Quarter',
+            '4': 'Year'
+        };
+
+        const toggleGroupVisibility = (groups, periodKey) => {
+            groups.forEach(group => {
+                const periods = (group.dataset.periods || '')
+                    .split(',')
+                    .map(value => value.trim())
+                    .filter(Boolean);
+                const shouldShow = periods.includes(periodKey);
+                group.classList.toggle('d-none', !shouldShow);
+                group.querySelectorAll('input, select').forEach(input => {
+                    if (shouldShow) {
+                        input.removeAttribute('disabled');
+                    } else {
+                        input.setAttribute('disabled', 'disabled');
+                    }
+                });
+            });
+        };
+
+        const updatePeriodGroups = () => {
+            if (!periodSelect) {
+                return;
+            }
+
+            const periodKey = periodMap[periodSelect.value];
+            if (!periodKey) {
+                return;
+            }
+
+            toggleGroupVisibility(primaryGroups, periodKey);
+            toggleGroupVisibility(compareGroups, periodKey);
+        };
+
+        if (periodSelect) {
+            periodSelect.addEventListener('change', updatePeriodGroups);
+        }
+
         const setupResetButtons = () => {
             const primaryReset = document.getElementById('resetPrimaryFilters');
             const compareReset = document.getElementById('resetCompareFilters');
-            const periodSelect = document.querySelector('[name="Filter.PeriodType"]');
-            const primaryStart = document.querySelector('[name="Filter.PrimaryStart"]');
-            const primaryEnd = document.querySelector('[name="Filter.PrimaryEnd"]');
-            const compareStart = document.querySelector('[name="Filter.CompareStart"]');
-            const compareEnd = document.querySelector('[name="Filter.CompareEnd"]');
+
+            const primaryFieldNames = [
+                'Filter.PrimaryStart',
+                'Filter.PrimaryEnd',
+                'Filter.PrimaryDay',
+                'Filter.PrimaryStartTime',
+                'Filter.PrimaryEndTime',
+                'Filter.PrimaryStartQuarter',
+                'Filter.PrimaryEndQuarter',
+                'Filter.PrimaryStartYear',
+                'Filter.PrimaryEndYear'
+            ];
+
+            const compareFieldNames = [
+                'Filter.CompareStart',
+                'Filter.CompareEnd',
+                'Filter.CompareDay',
+                'Filter.CompareStartTime',
+                'Filter.CompareEndTime',
+                'Filter.CompareStartQuarter',
+                'Filter.CompareEndQuarter',
+                'Filter.CompareStartYear',
+                'Filter.CompareEndYear'
+            ];
 
             if (primaryReset) {
                 primaryReset.addEventListener('click', function () {
-                    if (primaryStart) primaryStart.value = '';
-                    if (primaryEnd) primaryEnd.value = '';
+                    primaryFieldNames.forEach(name => {
+                        const field = document.querySelector(`[name="${name}"]`);
+                        if (field) {
+                            field.value = '';
+                        }
+                    });
+
                     if (periodSelect) {
                         const defaultValue = periodSelect.dataset.defaultValue;
                         if (typeof defaultValue !== 'undefined') {
                             periodSelect.value = defaultValue;
                         }
                     }
+
+                    updatePeriodGroups();
                 });
             }
 
             if (compareReset) {
                 compareReset.addEventListener('click', function () {
-                    if (compareStart) compareStart.value = '';
-                    if (compareEnd) compareEnd.value = '';
+                    compareFieldNames.forEach(name => {
+                        const field = document.querySelector(`[name="${name}"]`);
+                        if (field) {
+                            field.value = '';
+                        }
+                    });
+
+                    updatePeriodGroups();
                 });
             }
+
+            updatePeriodGroups();
         };
 
         if (document.readyState === 'loading') {

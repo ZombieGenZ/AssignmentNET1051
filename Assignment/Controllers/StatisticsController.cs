@@ -249,7 +249,9 @@ namespace Assignment.Controllers
             return periodType switch
             {
                 StatisticsPeriodType.Hour =>
-                    (startDate.Date, startDate.Date.AddDays(1).AddTicks(-1)),
+                    (new DateTime(startDate.Year, startDate.Month, startDate.Day, startDate.Hour, startDate.Minute, 0),
+                        new DateTime(endDate.Year, endDate.Month, endDate.Day, endDate.Hour, endDate.Minute, 0)
+                            .AddHours(1).AddTicks(-1)),
                 StatisticsPeriodType.Day =>
                     (startDate.Date, endDate.Date.AddDays(1).AddTicks(-1)),
                 StatisticsPeriodType.Month =>
@@ -450,102 +452,26 @@ namespace Assignment.Controllers
         {
             var today = DateTime.Today;
 
-            filter.PrimaryStart = filter.PrimaryStart?.Date;
-            filter.PrimaryEnd = filter.PrimaryEnd?.Date;
-            filter.CompareStart = filter.CompareStart?.Date;
-            filter.CompareEnd = filter.CompareEnd?.Date;
-
             switch (filter.PeriodType)
             {
                 case StatisticsPeriodType.Hour:
-                    var baseDay = (filter.PrimaryStart ?? today).Date;
-                    filter.PrimaryStart = baseDay;
-                    filter.PrimaryEnd = baseDay;
-
-                    if (filter.CompareStart.HasValue)
-                    {
-                        var compareDay = filter.CompareStart.Value.Date;
-                        filter.CompareStart = compareDay;
-                        filter.CompareEnd = filter.CompareEnd?.Date ?? compareDay;
-                    }
-                    else
-                    {
-                        filter.CompareStart = null;
-                        filter.CompareEnd = null;
-                    }
-
+                    NormalizeHourlyFilter(filter, today);
                     break;
 
                 case StatisticsPeriodType.Day:
-                    var defaultStart = new DateTime(today.Year, today.Month, 1);
-                    var defaultEnd = defaultStart.AddMonths(1).AddDays(-1);
-                    var startDay = (filter.PrimaryStart ?? defaultStart).Date;
-                    DateTime endDay;
-
-                    if (filter.PrimaryEnd.HasValue)
-                    {
-                        endDay = filter.PrimaryEnd.Value.Date;
-                    }
-                    else if (filter.PrimaryStart.HasValue)
-                    {
-                        endDay = startDay;
-                    }
-                    else
-                    {
-                        endDay = defaultEnd.Date;
-                    }
-
-                    if (endDay < startDay)
-                    {
-                        (startDay, endDay) = (endDay, startDay);
-                    }
-
-                    filter.PrimaryStart = startDay;
-                    filter.PrimaryEnd = endDay;
-                    NormalizeComparisonRange(filter);
+                    NormalizeDailyFilter(filter, today);
                     break;
 
                 case StatisticsPeriodType.Month:
-                    var monthStart = filter.PrimaryStart ?? new DateTime(today.Year, today.Month, 1);
-                    monthStart = new DateTime(monthStart.Year, monthStart.Month, 1);
-                    var monthEndInput = filter.PrimaryEnd ?? monthStart;
-                    var monthEnd = new DateTime(monthEndInput.Year, monthEndInput.Month, 1);
-                    if (monthEnd < monthStart)
-                    {
-                        (monthStart, monthEnd) = (monthEnd, monthStart);
-                    }
-
-                    filter.PrimaryStart = monthStart;
-                    filter.PrimaryEnd = monthEnd;
-                    NormalizeComparisonRange(filter, alignToMonth: true);
+                    NormalizeMonthlyFilter(filter, today);
                     break;
 
                 case StatisticsPeriodType.Quarter:
-                    var quarterStart = GetQuarterStart(filter.PrimaryStart ?? today);
-                    var quarterEndInput = filter.PrimaryEnd ?? quarterStart;
-                    var quarterEnd = GetQuarterStart(quarterEndInput);
-                    if (quarterEnd < quarterStart)
-                    {
-                        (quarterStart, quarterEnd) = (quarterEnd, quarterStart);
-                    }
-
-                    filter.PrimaryStart = quarterStart;
-                    filter.PrimaryEnd = quarterEnd;
-                    NormalizeComparisonRange(filter, alignToQuarter: true);
+                    NormalizeQuarterlyFilter(filter, today);
                     break;
 
                 case StatisticsPeriodType.Year:
-                    var yearStart = new DateTime((filter.PrimaryStart ?? today).Year, 1, 1);
-                    var yearEndInput = filter.PrimaryEnd ?? yearStart;
-                    var yearEnd = new DateTime(yearEndInput.Year, 1, 1);
-                    if (yearEnd < yearStart)
-                    {
-                        (yearStart, yearEnd) = (yearEnd, yearStart);
-                    }
-
-                    filter.PrimaryStart = yearStart;
-                    filter.PrimaryEnd = yearEnd;
-                    NormalizeComparisonRange(filter, alignToYear: true);
+                    NormalizeYearlyFilter(filter, today);
                     break;
 
                 default:
@@ -595,5 +521,297 @@ namespace Assignment.Controllers
             filter.CompareStart = compareStart;
             filter.CompareEnd = compareEnd;
         }
+
+        private static void NormalizeHourlyFilter(StatisticsFilterInputModel filter, DateTime today)
+        {
+            var baseDay = (filter.PrimaryDay ?? filter.PrimaryStart ?? filter.PrimaryEnd ?? today).Date;
+
+            var startTime = filter.PrimaryStartTime
+                             ?? (filter.PrimaryStart.HasValue ? filter.PrimaryStart.Value.TimeOfDay : (TimeSpan?)null)
+                             ?? TimeSpan.Zero;
+
+            var endTime = filter.PrimaryEndTime
+                           ?? (filter.PrimaryEnd.HasValue ? filter.PrimaryEnd.Value.TimeOfDay : (TimeSpan?)null)
+                           ?? (filter.PrimaryStartTime ?? TimeSpan.FromHours(23));
+
+            startTime = NormalizeTime(startTime);
+            endTime = NormalizeTime(endTime);
+
+            var primaryStart = baseDay.Add(startTime);
+            var primaryEnd = baseDay.Add(endTime);
+
+            if (primaryEnd < primaryStart)
+            {
+                (primaryStart, primaryEnd) = (primaryEnd, primaryStart);
+                (startTime, endTime) = (endTime, startTime);
+            }
+
+            filter.PrimaryDay = baseDay;
+            filter.PrimaryStartTime = startTime;
+            filter.PrimaryEndTime = endTime;
+            filter.PrimaryStart = primaryStart;
+            filter.PrimaryEnd = primaryEnd;
+
+            NormalizeHourlyComparison(filter);
+
+            filter.PrimaryStartQuarter = null;
+            filter.PrimaryEndQuarter = null;
+            filter.CompareStartQuarter = null;
+            filter.CompareEndQuarter = null;
+            filter.PrimaryStartYear = primaryStart.Year;
+            filter.PrimaryEndYear = primaryEnd.Year;
+            filter.CompareStartYear = filter.CompareStart?.Year;
+            filter.CompareEndYear = filter.CompareEnd?.Year;
+        }
+
+        private static void NormalizeHourlyComparison(StatisticsFilterInputModel filter)
+        {
+            var hasCompareInput = filter.CompareDay.HasValue
+                                   || filter.CompareStartTime.HasValue
+                                   || filter.CompareEndTime.HasValue
+                                   || filter.CompareStart.HasValue
+                                   || filter.CompareEnd.HasValue;
+
+            if (!hasCompareInput)
+            {
+                filter.CompareStart = null;
+                filter.CompareEnd = null;
+                filter.CompareDay = null;
+                filter.CompareStartTime = null;
+                filter.CompareEndTime = null;
+                return;
+            }
+
+            var compareDay = (filter.CompareDay ?? filter.CompareStart ?? filter.CompareEnd)?.Date;
+            if (!compareDay.HasValue)
+            {
+                filter.CompareStart = null;
+                filter.CompareEnd = null;
+                filter.CompareDay = null;
+                filter.CompareStartTime = null;
+                filter.CompareEndTime = null;
+                return;
+            }
+
+            var compareStartTime = filter.CompareStartTime
+                                   ?? (filter.CompareStart.HasValue ? filter.CompareStart.Value.TimeOfDay : (TimeSpan?)null)
+                                   ?? TimeSpan.Zero;
+
+            var compareEndTime = filter.CompareEndTime
+                                 ?? (filter.CompareEnd.HasValue ? filter.CompareEnd.Value.TimeOfDay : (TimeSpan?)null)
+                                 ?? (filter.CompareStartTime ?? TimeSpan.FromHours(23));
+
+            compareStartTime = NormalizeTime(compareStartTime);
+            compareEndTime = NormalizeTime(compareEndTime);
+
+            var compareStart = compareDay.Value.Add(compareStartTime);
+            var compareEnd = compareDay.Value.Add(compareEndTime);
+
+            if (compareEnd < compareStart)
+            {
+                (compareStart, compareEnd) = (compareEnd, compareStart);
+                (compareStartTime, compareEndTime) = (compareEndTime, compareStartTime);
+            }
+
+            filter.CompareDay = compareDay;
+            filter.CompareStartTime = compareStartTime;
+            filter.CompareEndTime = compareEndTime;
+            filter.CompareStart = compareStart;
+            filter.CompareEnd = compareEnd;
+        }
+
+        private static void NormalizeDailyFilter(StatisticsFilterInputModel filter, DateTime today)
+        {
+            var defaultStart = new DateTime(today.Year, today.Month, 1);
+            var defaultEnd = defaultStart.AddMonths(1).AddDays(-1);
+
+            var startDay = (filter.PrimaryStart ?? filter.PrimaryDay ?? defaultStart).Date;
+            DateTime endDay;
+
+            if (filter.PrimaryEnd.HasValue)
+            {
+                endDay = filter.PrimaryEnd.Value.Date;
+            }
+            else if (filter.PrimaryStart.HasValue)
+            {
+                endDay = startDay;
+            }
+            else
+            {
+                endDay = defaultEnd.Date;
+            }
+
+            if (endDay < startDay)
+            {
+                (startDay, endDay) = (endDay, startDay);
+            }
+
+            filter.PrimaryStart = startDay;
+            filter.PrimaryEnd = endDay;
+            filter.PrimaryDay = null;
+            filter.PrimaryStartTime = null;
+            filter.PrimaryEndTime = null;
+
+            NormalizeComparisonRange(filter);
+
+            filter.CompareDay = null;
+            filter.CompareStartTime = null;
+            filter.CompareEndTime = null;
+
+            filter.PrimaryStartQuarter = null;
+            filter.PrimaryEndQuarter = null;
+            filter.CompareStartQuarter = null;
+            filter.CompareEndQuarter = null;
+            filter.PrimaryStartYear = startDay.Year;
+            filter.PrimaryEndYear = endDay.Year;
+            filter.CompareStartYear = filter.CompareStart?.Year;
+            filter.CompareEndYear = filter.CompareEnd?.Year;
+        }
+
+        private static void NormalizeMonthlyFilter(StatisticsFilterInputModel filter, DateTime today)
+        {
+            var monthStart = filter.PrimaryStart ?? new DateTime(today.Year, today.Month, 1);
+            monthStart = new DateTime(monthStart.Year, monthStart.Month, 1);
+            var monthEndInput = filter.PrimaryEnd ?? monthStart;
+            var monthEnd = new DateTime(monthEndInput.Year, monthEndInput.Month, 1);
+            if (monthEnd < monthStart)
+            {
+                (monthStart, monthEnd) = (monthEnd, monthStart);
+            }
+
+            filter.PrimaryStart = monthStart;
+            filter.PrimaryEnd = monthEnd;
+            filter.PrimaryDay = null;
+            filter.PrimaryStartTime = null;
+            filter.PrimaryEndTime = null;
+
+            NormalizeComparisonRange(filter, alignToMonth: true);
+
+            filter.CompareDay = null;
+            filter.CompareStartTime = null;
+            filter.CompareEndTime = null;
+            filter.PrimaryStartQuarter = null;
+            filter.PrimaryEndQuarter = null;
+            filter.CompareStartQuarter = null;
+            filter.CompareEndQuarter = null;
+            filter.PrimaryStartYear = monthStart.Year;
+            filter.PrimaryEndYear = monthEnd.Year;
+            filter.CompareStartYear = filter.CompareStart?.Year;
+            filter.CompareEndYear = filter.CompareEnd?.Year;
+        }
+
+        private static void NormalizeQuarterlyFilter(StatisticsFilterInputModel filter, DateTime today)
+        {
+            var defaultQuarterStart = GetQuarterStart(today);
+            var startQuarter = ClampQuarter(filter.PrimaryStartQuarter ??
+                                            (filter.PrimaryStart.HasValue ? GetQuarter(filter.PrimaryStart.Value) : GetQuarter(defaultQuarterStart)));
+            var startYear = filter.PrimaryStartYear ?? filter.PrimaryStart?.Year ?? defaultQuarterStart.Year;
+
+            var endQuarter = ClampQuarter(filter.PrimaryEndQuarter ??
+                                          (filter.PrimaryEnd.HasValue ? GetQuarter(filter.PrimaryEnd.Value) : startQuarter));
+            var endYear = filter.PrimaryEndYear ?? filter.PrimaryEnd?.Year ?? startYear;
+
+            var quarterStart = GetQuarterStart(new DateTime(startYear, (startQuarter - 1) * 3 + 1, 1));
+            var quarterEnd = GetQuarterStart(new DateTime(endYear, (endQuarter - 1) * 3 + 1, 1));
+
+            if (quarterEnd < quarterStart)
+            {
+                (quarterStart, quarterEnd) = (quarterEnd, quarterStart);
+                (startQuarter, endQuarter) = (endQuarter, startQuarter);
+                (startYear, endYear) = (endYear, startYear);
+            }
+
+            filter.PrimaryStart = quarterStart;
+            filter.PrimaryEnd = quarterEnd;
+            filter.PrimaryDay = null;
+            filter.PrimaryStartTime = null;
+            filter.PrimaryEndTime = null;
+            filter.PrimaryStartQuarter = startQuarter;
+            filter.PrimaryEndQuarter = endQuarter;
+            filter.PrimaryStartYear = startYear;
+            filter.PrimaryEndYear = endYear;
+
+            NormalizeComparisonRange(filter, alignToQuarter: true);
+
+            filter.CompareDay = null;
+            filter.CompareStartTime = null;
+            filter.CompareEndTime = null;
+
+            if (filter.CompareStart.HasValue && filter.CompareEnd.HasValue)
+            {
+                filter.CompareStartQuarter = GetQuarter(filter.CompareStart.Value);
+                filter.CompareEndQuarter = GetQuarter(filter.CompareEnd.Value);
+                filter.CompareStartYear = filter.CompareStart.Value.Year;
+                filter.CompareEndYear = filter.CompareEnd.Value.Year;
+            }
+            else
+            {
+                filter.CompareStartQuarter = null;
+                filter.CompareEndQuarter = null;
+                filter.CompareStartYear = null;
+                filter.CompareEndYear = null;
+            }
+        }
+
+        private static void NormalizeYearlyFilter(StatisticsFilterInputModel filter, DateTime today)
+        {
+            var startYear = filter.PrimaryStartYear ?? filter.PrimaryStart?.Year ?? today.Year;
+            var endYear = filter.PrimaryEndYear ?? filter.PrimaryEnd?.Year ?? startYear;
+
+            if (endYear < startYear)
+            {
+                (startYear, endYear) = (endYear, startYear);
+            }
+
+            var yearStart = new DateTime(startYear, 1, 1);
+            var yearEnd = new DateTime(endYear, 1, 1);
+
+            filter.PrimaryStart = yearStart;
+            filter.PrimaryEnd = yearEnd;
+            filter.PrimaryDay = null;
+            filter.PrimaryStartTime = null;
+            filter.PrimaryEndTime = null;
+            filter.PrimaryStartQuarter = null;
+            filter.PrimaryEndQuarter = null;
+            filter.PrimaryStartYear = startYear;
+            filter.PrimaryEndYear = endYear;
+
+            NormalizeComparisonRange(filter, alignToYear: true);
+
+            filter.CompareDay = null;
+            filter.CompareStartTime = null;
+            filter.CompareEndTime = null;
+            filter.CompareStartQuarter = null;
+            filter.CompareEndQuarter = null;
+
+            if (filter.CompareStart.HasValue && filter.CompareEnd.HasValue)
+            {
+                filter.CompareStartYear = filter.CompareStart.Value.Year;
+                filter.CompareEndYear = filter.CompareEnd.Value.Year;
+            }
+            else
+            {
+                filter.CompareStartYear = null;
+                filter.CompareEndYear = null;
+            }
+        }
+
+        private static TimeSpan NormalizeTime(TimeSpan value)
+        {
+            if (value < TimeSpan.Zero)
+            {
+                return TimeSpan.Zero;
+            }
+
+            var max = new TimeSpan(23, 0, 0);
+            if (value >= max)
+            {
+                return max;
+            }
+
+            return new TimeSpan(value.Hours, 0, 0);
+        }
+
+        private static int ClampQuarter(int quarter) => Math.Clamp(quarter, 1, 4);
     }
 }

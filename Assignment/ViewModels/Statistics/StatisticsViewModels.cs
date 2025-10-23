@@ -9,17 +9,45 @@ namespace Assignment.ViewModels.Statistics
     {
         public StatisticsPeriodType PeriodType { get; set; } = StatisticsPeriodType.Day;
 
-        [DataType(DataType.Date)]
+        [DataType(DataType.DateTime)]
         public DateTime? PrimaryStart { get; set; }
 
-        [DataType(DataType.Date)]
+        [DataType(DataType.DateTime)]
         public DateTime? PrimaryEnd { get; set; }
 
-        [DataType(DataType.Date)]
+        [DataType(DataType.DateTime)]
         public DateTime? CompareStart { get; set; }
 
-        [DataType(DataType.Date)]
+        [DataType(DataType.DateTime)]
         public DateTime? CompareEnd { get; set; }
+
+        [DataType(DataType.Date)]
+        public DateTime? PrimaryDay { get; set; }
+
+        [DataType(DataType.Time)]
+        public TimeSpan? PrimaryStartTime { get; set; }
+
+        [DataType(DataType.Time)]
+        public TimeSpan? PrimaryEndTime { get; set; }
+
+        [DataType(DataType.Date)]
+        public DateTime? CompareDay { get; set; }
+
+        [DataType(DataType.Time)]
+        public TimeSpan? CompareStartTime { get; set; }
+
+        [DataType(DataType.Time)]
+        public TimeSpan? CompareEndTime { get; set; }
+
+        public int? PrimaryStartQuarter { get; set; }
+        public int? PrimaryEndQuarter { get; set; }
+        public int? CompareStartQuarter { get; set; }
+        public int? CompareEndQuarter { get; set; }
+
+        public int? PrimaryStartYear { get; set; }
+        public int? PrimaryEndYear { get; set; }
+        public int? CompareStartYear { get; set; }
+        public int? CompareEndYear { get; set; }
     }
 
     public class StatisticsDataPointViewModel
