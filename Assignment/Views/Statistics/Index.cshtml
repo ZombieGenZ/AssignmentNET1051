@@ -130,10 +130,10 @@
                 <div class="col-6 col-lg-3">
                     <label asp-for="Filter.PrimaryStartQuarter" class="form-label">Quý bắt đầu</label>
                     <select asp-for="Filter.PrimaryStartQuarter" class="form-select">
-                        <option value="" @(Model.Filter.PrimaryStartQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                        <option value="" selected="@(!Model.Filter.PrimaryStartQuarter.HasValue)">Chọn quý</option>
                         @for (var quarter = 1; quarter <= 4; quarter++)
                         {
-                            <option value="@quarter" @(Model.Filter.PrimaryStartQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                            <option value="@quarter" selected="@(Model.Filter.PrimaryStartQuarter == quarter)">Quý @quarter</option>
                         }
                     </select>
                 </div>
@@ -144,10 +144,10 @@
                 <div class="col-6 col-lg-3">
                     <label asp-for="Filter.PrimaryEndQuarter" class="form-label">Quý kết thúc</label>
                     <select asp-for="Filter.PrimaryEndQuarter" class="form-select">
-                        <option value="" @(Model.Filter.PrimaryEndQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                        <option value="" selected="@(!Model.Filter.PrimaryEndQuarter.HasValue)">Chọn quý</option>
                         @for (var quarter = 1; quarter <= 4; quarter++)
                         {
-                            <option value="@quarter" @(Model.Filter.PrimaryEndQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                            <option value="@quarter" selected="@(Model.Filter.PrimaryEndQuarter == quarter)">Quý @quarter</option>
                         }
                     </select>
                 </div>
@@ -211,10 +211,10 @@
                     <div class="col-6 col-lg-3">
                         <label asp-for="Filter.CompareStartQuarter" class="form-label">Quý bắt đầu (so sánh)</label>
                         <select asp-for="Filter.CompareStartQuarter" class="form-select">
-                            <option value="" @(Model.Filter.CompareStartQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                            <option value="" selected="@(!Model.Filter.CompareStartQuarter.HasValue)">Chọn quý</option>
                             @for (var quarter = 1; quarter <= 4; quarter++)
                             {
-                                <option value="@quarter" @(Model.Filter.CompareStartQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                                <option value="@quarter" selected="@(Model.Filter.CompareStartQuarter == quarter)">Quý @quarter</option>
                             }
                         </select>
                         <div class="form-text">Để trống nếu không cần so sánh.</div>
@@ -226,10 +226,10 @@
                     <div class="col-6 col-lg-3">
                         <label asp-for="Filter.CompareEndQuarter" class="form-label">Quý kết thúc (so sánh)</label>
                         <select asp-for="Filter.CompareEndQuarter" class="form-select">
-                            <option value="" @(Model.Filter.CompareEndQuarter.HasValue ? "" : "selected")>Chọn quý</option>
+                            <option value="" selected="@(!Model.Filter.CompareEndQuarter.HasValue)">Chọn quý</option>
                             @for (var quarter = 1; quarter <= 4; quarter++)
                             {
-                                <option value="@quarter" @(Model.Filter.CompareEndQuarter == quarter ? "selected" : "")>Quý @quarter</option>
+                                <option value="@quarter" selected="@(Model.Filter.CompareEndQuarter == quarter)">Quý @quarter</option>
                             }
                         </select>
                     </div>
