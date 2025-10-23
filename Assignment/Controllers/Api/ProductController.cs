@@ -100,7 +100,6 @@ namespace Assignment.Controllers.Api
 
             var product = new Product
             {
-                Sold = 0,
                 TotalEvaluate = 0,
                 AverageEvaluate = 0,
                 CreateBy = CurrentUserId,
