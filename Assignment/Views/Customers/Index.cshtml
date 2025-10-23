@@ -199,14 +199,14 @@
                                         @for (var month = 1; month <= 12; month++)
                                         {
                                             var isCurrentMonth = month == DateTime.Now.Month;
-                                            <option value="@month" @(isCurrentMonth ? "selected" : null)>Tháng @month</option>
+                                            <option value="@month" selected="@isCurrentMonth">Tháng @month</option>
                                         }
                                     </select>
                                     <select id="topQuarterSelect" class="form-select form-select-sm d-none" style="width: 120px;">
                                         @for (var quarter = 1; quarter <= 4; quarter++)
                                         {
                                             var currentQuarter = (DateTime.Now.Month - 1) / 3 + 1;
-                                            <option value="@quarter" @(quarter == currentQuarter ? "selected" : null)>Quý @quarter</option>
+                                            <option value="@quarter" selected="@(quarter == currentQuarter)">Quý @quarter</option>
                                         }
                                     </select>
                                     <input type="number" class="form-control form-control-sm" id="topYearInput" style="width: 100px;" value="@DateTime.Now.Year" />
