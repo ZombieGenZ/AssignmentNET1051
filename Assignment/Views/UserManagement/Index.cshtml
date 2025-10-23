@@ -169,6 +169,7 @@
                                 <option value="minute">Phút</option>
                                 <option value="hour">Giờ</option>
                                 <option value="day">Ngày</option>
+                                <option value="permanent">Vĩnh viễn</option>
                             </select>
                         </div>
                         <div class="col-12 col-md-5 d-flex gap-2">
@@ -264,6 +265,7 @@
                                 <option value="minute">Phút</option>
                                 <option value="hour">Giờ</option>
                                 <option value="day">Ngày</option>
+                                <option value="permanent">Vĩnh viễn</option>
                             </select>
                         </div>
                     </div>
@@ -359,6 +361,40 @@
                 selectedUserIds: new Set(),
             };
 
+            const isPermanentUnit = (unit) => (unit ?? '').toString().toLowerCase() === 'permanent';
+
+            const updateDurationInputState = (unitSelect, valueInput) => {
+                if (!unitSelect || !valueInput) {
+                    return;
+                }
+
+                const wasDisabled = valueInput.disabled;
+                const permanent = isPermanentUnit(unitSelect.value);
+
+                if (permanent) {
+                    if (valueInput.value) {
+                        valueInput.dataset.previousValue = valueInput.value;
+                    }
+                    valueInput.value = '';
+                    valueInput.disabled = true;
+                } else {
+                    valueInput.disabled = false;
+                    if (wasDisabled) {
+                        const previousValue = valueInput.dataset.previousValue;
+                        if (previousValue) {
+                            valueInput.value = previousValue;
+                        } else if (!valueInput.value) {
+                            valueInput.value = '30';
+                        }
+                    } else if (!valueInput.value) {
+                        valueInput.value = '30';
+                    }
+                }
+            };
+
+            updateDurationInputState(lockDurationUnit, lockDurationValue);
+            updateDurationInputState(bulkLockDurationUnit, bulkLockDurationValue);
+
             const updateLockButtons = (isLocked) => {
                 if (!lockUserBtn || !unlockUserBtn) {
                     return;
@@ -416,18 +452,28 @@
                 });
             };
 
+            const isPermanentDateValue = (date) => date instanceof Date
+                && !Number.isNaN(date.getTime())
+                && typeof date.getUTCFullYear === 'function'
+                && date.getUTCFullYear() >= 9999;
+
             const formatDateTime = (value) => {
                 if (!value) {
                     return '<span class="text-muted">-</span>';
                 }
-                const date = new Date(value);
+                let date = new Date(value);
                 if (Number.isNaN(date.getTime())) {
-                    const fallback = new Date(value + 'Z');
-                    if (!Number.isNaN(fallback.getTime())) {
-                        return fallback.toLocaleString('vi-VN');
+                    const fallback = new Date(`${value}Z`);
+                    if (Number.isNaN(fallback.getTime())) {
+                        return '<span class="text-muted">-</span>';
                     }
-                    return '<span class="text-muted">-</span>';
+                    date = fallback;
                 }
+
+                if (isPermanentDateValue(date)) {
+                    return 'Vĩnh viễn';
+                }
+
                 return date.toLocaleString('vi-VN');
             };
 
@@ -978,6 +1024,7 @@
                 if (bulkLockDurationUnit) {
                     bulkLockDurationUnit.value = 'minute';
                 }
+                updateDurationInputState(bulkLockDurationUnit, bulkLockDurationValue);
 
                 try {
                     const [roles, permissions] = await Promise.all([loadRoles(), loadPermissions()]);
@@ -1002,6 +1049,9 @@
                 lockSection.classList.remove('disabled');
                 lockDurationValue.disabled = false;
                 lockDurationUnit.disabled = false;
+                lockDurationUnit.value = 'minute';
+                lockDurationValue.value = '30';
+                updateDurationInputState(lockDurationUnit, lockDurationValue);
                 lockUserBtn.disabled = false;
                 unlockUserBtn.disabled = false;
                 saveUserChangesBtn.disabled = false;
@@ -1341,10 +1391,20 @@
                     return;
                 }
                 clearAlert(userModalAlert);
-                const durationValue = parseInt(lockDurationValue.value, 10);
-                if (Number.isNaN(durationValue) || durationValue <= 0) {
-                    renderAlert(userModalAlert, 'Thời gian khóa phải lớn hơn 0.', 'danger');
+                if (!lockDurationUnit || !lockDurationValue) {
+                    renderAlert(userModalAlert, 'Thiếu thông tin thời gian khóa.', 'danger');
                     return;
+                }
+
+                const selectedUnit = lockDurationUnit.value || 'minute';
+                const permanent = isPermanentUnit(selectedUnit);
+                let durationValue = 0;
+                if (!permanent) {
+                    durationValue = parseInt(lockDurationValue.value, 10);
+                    if (Number.isNaN(durationValue) || durationValue <= 0) {
+                        renderAlert(userModalAlert, 'Thời gian khóa phải lớn hơn 0.', 'danger');
+                        return;
+                    }
                 }
                 lockUserBtn.disabled = true;
                 lockUserBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang khóa...';
@@ -1358,8 +1418,9 @@
                         body: JSON.stringify({
                             userId: state.selectedUserId,
                             durationValue,
-                            durationUnit: lockDurationUnit.value,
-                            unlock: false
+                            durationUnit: selectedUnit,
+                            unlock: false,
+                            isPermanent: permanent
                         })
                     });
                     const json = await response.json();
@@ -1386,6 +1447,7 @@
                 unlockUserBtn.disabled = true;
                 unlockUserBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Đang mở khóa...';
                 try {
+                    const selectedUnit = lockDurationUnit ? lockDurationUnit.value : 'minute';
                     const response = await fetch(`/UserManagement/users/${state.selectedUserId}/lock`, {
                         method: 'POST',
                         headers: {
@@ -1396,7 +1458,8 @@
                             userId: state.selectedUserId,
                             unlock: true,
                             durationValue: 0,
-                            durationUnit: lockDurationUnit.value
+                            durationUnit: selectedUnit,
+                            isPermanent: false
                         })
                     });
                     const json = await response.json();
@@ -1567,11 +1630,32 @@
                 });
             }
 
+            if (lockDurationUnit && lockDurationValue) {
+                lockDurationUnit.addEventListener('change', () => {
+                    updateDurationInputState(lockDurationUnit, lockDurationValue);
+                });
+            }
+
+            if (bulkLockDurationUnit && bulkLockDurationValue) {
+                bulkLockDurationUnit.addEventListener('change', () => {
+                    updateDurationInputState(bulkLockDurationUnit, bulkLockDurationValue);
+                });
+            }
+
             if (bulkLockActionSelect && bulkLockFields) {
                 bulkLockActionSelect.addEventListener('change', () => {
                     const value = bulkLockActionSelect.value;
                     const shouldShow = value === 'lock';
                     bulkLockFields.classList.toggle('d-none', !shouldShow);
+                    if (!shouldShow) {
+                        if (bulkLockDurationUnit) {
+                            bulkLockDurationUnit.value = 'minute';
+                        }
+                        if (bulkLockDurationValue) {
+                            bulkLockDurationValue.value = '30';
+                        }
+                    }
+                    updateDurationInputState(bulkLockDurationUnit, bulkLockDurationValue);
                 });
             }
 
@@ -1597,7 +1681,8 @@
                         applyLock: false,
                         unlock: false,
                         durationValue: null,
-                        durationUnit: null
+                        durationUnit: null,
+                        permanentLock: false
                     };
 
                     if (payload.applyRoles) {
@@ -1623,20 +1708,27 @@
 
                     const lockAction = bulkLockActionSelect ? bulkLockActionSelect.value : 'none';
                     if (lockAction === 'lock') {
-                        const duration = parseInt(bulkLockDurationValue.value, 10);
-                        if (Number.isNaN(duration) || duration <= 0) {
-                            renderAlert(bulkUserAlert, 'Thời gian khóa phải lớn hơn 0.', 'danger');
-                            return;
+                        const selectedUnit = bulkLockDurationUnit ? bulkLockDurationUnit.value : 'minute';
+                        const permanent = isPermanentUnit(selectedUnit);
+                        let duration = 0;
+                        if (!permanent) {
+                            duration = parseInt(bulkLockDurationValue.value, 10);
+                            if (Number.isNaN(duration) || duration <= 0) {
+                                renderAlert(bulkUserAlert, 'Thời gian khóa phải lớn hơn 0.', 'danger');
+                                return;
+                            }
                         }
                         payload.applyLock = true;
                         payload.unlock = false;
-                        payload.durationValue = duration;
-                        payload.durationUnit = bulkLockDurationUnit ? bulkLockDurationUnit.value : 'minute';
+                        payload.durationValue = permanent ? 0 : duration;
+                        payload.durationUnit = selectedUnit;
+                        payload.permanentLock = permanent;
                     } else if (lockAction === 'unlock') {
                         payload.applyLock = true;
                         payload.unlock = true;
                         payload.durationValue = 0;
                         payload.durationUnit = bulkLockDurationUnit ? bulkLockDurationUnit.value : 'minute';
+                        payload.permanentLock = false;
                     }
 
                     const hasChanges = payload.applyRoles || payload.applyPermissions || payload.applyExcludeFromLeaderboard || payload.applyBooster || payload.applyLock;
@@ -1698,6 +1790,13 @@
             userModalEl.addEventListener('hidden.bs.modal', () => {
                 state.selectedUserId = null;
                 state.currentPermissions = [];
+                if (lockDurationUnit) {
+                    lockDurationUnit.value = 'minute';
+                }
+                if (lockDurationValue) {
+                    lockDurationValue.value = '30';
+                }
+                updateDurationInputState(lockDurationUnit, lockDurationValue);
             });
 
             loadUsers();

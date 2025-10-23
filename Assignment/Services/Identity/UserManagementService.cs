@@ -441,7 +441,8 @@ namespace Assignment.Services.Identity
 
                 if (request.ApplyLock)
                 {
-                    if (!request.Unlock && (!request.DurationValue.HasValue || request.DurationValue.Value <= 0 || string.IsNullOrWhiteSpace(request.DurationUnit)))
+                    var isPermanentLock = request.PermanentLock;
+                    if (!request.Unlock && !isPermanentLock && (!request.DurationValue.HasValue || request.DurationValue.Value <= 0 || string.IsNullOrWhiteSpace(request.DurationUnit)))
                     {
                         errors.Add("Thông tin khóa tài khoản không hợp lệ.");
                     }
@@ -451,8 +452,9 @@ namespace Assignment.Services.Identity
                         {
                             UserId = user.Id,
                             Unlock = request.Unlock,
-                            DurationValue = request.Unlock ? 0 : request.DurationValue ?? 0,
-                            DurationUnit = request.DurationUnit ?? "minute",
+                            DurationValue = request.Unlock || isPermanentLock ? 0 : request.DurationValue ?? 0,
+                            DurationUnit = isPermanentLock ? "permanent" : request.DurationUnit ?? "minute",
+                            IsPermanent = isPermanentLock,
                         };
 
                         var (success, errorMessage) = await UpdateUserLockoutAsync(lockModel, cancellationToken);
@@ -517,6 +519,20 @@ namespace Assignment.Services.Identity
                 if (!result.Succeeded)
                 {
                     return (false, string.Join("; ", result.Errors.Select(error => error.Description)));
+                }
+
+                return (true, null);
+            }
+
+            if (model.IsPermanent)
+            {
+                user.LockoutEnabled = true;
+                user.LockoutEnd = DateTimeOffset.MaxValue;
+
+                var updatePermanentResult = await _userManager.UpdateAsync(user);
+                if (!updatePermanentResult.Succeeded)
+                {
+                    return (false, string.Join("; ", updatePermanentResult.Errors.Select(error => error.Description)));
                 }
 
                 return (true, null);
