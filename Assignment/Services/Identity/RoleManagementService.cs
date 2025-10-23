@@ -43,8 +43,9 @@ namespace Assignment.Services.Identity
             query = status switch
             {
                 "deleted" => query.Where(role => role.IsDeleted),
+                "all" => query,
                 "active" => query.Where(role => !role.IsDeleted),
-                _ => query,
+                _ => query.Where(role => !role.IsDeleted),
             };
 
             if (!string.IsNullOrWhiteSpace(keyword))

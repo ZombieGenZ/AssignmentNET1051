@@ -1325,8 +1325,8 @@
                     const successContent = successMessages.length > 0
                         ? successMessages.join('<br/>')
                         : 'Đã lưu thay đổi.';
-                    await openUserModal(state.selectedUserId);
-                    renderAlert(userModalAlert, successContent);
+                    userModal.hide();
+                    renderAlert(alertPlaceholder, successContent);
                     loadUsers();
                 } catch (error) {
                     renderAlert(userModalAlert, error.message || 'Không thể lưu thay đổi.', 'danger');
