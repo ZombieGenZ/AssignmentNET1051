@@ -349,11 +349,31 @@
                 keyword: '',
                 selectedUserId: null,
                 rolesCache: [],
+                rolesByName: new Map(),
+                rolePermissionsCache: new Map(),
                 currentPermissions: [],
+                directPermissionSelections: new Set(),
+                inheritedPermissionSelections: new Set(),
                 isSuperAdmin: false,
                 permissionsCache: [],
                 selectedUserIds: new Set(),
             };
+
+            const updateLockButtons = (isLocked) => {
+                if (!lockUserBtn || !unlockUserBtn) {
+                    return;
+                }
+
+                if (isLocked) {
+                    lockUserBtn.classList.add('d-none');
+                    unlockUserBtn.classList.remove('d-none');
+                } else {
+                    lockUserBtn.classList.remove('d-none');
+                    unlockUserBtn.classList.add('d-none');
+                }
+            };
+
+            const inheritedBadgeTemplate = ' <span class="badge bg-light text-secondary ms-1" data-permission-badge="true">từ vai trò</span>';
 
             const updatePermissionVisibility = () => {
                 const checkboxes = Array.from(permissionContainer.querySelectorAll('.user-permission-checkbox'));
@@ -553,6 +573,18 @@
 
             const loadRoles = async () => {
                 if (state.rolesCache.length > 0) {
+                    if (!state.rolesByName || state.rolesByName.size === 0) {
+                        state.rolesByName = new Map();
+                        state.rolesCache.forEach(role => {
+                            if (!role) {
+                                return;
+                            }
+                            const roleName = (role.name ?? role.Name ?? '').toString().trim();
+                            if (roleName) {
+                                state.rolesByName.set(roleName.toLowerCase(), role);
+                            }
+                        });
+                    }
                     return state.rolesCache;
                 }
                 const response = await fetch('/UserManagement/roles');
@@ -564,6 +596,16 @@
                     throw new Error(json.message || 'Không thể tải danh sách vai trò.');
                 }
                 state.rolesCache = json.data || [];
+                state.rolesByName = new Map();
+                state.rolesCache.forEach(role => {
+                    if (!role) {
+                        return;
+                    }
+                    const roleName = (role.name ?? role.Name ?? '').toString().trim();
+                    if (roleName) {
+                        state.rolesByName.set(roleName.toLowerCase(), role);
+                    }
+                });
                 return state.rolesCache;
             };
 
@@ -703,8 +745,12 @@
 
             const renderPermissions = (permissions, disabled) => {
                 permissionContainer.innerHTML = '';
+
                 if (!permissions || permissions.length === 0) {
                     permissionContainer.innerHTML = '<div class="text-muted">Không có quyền khả dụng.</div>';
+                    state.directPermissionSelections = new Set();
+                    state.inheritedPermissionSelections = new Set();
+                    state.currentPermissions = [];
                     return;
                 }
 
@@ -714,6 +760,9 @@
                     acc[group].push(permission);
                     return acc;
                 }, {});
+
+                const directSet = new Set();
+                const inheritedSet = new Set();
 
                 Object.entries(groups).forEach(([groupName, items]) => {
                     const wrapper = document.createElement('div');
@@ -729,19 +778,36 @@
                         const col = document.createElement('div');
                         col.className = 'col-12 col-sm-6 col-lg-4';
                         col.dataset.permissionItem = 'true';
-                        const checkboxId = `permission_${item.key ?? item.Key}`;
+                        const key = item.key ?? item.Key;
+                        const checkboxId = `permission_${key}`;
                         const isSelected = item.isSelected ?? item.IsSelected;
                         const isInherited = item.isInherited ?? item.IsInherited;
+                        const displayName = item.displayName ?? item.DisplayName ?? key;
+
+                        if (isSelected && !isInherited) {
+                            directSet.add(key);
+                        } else if (isInherited) {
+                            inheritedSet.add(key);
+                        }
+
                         col.innerHTML = `
                             <div class="form-check ${isInherited ? 'text-muted' : ''}">
-                                <input class="form-check-input user-permission-checkbox" type="checkbox" value="${item.key ?? item.Key}" id="${checkboxId}" data-permission-key="${item.key ?? item.Key}" data-is-inherited="${isInherited ? 'true' : 'false'}" ${isSelected ? 'checked' : ''} ${disabled ? 'disabled' : ''}>
-                                <label class="form-check-label" for="${checkboxId}">${item.displayName ?? item.DisplayName}${isInherited ? ' <span class="badge bg-light text-secondary ms-1">từ vai trò</span>' : ''}</label>
+                                <input class="form-check-input user-permission-checkbox" type="checkbox" value="${key}" id="${checkboxId}" data-permission-key="${key}" data-is-inherited="${isInherited ? 'true' : 'false'}"${isSelected ? ' checked' : ''} ${disabled ? 'disabled' : ''}>
+                                <label class="form-check-label" for="${checkboxId}">${displayName}${isInherited ? inheritedBadgeTemplate : ''}</label>
                             </div>`;
                         row.appendChild(col);
+                        const label = col.querySelector('label.form-check-label');
+                        if (label) {
+                            label.dataset.displayName = displayName;
+                        }
                     });
                     wrapper.appendChild(row);
                     permissionContainer.appendChild(wrapper);
                 });
+
+                state.directPermissionSelections = directSet;
+                state.inheritedPermissionSelections = inheritedSet;
+                state.currentPermissions = Array.isArray(permissions) ? permissions : [];
 
                 updatePermissionVisibility();
             };
@@ -827,7 +893,24 @@
                 if (!checkbox || checkbox.disabled) {
                     return;
                 }
+                const key = checkbox.value;
                 checkbox.dataset.isInherited = 'false';
+                checkbox.indeterminate = false;
+                const formCheck = checkbox.closest('.form-check');
+                if (formCheck) {
+                    formCheck.classList.remove('text-muted');
+                    const label = formCheck.querySelector('label.form-check-label');
+                    if (label) {
+                        const baseName = label.dataset.displayName || label.textContent || '';
+                        label.textContent = baseName;
+                    }
+                }
+                if (checkbox.checked) {
+                    state.directPermissionSelections.add(key);
+                } else {
+                    state.directPermissionSelections.delete(key);
+                }
+                state.inheritedPermissionSelections.delete(key);
                 updatePermissionVisibility();
             });
 
@@ -963,6 +1046,7 @@
                     userLockoutEl.innerHTML = user.lockoutEnd
                         ? formatDateTime(user.lockoutEnd)
                         : '<span class="text-muted">Không</span>';
+                    updateLockButtons(!!user.isLockedOut);
 
                     renderRoles(roles, user.roles, state.isSuperAdmin);
                     renderPermissions(state.currentPermissions, state.isSuperAdmin);
@@ -996,7 +1080,160 @@
             };
 
             const getSelectedRoles = () => Array.from(document.querySelectorAll('.user-role-checkbox:checked')).map(cb => cb.value);
-            const getSelectedPermissions = () => Array.from(document.querySelectorAll('.user-permission-checkbox:checked')).map(cb => cb.value);
+            const getSelectedPermissions = () => Array.from(document.querySelectorAll('.user-permission-checkbox:checked'))
+                .filter(cb => cb.dataset.isInherited !== 'true')
+                .map(cb => cb.value);
+
+            const findRoleByName = (roleName) => {
+                if (!roleName) {
+                    return null;
+                }
+
+                const normalized = roleName.trim().toLowerCase();
+                if (!normalized) {
+                    return null;
+                }
+
+                if (state.rolesByName && state.rolesByName.has(normalized)) {
+                    return state.rolesByName.get(normalized);
+                }
+
+                const fallback = state.rolesCache.find(role => (role?.name ?? role?.Name ?? '').toString().toLowerCase() === normalized);
+                if (fallback && state.rolesByName) {
+                    state.rolesByName.set(normalized, fallback);
+                }
+                return fallback || null;
+            };
+
+            const getRolePermissionKeys = async (roleId) => {
+                if (!roleId) {
+                    return new Set();
+                }
+
+                if (state.rolePermissionsCache.has(roleId)) {
+                    return state.rolePermissionsCache.get(roleId);
+                }
+
+                const response = await fetch(`/RoleManagement/roles/${roleId}`);
+                if (!response.ok) {
+                    throw new Error('Không thể tải quyền của vai trò.');
+                }
+                const json = await response.json();
+                if (!json.success) {
+                    throw new Error(json.message || 'Không thể tải quyền của vai trò.');
+                }
+
+                const permissions = json.data?.permissions ?? [];
+                const keys = new Set();
+                permissions.forEach(permission => {
+                    const key = permission.key ?? permission.Key;
+                    const isSelected = permission.isSelected ?? permission.IsSelected;
+                    if (key && isSelected) {
+                        keys.add(key);
+                    }
+                });
+
+                state.rolePermissionsCache.set(roleId, keys);
+                return keys;
+            };
+
+            const collectInheritedPermissionsFromSelectedRoles = async () => {
+                const selectedRoles = getSelectedRoles();
+                const inherited = new Set();
+
+                for (const roleName of selectedRoles) {
+                    const role = findRoleByName(roleName);
+                    if (!role) {
+                        continue;
+                    }
+
+                    const roleId = role.id ?? role.Id;
+                    if (!roleId) {
+                        continue;
+                    }
+
+                    const keys = await getRolePermissionKeys(roleId);
+                    if (keys && typeof keys.forEach === 'function') {
+                        keys.forEach(key => inherited.add(key));
+                    }
+                }
+
+                return inherited;
+            };
+
+            const applyInheritedPermissions = (inheritedPermissions) => {
+                if (!permissionContainer) {
+                    return;
+                }
+
+                const checkboxes = Array.from(permissionContainer.querySelectorAll('.user-permission-checkbox'));
+                const inheritedSet = inheritedPermissions instanceof Set ? inheritedPermissions : new Set(inheritedPermissions);
+
+                checkboxes.forEach(checkbox => {
+                    const key = checkbox.value;
+                    const formCheck = checkbox.closest('.form-check');
+
+                    if (state.directPermissionSelections.has(key)) {
+                        checkbox.checked = true;
+                        checkbox.dataset.isInherited = 'false';
+                        checkbox.indeterminate = false;
+                        formCheck?.classList.remove('text-muted');
+                        const label = formCheck?.querySelector('label.form-check-label');
+                        if (label) {
+                            const baseName = label.dataset.displayName || label.textContent || '';
+                            label.textContent = baseName;
+                        }
+                    } else if (inheritedSet.has(key)) {
+                        checkbox.checked = true;
+                        checkbox.dataset.isInherited = 'true';
+                        checkbox.indeterminate = false;
+                        formCheck?.classList.add('text-muted');
+                        const label = formCheck?.querySelector('label.form-check-label');
+                        if (label) {
+                            const baseName = label.dataset.displayName || label.textContent || '';
+                            label.textContent = baseName;
+                            label.insertAdjacentHTML('beforeend', inheritedBadgeTemplate);
+                        }
+                    } else {
+                        checkbox.checked = false;
+                        checkbox.dataset.isInherited = 'false';
+                        checkbox.indeterminate = false;
+                        formCheck?.classList.remove('text-muted');
+                        const label = formCheck?.querySelector('label.form-check-label');
+                        if (label) {
+                            const baseName = label.dataset.displayName || label.textContent || '';
+                            label.textContent = baseName;
+                        }
+                    }
+                });
+
+                state.inheritedPermissionSelections = new Set(inheritedSet);
+                updatePermissionVisibility();
+            };
+
+            let rolePermissionsUpdateToken = 0;
+
+            if (roleContainer) {
+                roleContainer.addEventListener('change', async (event) => {
+                    const checkbox = event.target.closest('.user-role-checkbox');
+                    if (!checkbox || checkbox.disabled) {
+                        return;
+                    }
+
+                    rolePermissionsUpdateToken += 1;
+                    const updateToken = rolePermissionsUpdateToken;
+
+                    try {
+                        const inherited = await collectInheritedPermissionsFromSelectedRoles();
+                        if (updateToken !== rolePermissionsUpdateToken) {
+                            return;
+                        }
+                        applyInheritedPermissions(inherited);
+                    } catch (error) {
+                        renderAlert(userModalAlert, error.message || 'Không thể tải quyền của vai trò.', 'danger');
+                    }
+                });
+            }
 
             const updateUserRoles = async () => {
                 const roles = getSelectedRoles();
@@ -1084,7 +1321,12 @@
                             messages.push(settingsMessage);
                         }
                     }
-                    renderAlert(userModalAlert, messages.join('<br/>'));
+                    const successMessages = messages.filter(message => !!message);
+                    const successContent = successMessages.length > 0
+                        ? successMessages.join('<br/>')
+                        : 'Đã lưu thay đổi.';
+                    await openUserModal(state.selectedUserId);
+                    renderAlert(userModalAlert, successContent);
                     loadUsers();
                 } catch (error) {
                     renderAlert(userModalAlert, error.message || 'Không thể lưu thay đổi.', 'danger');
@@ -1124,8 +1366,9 @@
                     if (!response.ok || !json.success) {
                         throw new Error(json.message || 'Không thể khóa tài khoản.');
                     }
-                    renderAlert(userModalAlert, json.message || 'Đã khóa tài khoản.');
+                    const successMessage = json.message || 'Đã khóa tài khoản.';
                     await openUserModal(state.selectedUserId);
+                    renderAlert(userModalAlert, successMessage);
                     loadUsers();
                 } catch (error) {
                     renderAlert(userModalAlert, error.message || 'Không thể khóa tài khoản.', 'danger');
@@ -1160,8 +1403,9 @@
                     if (!response.ok || !json.success) {
                         throw new Error(json.message || 'Không thể mở khóa tài khoản.');
                     }
-                    renderAlert(userModalAlert, json.message || 'Đã mở khóa tài khoản.');
+                    const successMessage = json.message || 'Đã mở khóa tài khoản.';
                     await openUserModal(state.selectedUserId);
+                    renderAlert(userModalAlert, successMessage);
                     loadUsers();
                 } catch (error) {
                     renderAlert(userModalAlert, error.message || 'Không thể mở khóa tài khoản.', 'danger');

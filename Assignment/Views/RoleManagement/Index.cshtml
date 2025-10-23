@@ -37,7 +37,7 @@
         <div class="card-body">
             <div id="roleAlert"></div>
             <div class="row g-3 mb-3 align-items-end">
-                <div class="col-12 col-md-4">
+                <div class="col-12 col-md-5">
                     <label class="form-label" for="roleSearchInput">Tìm kiếm</label>
                     <div class="input-group">
                         <span class="input-group-text"><i class="fas fa-search"></i></span>
@@ -45,14 +45,6 @@
                     </div>
                 </div>
                 <div class="col-6 col-md-3">
-                    <label class="form-label" for="roleStatusFilter">Trạng thái</label>
-                    <select class="form-select" id="roleStatusFilter">
-                        <option value="">Tất cả</option>
-                        <option value="active" selected>Đang hoạt động</option>
-                        <option value="deleted">Đã xóa</option>
-                    </select>
-                </div>
-                <div class="col-6 col-md-2">
                     <label class="form-label" for="rolePageSize">Số dòng</label>
                     <select class="form-select" id="rolePageSize">
                         <option value="5">5</option>
@@ -61,7 +53,7 @@
                         <option value="50">50</option>
                     </select>
                 </div>
-                <div class="col-12 col-md-3 text-md-end">
+                <div class="col-12 col-md-4 text-md-end">
                     <span class="text-muted small" id="roleTableStatus">Đang tải dữ liệu...</span>
                 </div>
             </div>
@@ -179,7 +171,6 @@
             const statusText = document.getElementById('roleTableStatus');
             const alertPlaceholder = document.getElementById('roleAlert');
             const searchInput = document.getElementById('roleSearchInput');
-            const statusFilter = document.getElementById('roleStatusFilter');
             const pageSizeSelect = document.getElementById('rolePageSize');
             const refreshBtn = document.getElementById('refreshRoleBtn');
             const createBtn = document.getElementById('createRoleBtn');
@@ -201,7 +192,6 @@
             const state = {
                 page: 1,
                 pageSize: parseInt(pageSizeSelect.value, 10),
-                status: statusFilter.value,
                 keyword: '',
                 deletingId: null,
                 editingId: null
@@ -364,9 +354,6 @@
                 if (state.keyword) {
                     params.append('keyword', state.keyword);
                 }
-                if (state.status) {
-                    params.append('status', state.status);
-                }
                 params.append('page', state.page);
                 params.append('pageSize', state.pageSize);
                 return params.toString();
@@ -486,12 +473,6 @@
 
             searchInput.addEventListener('input', () => {
                 state.keyword = searchInput.value.trim();
-                state.page = 1;
-                loadRoles();
-            });
-
-            statusFilter.addEventListener('change', () => {
-                state.status = statusFilter.value;
                 state.page = 1;
                 loadRoles();
             });
