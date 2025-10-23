@@ -9,5 +9,7 @@ namespace Assignment.ViewModels.Identity
         public string DurationUnit { get; set; } = "minute";
 
         public bool Unlock { get; set; }
+
+        public bool IsPermanent { get; set; }
     }
 }

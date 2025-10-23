@@ -101,7 +101,13 @@ namespace Assignment.Controllers
                 return BadRequest(new { success = false, message = result.ErrorMessage ?? "Không thể cập nhật trạng thái khóa." });
             }
 
-            return Json(new { success = true, message = model.Unlock ? "Đã mở khóa người dùng." : "Đã cập nhật thời gian khóa tài khoản." });
+            var message = model.Unlock
+                ? "Đã mở khóa người dùng."
+                : model.IsPermanent
+                    ? "Đã khóa tài khoản vĩnh viễn."
+                    : "Đã cập nhật thời gian khóa tài khoản.";
+
+            return Json(new { success = true, message });
         }
 
         [HttpPost("users/{id}/settings")]

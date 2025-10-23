@@ -30,6 +30,8 @@ namespace Assignment.ViewModels.Identity
         public int? DurationValue { get; set; }
 
         public string? DurationUnit { get; set; }
+
+        public bool PermanentLock { get; set; }
     }
 
     public class BulkUserUpdateResult
