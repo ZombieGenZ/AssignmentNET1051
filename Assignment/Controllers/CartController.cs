@@ -67,8 +67,17 @@ namespace Assignment.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted && p.IsPublish);
+            var product = await _context.Products
+                .Include(p => p.ProductTypes)
+                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
             if (product == null)
+            {
+                return Json(new { success = false, error = "Sản phẩm không khả dụng." });
+            }
+
+            product.RefreshDerivedFields();
+
+            if (!product.IsPublish)
             {
                 return Json(new { success = false, error = "Sản phẩm không khả dụng." });
             }
@@ -114,16 +123,25 @@ namespace Assignment.Controllers
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            var product = await _context.Products.FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted && p.IsPublish);
+            var product = await _context.Products
+                .Include(p => p.ProductTypes)
+                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
             if (product == null)
             {
                 return Json(new { success = false, error = "Sản phẩm không khả dụng." });
             }
 
-            var normalizedQuantity = quantity < 1 ? 1 : quantity;
-            if (product.Stock > 0 && normalizedQuantity > product.Stock)
+            product.RefreshDerivedFields();
+
+            if (!product.IsPublish)
             {
-                normalizedQuantity = product.Stock;
+                return Json(new { success = false, error = "Sản phẩm không khả dụng." });
+            }
+
+            var normalizedQuantity = quantity < 1 ? 1 : quantity;
+            if (product.TotalStock > 0 && normalizedQuantity > product.TotalStock)
+            {
+                normalizedQuantity = product.TotalStock;
             }
 
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);

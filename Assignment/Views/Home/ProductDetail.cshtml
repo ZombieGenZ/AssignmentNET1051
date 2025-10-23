@@ -3,8 +3,12 @@
 
 @{
     var product = Model.Product;
+    product.RefreshDerivedFields();
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
     ViewData["Title"] = product.Name;
+    var defaultType = product.PrimaryProductType;
+    var discountType = defaultType?.DiscountType ?? Assignment.Enums.DiscountType.None;
+    var discountValue = defaultType?.Discount;
 }
 
 <style>
@@ -1011,9 +1015,9 @@
                 <div class="col-lg-6 mb-4 mb-lg-0">
                     <div class="product-media">
                         <img src="@product.ProductImageUrl" class="product-detail-image" alt="@product.Name" />
-                        @if (product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue)
+                        @if (discountType == Assignment.Enums.DiscountType.Percent && discountValue.HasValue)
                         {
-                            <span class="discount-chip">-@product.Discount%</span>
+                            <span class="discount-chip">-@discountValue%</span>
                         }
                     </div>
                 </div>
@@ -1057,25 +1061,30 @@
                         </div>
 
                         @{
-                            var hasPercentDiscount = product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue;
-                            var hasFixedDiscount = product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue;
-                            var hasAmountDiscount = product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue;
+                            var hasPercentDiscount = discountType == Assignment.Enums.DiscountType.Percent && discountValue.HasValue;
+                            var hasFixedDiscount = discountType == Assignment.Enums.DiscountType.FixedAmount && discountValue.HasValue;
+                            var hasAmountDiscount = discountType == Assignment.Enums.DiscountType.Amount && discountValue.HasValue;
+                            var hasDiscount = discountType != Assignment.Enums.DiscountType.None && discountValue.HasValue;
                             var finalPrice = PriceCalculator.GetProductFinalPrice(product);
-                            var savings = Math.Max(product.Price - finalPrice, 0);
+                            var originalPrice = defaultType?.Price ?? 0m;
+                            var savings = Math.Max((double)originalPrice - finalPrice, 0);
+                            var priceDisplay = string.IsNullOrWhiteSpace(product.PriceRange)
+                                ? originalPrice.ToString("N0")
+                                : product.PriceRange;
                         }
 
                         <div class="price-section">
-                            @if (product.DiscountType == Assignment.Enums.DiscountType.None || (!product.Discount.HasValue && product.DiscountType != Assignment.Enums.DiscountType.None))
+                            @if (!hasDiscount)
                             {
-                                <div class="final-price">@product.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@priceDisplay ₫</div>
                             }
-                            else if (product.DiscountType == Assignment.Enums.DiscountType.Percent && product.Discount.HasValue)
+                            else if (hasPercentDiscount)
                             {
                                 <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge-large">-@product.Discount%</span>
+                                    <span class="badge-large">-@discountValue%</span>
                                     <span class="text-muted small">Ưu đãi theo %</span>
                                 </div>
-                                <div class="original-price mb-2">@product.Price.ToString("N0") ₫</div>
+                                <div class="original-price mb-2">@originalPrice.ToString("N0") ₫</div>
                                 <div class="final-price">@finalPrice.ToString("N0") ₫</div>
                                 @if (savings > 0)
                                 {
@@ -1084,13 +1093,13 @@
                                     </div>
                                 }
                             }
-                            else if (product.DiscountType == Assignment.Enums.DiscountType.FixedAmount && product.Discount.HasValue)
+                            else if (hasFixedDiscount)
                             {
                                 <div class="d-flex align-items-center gap-2 mb-2">
                                     <span class="badge-large">Giá đặc biệt</span>
                                     <span class="text-muted small">Ưu đãi độc quyền</span>
                                 </div>
-                                <div class="original-price mb-2">@product.Price.ToString("N0") ₫</div>
+                                <div class="original-price mb-2">@originalPrice.ToString("N0") ₫</div>
                                 <div class="final-price">@finalPrice.ToString("N0") ₫</div>
                                 @if (savings > 0)
                                 {
@@ -1099,13 +1108,13 @@
                                     </div>
                                 }
                             }
-                            else if (product.DiscountType == Assignment.Enums.DiscountType.Amount && product.Discount.HasValue)
+                            else if (hasAmountDiscount)
                             {
                                 <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge-large">Giảm @product.Discount.Value.ToString("N0") ₫</span>
+                                    <span class="badge-large">Giảm @discountValue.Value.ToString("N0") ₫</span>
                                     <span class="text-muted small">Ưu đãi theo tiền</span>
                                 </div>
-                                <div class="original-price mb-2">@product.Price.ToString("N0") ₫</div>
+                                <div class="original-price mb-2">@originalPrice.ToString("N0") ₫</div>
                                 <div class="final-price">@finalPrice.ToString("N0") ₫</div>
                                 @if (savings > 0)
                                 {
@@ -1116,7 +1125,7 @@
                             }
                             else
                             {
-                                <div class="final-price">@product.Price.ToString("N0") ₫</div>
+                                <div class="final-price">@priceDisplay ₫</div>
                             }
                         </div>
 
@@ -1125,23 +1134,23 @@
                                 <i class="fas fa-clock"></i>
                                 <div>
                                     <strong>Thời gian chuẩn bị</strong>
-                                    <span class="info-text">@product.PreparationTime phút</span>
+                                    <span class="info-text">@product.MinPreparationTime phút</span>
                                 </div>
                             </div>
                             <div class="info-item">
                                 <i class="fas fa-fire"></i>
                                 <div>
                                     <strong>Calories</strong>
-                                    <span class="info-text">@product.Calories kcal</span>
+                                    <span class="info-text">@product.MinCalories kcal</span>
                                 </div>
                             </div>
                             <div class="info-item">
                                 <i class="fas fa-box"></i>
                                 <div>
                                     <strong>Tình trạng</strong>
-                                    @if (product.Stock > 0)
+                                    @if (product.TotalStock > 0)
                                     {
-                                        <span class="status-positive">Còn hàng (@product.Stock sản phẩm)</span>
+                                        <span class="status-positive">Còn hàng (@product.TotalStock sản phẩm)</span>
                                     }
                                     else
                                     {
@@ -1153,7 +1162,7 @@
                                 <i class="fas fa-chart-line"></i>
                                 <div>
                                     <strong>Đã bán</strong>
-                                    <span class="info-text">@product.Sold sản phẩm</span>
+                                    <span class="info-text">@product.TotalSold sản phẩm</span>
                                 </div>
                             </div>
                         </div>
@@ -1161,15 +1170,15 @@
                         <div class="detail-actions">
                             <div class="quantity-selector">
                                 <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
-                                <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@product.Stock" />
+                                <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@product.TotalStock" />
                                 <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
                             </div>
 
-                            <button type="button" class="btn-add-large" onclick="addToCartWithQuantity()" @(product.Stock <= 0 ? "disabled" : "")>
+                            <button type="button" class="btn-add-large" onclick="addToCartWithQuantity()" @(product.TotalStock <= 0 ? "disabled" : "")>
                                 <i class="fas fa-shopping-cart me-2"></i>
                                 Thêm vào giỏ hàng
                             </button>
-                            <button type="button" class="btn-buy-now" onclick="buyNow()" @(product.Stock <= 0 ? "disabled" : "")>
+                            <button type="button" class="btn-buy-now" onclick="buyNow()" @(product.TotalStock <= 0 ? "disabled" : "")>
                                 <i class="fas fa-bolt me-2"></i>Mua ngay
                             </button>
                         </div>
@@ -1187,7 +1196,7 @@
                 <div class="col-lg-6">
                     <div class="description-section h-100">
                         <h3><i class="fas fa-list-ul me-2"></i>Thành phần</h3>
-                        <p>@product.Ingredients</p>
+                        <p>@product.CombinedIngredients</p>
                     </div>
                 </div>
             </div>
@@ -1452,7 +1461,7 @@
 
 @section Scripts {
     <script>
-        const maxStock = @product.Stock;
+        const maxStock = @product.TotalStock;
         const loginUrl = '@Url.Page("/Account/Login", new { area = "Identity" })';
 
         function increaseQuantity() {

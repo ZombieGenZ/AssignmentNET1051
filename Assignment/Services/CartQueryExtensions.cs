@@ -16,6 +16,7 @@ namespace Assignment.Services
             var cart = await context.Carts
                 .Include(c => c.CartItems)
                     .ThenInclude(ci => ci.Product)
+                        .ThenInclude(p => p.ProductTypes)
                 .Include(c => c.CartItems)
                     .ThenInclude(ci => ci.Combo)
                 .FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
@@ -26,6 +27,11 @@ namespace Assignment.Services
             }
 
             var items = cart.CartItems.ToList();
+
+            foreach (var item in items)
+            {
+                item.Product?.RefreshDerivedFields();
+            }
             var unavailableItems = items
                 .Where(ci => IsUnavailable(ci))
                 .ToList();

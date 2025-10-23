@@ -482,6 +482,7 @@ namespace Assignment.Controllers
                 .Where(o => o.UserId == userId)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
+                        .ThenInclude(p => p.ProductTypes)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Combo)
                 .OrderByDescending(o => o.CreatedAt)
@@ -503,7 +504,8 @@ namespace Assignment.Controllers
             var ordersQuery = _context.Orders
                 .Where(o => !o.IsDeleted)
                 .Include(o => o.OrderItems)!
-                    .ThenInclude(oi => oi.Product)
+                    .ThenInclude(oi => oi.Product)!
+                        .ThenInclude(p => p.ProductTypes)
                 .Include(o => o.OrderItems)!
                     .ThenInclude(oi => oi.Combo)
                 .AsQueryable();
@@ -566,7 +568,8 @@ namespace Assignment.Controllers
             var order = await _context.Orders
                 .Where(o => o.Id == id && !o.IsDeleted)
                 .Include(o => o.OrderItems)!
-                    .ThenInclude(oi => oi.Product)
+                    .ThenInclude(oi => oi.Product)!
+                        .ThenInclude(p => p.ProductTypes)
                 .Include(o => o.OrderItems)!
                     .ThenInclude(oi => oi.Combo)
                 .FirstOrDefaultAsync();
@@ -799,6 +802,7 @@ namespace Assignment.Controllers
             var order = await _context.Orders
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Product)
+                        .ThenInclude(p => p.ProductTypes)
                 .Include(o => o.OrderItems)
                     .ThenInclude(oi => oi.Combo)
                 .FirstOrDefaultAsync(o => o.Id == id && o.UserId == userId);
@@ -1329,6 +1333,7 @@ namespace Assignment.Controllers
         {
             if (cartItem.Product != null)
             {
+                cartItem.Product.RefreshDerivedFields();
                 return PriceCalculator.GetProductFinalPrice(cartItem.Product);
             }
 
