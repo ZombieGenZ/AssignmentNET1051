@@ -159,11 +159,11 @@
                 <div class="border rounded p-3">
                     <h6 class="text-primary"><i class="fas fa-lock me-2"></i>Khóa tài khoản</h6>
                     <div class="row g-3 align-items-end" id="lockSection">
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-md-4" data-lock-duration-field>
                             <label class="form-label" for="lockDurationValue">Thời gian</label>
                             <input type="number" class="form-control" id="lockDurationValue" min="1" value="30" />
                         </div>
-                        <div class="col-12 col-md-3">
+                        <div class="col-12 col-md-3" data-lock-duration-field>
                             <label class="form-label" for="lockDurationUnit">Đơn vị</label>
                             <select class="form-select" id="lockDurationUnit">
                                 <option value="minute">Phút</option>
@@ -172,7 +172,7 @@
                                 <option value="permanent">Vĩnh viễn</option>
                             </select>
                         </div>
-                        <div class="col-12 col-md-5 d-flex gap-2">
+                        <div class="col-12 col-md-5 d-flex gap-2" data-lock-action-column>
                             <button type="button" class="btn btn-outline-danger flex-fill" id="lockUserBtn">
                                 <i class="fas fa-lock me-1"></i>Khóa tài khoản
                             </button>
@@ -319,6 +319,8 @@
             const lockSection = document.getElementById('lockSection');
             const lockDurationValue = document.getElementById('lockDurationValue');
             const lockDurationUnit = document.getElementById('lockDurationUnit');
+            const lockDurationFields = lockSection ? Array.from(lockSection.querySelectorAll('[data-lock-duration-field]')) : [];
+            const lockActionColumn = lockSection ? lockSection.querySelector('[data-lock-action-column]') : null;
             const lockUserBtn = document.getElementById('lockUserBtn');
             const unlockUserBtn = document.getElementById('unlockUserBtn');
             const saveUserChangesBtn = document.getElementById('saveUserChangesBtn');
@@ -392,6 +394,19 @@
                 }
             };
 
+            const setLockDurationVisibility = (isLocked) => {
+                if (lockDurationFields.length > 0) {
+                    lockDurationFields.forEach(field => {
+                        field.classList.toggle('d-none', isLocked);
+                    });
+                }
+
+                if (lockActionColumn) {
+                    lockActionColumn.classList.toggle('col-md-5', !isLocked);
+                    lockActionColumn.classList.toggle('col-md-12', isLocked);
+                }
+            };
+
             updateDurationInputState(lockDurationUnit, lockDurationValue);
             updateDurationInputState(bulkLockDurationUnit, bulkLockDurationValue);
 
@@ -399,6 +414,8 @@
                 if (!lockUserBtn || !unlockUserBtn) {
                     return;
                 }
+
+                setLockDurationVisibility(isLocked);
 
                 if (isLocked) {
                     lockUserBtn.classList.add('d-none');
@@ -1052,6 +1069,7 @@
                 lockDurationUnit.value = 'minute';
                 lockDurationValue.value = '30';
                 updateDurationInputState(lockDurationUnit, lockDurationValue);
+                setLockDurationVisibility(false);
                 lockUserBtn.disabled = false;
                 unlockUserBtn.disabled = false;
                 saveUserChangesBtn.disabled = false;
