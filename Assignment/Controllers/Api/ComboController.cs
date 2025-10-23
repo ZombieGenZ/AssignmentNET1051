@@ -45,7 +45,8 @@ namespace Assignment.Controllers.Api
             IQueryable<Combo> query = _context.Combos
                 .AsNoTracking()
                 .Include(c => c.ComboItems)!
-                .ThenInclude(ci => ci.Product)
+                .ThenInclude(ci => ci.Product)!
+                    .ThenInclude(p => p.ProductTypes)
                 .Where(c => !c.IsDeleted);
 
             if (!canGetAll)
@@ -66,7 +67,8 @@ namespace Assignment.Controllers.Api
         {
             var combo = await _context.Combos
                 .Include(c => c.ComboItems)!
-                .ThenInclude(ci => ci.Product)
+                .ThenInclude(ci => ci.Product)!
+                    .ThenInclude(p => p.ProductTypes)
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
             if (combo == null)
@@ -152,7 +154,8 @@ namespace Assignment.Controllers.Api
 
             var createdCombo = await _context.Combos
                 .Include(c => c.ComboItems)!
-                .ThenInclude(ci => ci.Product)
+                .ThenInclude(ci => ci.Product)!
+                    .ThenInclude(p => p.ProductTypes)
                 .FirstOrDefaultAsync(c => c.Id == combo.Id);
 
             return CreatedAtAction(nameof(GetCombo), new { id = combo.Id }, MapToResponse(createdCombo!));
@@ -646,7 +649,13 @@ namespace Assignment.Controllers.Api
 
             var products = await _context.Products
                 .Where(p => productIds.Contains(p.Id) && !p.IsDeleted)
+                .Include(p => p.ProductTypes)
                 .ToListAsync();
+
+            foreach (var product in products)
+            {
+                product.RefreshDerivedFields();
+            }
 
             if (products.Count != productIds.Count)
             {
@@ -684,28 +693,40 @@ namespace Assignment.Controllers.Api
             var userId = CurrentUserId;
 
             IQueryable<Product> query = _context.Products
-                .Where(p => !p.IsDeleted && p.IsPublish);
+                .Where(p => !p.IsDeleted && p.IsPublish)
+                .Include(p => p.ProductTypes);
 
             if (!hasGetProductAll)
             {
                 query = query.Where(p => p.CreateBy == userId);
             }
 
-            return await query.ToListAsync();
+            var products = await query.ToListAsync();
+
+            foreach (var product in products)
+            {
+                product.RefreshDerivedFields();
+            }
+
+            return products;
         }
 
         private static ComboResponse MapToResponse(Combo combo)
         {
             var items = combo.ComboItems?
                 .Where(ci => !ci.IsDeleted)
-                .Select(ci => new ComboItemResponse
+                .Select(ci =>
                 {
-                    Id = ci.Id,
-                    ProductId = ci.ProductId,
-                    ProductName = ci.Product?.Name ?? $"Sản phẩm #{ci.ProductId}",
-                    ProductImageUrl = ci.Product?.ProductImageUrl,
-                    Quantity = ci.Quantity,
-                    ProductFinalPrice = ci.Product != null ? PriceCalculator.GetProductFinalPrice(ci.Product) : 0
+                    ci.Product?.RefreshDerivedFields();
+                    return new ComboItemResponse
+                    {
+                        Id = ci.Id,
+                        ProductId = ci.ProductId,
+                        ProductName = ci.Product?.Name ?? $"Sản phẩm #{ci.ProductId}",
+                        ProductImageUrl = ci.Product?.ProductImageUrl,
+                        Quantity = ci.Quantity,
+                        ProductFinalPrice = ci.Product != null ? PriceCalculator.GetProductFinalPrice(ci.Product) : 0
+                    };
                 })
                 .OrderBy(ci => ci.ProductName)
                 .ToList() ?? new List<ComboItemResponse>();

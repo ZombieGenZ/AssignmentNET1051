@@ -25,6 +25,7 @@ namespace Assignment.Data
         public DbSet<ComboItem> ComboItems { get; set; }
         public DbSet<Cart> Carts { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
+        public DbSet<ProductType> ProductTypes { get; set; }
         public DbSet<Voucher> Vouchers { get; set; }
         public DbSet<VoucherUser> VoucherUsers { get; set; }
         public DbSet<VoucherProduct> VoucherProducts { get; set; }

@@ -1,6 +1,7 @@
 using Assignment.Models;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Assignment.Enums;
 
 namespace Assignment.Services
@@ -14,22 +15,43 @@ namespace Assignment.Services
                 return 0;
             }
 
-            double price = product.Price;
+            product.RefreshDerivedFields();
 
-            if (product.DiscountType == DiscountType.Percent && product.Discount.HasValue)
+            var availableTypes = product.ProductTypes?
+                .Where(pt => !pt.IsDeleted)
+                .ToList()
+                ?? new List<ProductType>();
+
+            if (!availableTypes.Any())
             {
-                price -= price * product.Discount.Value / 100.0;
-            }
-            else if (product.DiscountType == DiscountType.FixedAmount && product.Discount.HasValue)
-            {
-                price = product.Discount.Value;
-            }
-            else if (product.DiscountType == DiscountType.Amount && product.Discount.HasValue)
-            {
-                price -= product.Discount.Value;
+                return 0;
             }
 
-            return Math.Max(price, 0);
+            var publishedTypes = availableTypes
+                .Where(pt => pt.IsPublish)
+                .ToList();
+
+            var priceCandidates = publishedTypes.Any() ? publishedTypes : availableTypes;
+
+            double minFinalPrice = double.MaxValue;
+
+            foreach (var type in priceCandidates)
+            {
+                var discountValue = type.Discount.HasValue ? (double?)type.Discount.Value : null;
+                var finalPrice = ApplyDiscount((double)type.Price, type.DiscountType, discountValue);
+
+                if (finalPrice < minFinalPrice)
+                {
+                    minFinalPrice = finalPrice;
+                }
+            }
+
+            if (minFinalPrice == double.MaxValue)
+            {
+                return 0;
+            }
+
+            return Math.Round(Math.Max(minFinalPrice, 0), 2);
         }
 
         public static double GetComboBasePrice(IEnumerable<(Product? product, long quantity)> items)
@@ -55,7 +77,7 @@ namespace Assignment.Services
             return Math.Round(Math.Max(total, 0), 2);
         }
 
-        public static double ApplyDiscount(double price, DiscountType discountType, long? discountValue)
+        public static double ApplyDiscount(double price, DiscountType discountType, double? discountValue)
         {
             var normalizedPrice = Math.Max(price, 0);
             double finalPrice = normalizedPrice;
@@ -83,7 +105,8 @@ namespace Assignment.Services
                 return 0;
             }
 
-            return ApplyDiscount(combo.Price, combo.DiscountType, combo.Discount);
+            var discountValue = combo.Discount.HasValue ? (double?)combo.Discount.Value : null;
+            return ApplyDiscount(combo.Price, combo.DiscountType, discountValue);
         }
     }
 }

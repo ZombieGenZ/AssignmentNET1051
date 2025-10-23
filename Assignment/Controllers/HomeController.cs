@@ -48,18 +48,37 @@ namespace Assignment.Controllers
             }
 
             var products = await _context.Products
-                .Where(p => p.IsPublish && !p.IsDeleted)
+                .Where(p => !p.IsDeleted)
+                .Include(p => p.ProductTypes)
                 .Include(p => p.Category)
                 .OrderBy(p => p.Category.Index)
                 .ThenBy(p => p.Id)
                 .ToListAsync();
 
+            foreach (var product in products)
+            {
+                product.RefreshDerivedFields();
+            }
+
+            products = products
+                .Where(p => p.IsPublish)
+                .ToList();
+
             var combos = await _context.Combos
                 .Include(c => c.ComboItems)
                     .ThenInclude(ci => ci.Product)
+                        .ThenInclude(p => p.ProductTypes)
                 .Where(c => !c.IsDeleted && c.IsPublish)
                 .OrderBy(c => c.Index)
                 .ToListAsync();
+
+            foreach (var combo in combos)
+            {
+                foreach (var item in combo.ComboItems ?? Enumerable.Empty<ComboItem>())
+                {
+                    item.Product?.RefreshDerivedFields();
+                }
+            }
 
             var categories = await _context.Categories
                 .Where(c => !c.IsDeleted)
@@ -130,7 +149,7 @@ namespace Assignment.Controllers
 
             if (filter.OnlyDiscounted)
             {
-                filteredProducts = filteredProducts.Where(p => p.DiscountType != DiscountType.None);
+                filteredProducts = filteredProducts.Where(p => p.HasDiscount);
                 filteredCombos = filteredCombos.Where(c => c.DiscountType != DiscountType.None);
             }
 
@@ -162,11 +181,14 @@ namespace Assignment.Controllers
         public async Task<IActionResult> ProductDetail(long id, int? rating)
         {
             var product = await _context.Products
+                .Include(p => p.ProductTypes)
                 .Include(p => p.Category)
                 .FirstOrDefaultAsync(p => p.Id == id && p.IsPublish);
 
             if (product == null)
                 return NotFound();
+
+            product.RefreshDerivedFields();
 
             var viewModel = new ProductDetailViewModel
             {
@@ -264,10 +286,16 @@ namespace Assignment.Controllers
             var combo = await _context.Combos
                 .Include(c => c.ComboItems)
                     .ThenInclude(ci => ci.Product)
+                        .ThenInclude(p => p.ProductTypes)
                 .FirstOrDefaultAsync(c => c.Id == id && c.IsPublish);
 
             if (combo == null)
                 return NotFound();
+
+            foreach (var item in combo.ComboItems ?? Enumerable.Empty<ComboItem>())
+            {
+                item.Product?.RefreshDerivedFields();
+            }
 
             var viewModel = new ComboDetailViewModel
             {
