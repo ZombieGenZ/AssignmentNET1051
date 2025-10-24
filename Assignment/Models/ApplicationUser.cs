@@ -1,6 +1,7 @@
 using System;
 using Assignment.Enums;
 using Microsoft.AspNetCore.Identity;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Assignment.Models
 {
@@ -18,6 +19,8 @@ namespace Assignment.Models
         public long TotalPoint { get; set; }
         public CustomerRank Rank { get; set; } = CustomerRank.Potential;
         public bool ExcludeFromLeaderboard { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
         public decimal Booster { get; set; } = 1m;
     }
 

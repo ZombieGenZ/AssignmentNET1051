@@ -1452,14 +1452,12 @@ namespace Assignment.Migrations
                         .IsRequired();
 
                     b.Navigation("Category");
-
-                    b.Navigation("ProductTypes");
                 });
 
             modelBuilder.Entity("Assignment.Models.ProductType", b =>
                 {
                     b.HasOne("Assignment.Models.Product", "Product")
-                        .WithMany("ProductTypes")
+                        .WithMany()
                         .HasForeignKey("ProductId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
