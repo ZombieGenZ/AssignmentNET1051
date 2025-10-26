@@ -70,6 +70,39 @@
             route = CreateRoute("category", category.Id)
         })
         .ToList();
+
+    var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
+
+    string FormatPriceRange(string? priceRange, decimal? fallbackPrice = null)
+    {
+        if (string.IsNullOrWhiteSpace(priceRange))
+        {
+            if (fallbackPrice.HasValue && fallbackPrice.Value > 0)
+            {
+                return $"{fallbackPrice.Value.ToString("N0", vietnamCulture)} ₫";
+            }
+
+            return "Liên hệ";
+        }
+
+        var parts = priceRange.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        string FormatPart(string part)
+        {
+            return decimal.TryParse(part, NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
+                ? value.ToString("N0", vietnamCulture)
+                : part;
+        }
+
+        if (parts.Length == 1)
+        {
+            return $"{FormatPart(parts[0])} ₫";
+        }
+
+        var minPart = FormatPart(parts[0]);
+        var maxPart = FormatPart(parts[parts.Length - 1]);
+        return $"{minPart} - {maxPart} ₫";
+    }
 }
 
 <link href="~/css/home.css" rel="stylesheet" />
@@ -352,9 +385,7 @@
                             var finalPrice = PriceCalculator.GetProductFinalPrice(product);
                             var originalPrice = defaultType?.Price ?? 0m;
                             var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
-                            var priceDisplay = string.IsNullOrWhiteSpace(product.PriceRange)
-                                ? originalPrice.ToString("N0")
-                                : product.PriceRange;
+                            var priceDisplay = FormatPriceRange(product.PriceRange, originalPrice);
                             <div class="col-md-4 col-lg-3">
                                 <a class="product-card-link" href="@Url.Action("ProductDetail", "Home", new { id = product.Id })">
                                     <div class="product-card">
@@ -409,7 +440,7 @@
                                             <div class="mb-3">
                                                 @if (!hasDiscount)
                                                 {
-                                                    <span class="final-price">@priceDisplay ₫</span>
+                                                    <span class="final-price">@priceDisplay</span>
                                                 }
                                                 else
                                                 {
@@ -466,9 +497,7 @@
                                 var finalPrice = PriceCalculator.GetProductFinalPrice(product);
                                 var originalPrice = defaultType?.Price ?? 0m;
                                 var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
-                                var priceDisplay = string.IsNullOrWhiteSpace(product.PriceRange)
-                                    ? originalPrice.ToString("N0")
-                                    : product.PriceRange;
+                                var priceDisplay = FormatPriceRange(product.PriceRange, originalPrice);
                                 <div class="col-md-4 col-lg-3">
                                     <a class="product-card-link" href="@Url.Action("ProductDetail", "Home", new { id = product.Id })">
                                         <div class="product-card">
@@ -523,7 +552,7 @@
                                             <div class="mb-3">
                                                 @if (!hasDiscount)
                                                 {
-                                                    <span class="final-price">@priceDisplay ₫</span>
+                                                    <span class="final-price">@priceDisplay</span>
                                                 }
                                                 else
                                                 {

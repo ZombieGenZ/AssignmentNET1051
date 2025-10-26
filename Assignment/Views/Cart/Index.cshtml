@@ -173,8 +173,9 @@
                                                     <strong class="cart-item-total text-danger" data-item-id="@item.Id">@itemTotal.ToString("N0") đ</strong>
                                                 </td>
                                                 <td class="text-center">
-                                                    <form asp-controller="Cart" asp-action="Remove" method="post" class="d-inline"
-                                                          onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này?')">
+                                                    <form asp-controller="Cart" asp-action="Remove" method="post" class="d-inline js-confirm-form"
+                                                          data-confirm-message="Bạn có chắc muốn xóa sản phẩm này?"
+                                                          data-confirm-button-class="btn-danger">
                                                         @Html.AntiForgeryToken()
                                                         <input type="hidden" name="cartItemId" value="@item.Id" />
                                                         <button type="submit" class="btn btn-danger btn-sm">
@@ -227,7 +228,10 @@
                                                                                     </button>
                                                                                 </div>
                                                                             </form>
-                                                                            <form asp-controller="Cart" asp-action="RemoveProductType" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa loại sản phẩm này?');">
+                                                                            <form asp-controller="Cart" asp-action="RemoveProductType" method="post"
+                                                                                  class="js-confirm-form"
+                                                                                  data-confirm-message="Bạn có chắc muốn xóa loại sản phẩm này?"
+                                                                                  data-confirm-button-class="btn-danger">
                                                                                 @Html.AntiForgeryToken()
                                                                                 <input type="hidden" name="selectionId" value="@selection.Id" />
                                                                                 <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Xóa loại sản phẩm">
@@ -254,8 +258,9 @@
                                     <a href="@Url.Action("Index", "Home")" class="btn btn-outline-secondary">
                                         <i class="fas fa-arrow-left"></i> Tiếp tục mua sắm
                                     </a>
-                                    <form asp-controller="Cart" asp-action="Clear" method="post" class="d-inline"
-                                          onsubmit="return confirm('Bạn có chắc muốn xóa toàn bộ giỏ hàng?')">
+                                    <form asp-controller="Cart" asp-action="Clear" method="post" class="d-inline js-confirm-form"
+                                          data-confirm-message="Bạn có chắc muốn xóa toàn bộ giỏ hàng?"
+                                          data-confirm-button-class="btn-danger">
                                         <button type="submit" class="btn btn-outline-danger">
                                             <i class="fas fa-trash-alt"></i> Xóa giỏ hàng
                                         </button>
@@ -326,6 +331,24 @@
     </div>
 </div>
 
+<div class="modal fade" id="cartConfirmationModal" tabindex="-1" aria-labelledby="cartConfirmationModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cartConfirmationModalLabel">Xác nhận hành động</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0" id="cartConfirmationModalMessage">Bạn có chắc chắn muốn tiếp tục?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="cartConfirmationConfirmButton">Xác nhận</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         $(document).ready(function () {
@@ -357,6 +380,33 @@
 
             function formatCurrency(value) {
                 return Number(value || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ';
+            }
+
+            function getNumericValue(element, attributeName) {
+                if (!element || !element.length) {
+                    return 0;
+                }
+
+                const rawValue = element.attr(attributeName);
+
+                if (rawValue === undefined || rawValue === null) {
+                    return 0;
+                }
+
+                const normalized = String(rawValue).trim();
+
+                if (normalized === '') {
+                    return 0;
+                }
+
+                let parsed = Number(normalized);
+
+                if (!Number.isFinite(parsed)) {
+                    const fallback = Number(normalized.replace(/\./g, '').replace(/,/g, '.'));
+                    parsed = Number.isFinite(fallback) ? fallback : 0;
+                }
+
+                return parsed;
             }
 
             function getSelectionCheckboxes(itemId) {
@@ -408,7 +458,7 @@
                 getSelectionCheckboxes(itemId).each(function () {
                     const checkbox = $(this);
                     if (checkbox.is(':checked')) {
-                        total += parseFloat(checkbox.data('total')) || 0;
+                        total += getNumericValue(checkbox, 'data-total');
                         checkedCount++;
                     }
                 });
@@ -452,7 +502,7 @@
                         subtotal += selectionSubtotal.total;
                         updateItemTotalDisplay(itemId, selectionSubtotal.total);
                     } else {
-                        const totalValue = parseFloat(checkbox.data('total')) || 0;
+                        const totalValue = getNumericValue(checkbox, 'data-total');
                         subtotal += totalValue;
                         updateItemTotalDisplay(itemId, totalValue);
                     }
@@ -611,6 +661,64 @@
                     syncItemCheckboxState(itemId);
                 }
             });
+
+            const confirmationModalElement = document.getElementById('cartConfirmationModal');
+            const confirmationMessageElement = document.getElementById('cartConfirmationModalMessage');
+            let confirmationModalInstance = null;
+            let pendingConfirmationForm = null;
+
+            if (confirmationModalElement) {
+                const confirmationButton = $('#cartConfirmationConfirmButton');
+                confirmationModalInstance = new bootstrap.Modal(confirmationModalElement);
+
+                $('.js-confirm-form').on('submit', function (event) {
+                    const form = this;
+
+                    if (form.dataset.skipConfirm === 'true') {
+                        form.dataset.skipConfirm = 'false';
+                        return;
+                    }
+
+                    event.preventDefault();
+                    pendingConfirmationForm = form;
+
+                    const message = form.dataset.confirmMessage || 'Bạn có chắc chắn muốn thực hiện hành động này?';
+                    if (confirmationMessageElement) {
+                        confirmationMessageElement.textContent = message;
+                    }
+
+                    const buttonClass = form.dataset.confirmButtonClass || 'btn-danger';
+                    confirmationButton.attr('class', 'btn ' + buttonClass);
+
+                    confirmationModalInstance.show();
+                });
+
+                confirmationButton.on('click', function () {
+                    if (!pendingConfirmationForm) {
+                        return;
+                    }
+
+                    const form = pendingConfirmationForm;
+                    pendingConfirmationForm = null;
+                    form.dataset.skipConfirm = 'true';
+
+                    if (typeof form.requestSubmit === 'function') {
+                        form.requestSubmit();
+                    } else {
+                        form.submit();
+                    }
+
+                    confirmationModalInstance.hide();
+                });
+
+                confirmationModalElement.addEventListener('hidden.bs.modal', function () {
+                    pendingConfirmationForm = null;
+                });
+            } else {
+                $('.js-confirm-form').on('submit', function () {
+                    return window.confirm(this.dataset.confirmMessage || 'Bạn có chắc chắn muốn thực hiện hành động này?');
+                });
+            }
 
             updateSummary();
         });
