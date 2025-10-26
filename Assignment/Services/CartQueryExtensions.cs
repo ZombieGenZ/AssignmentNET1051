@@ -1,6 +1,7 @@
 using Assignment.Models;
 using Assignment.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace Assignment.Services
 {
@@ -17,6 +18,9 @@ namespace Assignment.Services
                 .Include(c => c.CartItems)
                     .ThenInclude(ci => ci.Product)
                         .ThenInclude(p => p.ProductTypes)
+                .Include(c => c.CartItems)
+                    .ThenInclude(ci => ci.ProductTypeSelections)
+                        .ThenInclude(selection => selection.ProductType)
                 .Include(c => c.CartItems)
                     .ThenInclude(ci => ci.Combo)
                 .FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
@@ -49,6 +53,27 @@ namespace Assignment.Services
         public static bool IsUnavailable(CartItem cartItem)
         {
             var productUnavailable = cartItem.ProductId.HasValue && (cartItem.Product == null || cartItem.Product.IsDeleted || !cartItem.Product.IsPublish);
+            if (productUnavailable)
+            {
+                return true;
+            }
+
+            if (cartItem.ProductId.HasValue && (cartItem.ProductTypeSelections == null || !cartItem.ProductTypeSelections.Any()))
+            {
+                return true;
+            }
+
+            if (cartItem.ProductTypeSelections != null)
+            {
+                var invalidSelections = cartItem.ProductTypeSelections
+                    .Any(selection => selection.ProductType == null || selection.ProductType.IsDeleted || !selection.ProductType.IsPublish);
+
+                if (invalidSelections)
+                {
+                    return true;
+                }
+            }
+
             var comboUnavailable = cartItem.ComboId.HasValue && (cartItem.Combo == null || cartItem.Combo.IsDeleted || !cartItem.Combo.IsPublish);
             return productUnavailable || comboUnavailable;
         }

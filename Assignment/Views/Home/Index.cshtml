@@ -227,90 +227,89 @@
                         var comboHasDiscount = hasPercentDiscount || hasAmountDiscount || hasFixedDiscount;
                         var comboSavings = comboHasDiscount ? Math.Max(combo.Price - comboFinalPrice, 0) : 0;
                         <div class="col-md-4 col-lg-3">
-                            <div class="product-card">
-                                <div class="position-relative">
-                                    <img src="@combo.ImageUrl" class="product-image" alt="@combo.Name" />
-                                    @if (hasPercentDiscount)
-                                    {
-                                        <span class="badge-discount">-@combo.Discount%</span>
-                                    }
-                                    else if (hasAmountDiscount)
-                                    {
-                                        <span class="badge-discount">-@combo.Discount.Value.ToString("N0") ₫</span>
-                                    }
-                                    else if (hasFixedDiscount)
-                                    {
-                                        <span class="badge-discount">Giá ưu đãi</span>
-                                    }
-                                </div>
-                                <div class="product-info">
-                                    <h5 class="product-name">@combo.Name</h5>
-
-                                    <div class="product-badges">
-                                        @if ((combo.ComboItems ?? Enumerable.Empty<Assignment.Models.ComboItem>()).Any(ci => ci.Product?.IsSpicy == true))
+                            <a class="product-card-link" href="@Url.Action("ComboDetail", "Home", new { id = combo.Id })">
+                                <div class="product-card">
+                                    <div class="position-relative">
+                                        <img src="@combo.ImageUrl" class="product-image" alt="@combo.Name" />
+                                        @if (hasPercentDiscount)
                                         {
-                                            <span class="badge-spicy">🌶️ Cay</span>
+                                            <span class="badge-discount">-@combo.Discount%</span>
                                         }
-                                        @if ((combo.ComboItems ?? Enumerable.Empty<Assignment.Models.ComboItem>()).All(ci => ci.Product?.IsVegetarian == true))
+                                        else if (hasAmountDiscount)
                                         {
-                                            <span class="badge-vegetarian">🥗 Chay</span>
+                                            <span class="badge-discount">-@combo.Discount.Value.ToString("N0") ₫</span>
+                                        }
+                                        else if (hasFixedDiscount)
+                                        {
+                                            <span class="badge-discount">Giá ưu đãi</span>
                                         }
                                     </div>
+                                    <div class="product-info">
+                                        <h5 class="product-name">@combo.Name</h5>
 
-                                    <div class="rating">
-                                        @for (int i = 1; i <= 5; i++)
-                                        {
-                                            if (i <= Math.Floor(combo.AverageEvaluate))
+                                        <div class="product-badges">
+                                            @if ((combo.ComboItems ?? Enumerable.Empty<Assignment.Models.ComboItem>()).Any(ci => ci.Product?.IsSpicy == true))
                                             {
-                                                <i class="fas fa-star"></i>
+                                                <span class="badge-spicy">🌶️ Cay</span>
                                             }
-                                            else if (i - 0.5 <= combo.AverageEvaluate)
+                                            @if ((combo.ComboItems ?? Enumerable.Empty<Assignment.Models.ComboItem>()).All(ci => ci.Product?.IsVegetarian == true))
                                             {
-                                                <i class="fas fa-star-half-alt"></i>
+                                                <span class="badge-vegetarian">🥗 Chay</span>
+                                            }
+                                        </div>
+
+                                        <div class="rating">
+                                            @for (int i = 1; i <= 5; i++)
+                                            {
+                                                if (i <= Math.Floor(combo.AverageEvaluate))
+                                                {
+                                                    <i class="fas fa-star"></i>
+                                                }
+                                                else if (i - 0.5 <= combo.AverageEvaluate)
+                                                {
+                                                    <i class="fas fa-star-half-alt"></i>
+                                                }
+                                                else
+                                                {
+                                                    <i class="far fa-star"></i>
+                                                }
+                                            }
+                                            <small>(@combo.TotalEvaluate)</small>
+                                        </div>
+
+                                        <div class="mb-3">
+                                            @if (!comboHasDiscount)
+                                            {
+                                                <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
                                             }
                                             else
                                             {
-                                                <i class="far fa-star"></i>
+                                                <div>
+                                                    <span class="original-price">@combo.Price.ToString("N0") ₫</span>
+                                                </div>
+                                                <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                                @if (hasPercentDiscount && comboSavings > 0)
+                                                {
+                                                    <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                }
+                                                else if (hasAmountDiscount)
+                                                {
+                                                    <div class="small text-muted">Giảm @combo.Discount.Value.ToString("N0") ₫</div>
+                                                }
+                                                else if (hasFixedDiscount && comboSavings > 0)
+                                                {
+                                                    <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                }
                                             }
-                                        }
-                                        <small>(@combo.TotalEvaluate)</small>
-                                    </div>
+                                        </div>
 
-                                    <div class="mb-3">
-                                        @if (!comboHasDiscount)
-                                        {
-                                            <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
-                                        }
-                                        else
-                                        {
-                                            <div>
-                                                <span class="original-price">@combo.Price.ToString("N0") ₫</span>
-                                            </div>
-                                            <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
-                                            @if (hasPercentDiscount && comboSavings > 0)
-                                            {
-                                                <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
-                                            }
-                                            else if (hasAmountDiscount)
-                                            {
-                                                <div class="small text-muted">Giảm @combo.Discount.Value.ToString("N0") ₫</div>
-                                            }
-                                            else if (hasFixedDiscount && comboSavings > 0)
-                                            {
-                                                <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
-                                            }
-                                        }
-                                    </div>
-
-                                    <div class="d-flex gap-2">
-                                        <a href="@Url.Action("ComboDetail", "Home", new { id = combo.Id })"
-                                           class="btn btn-outline-primary flex-grow-1">Chi tiết</a>
-                                        <button class="btn btn-add-cart" data-id="@combo.Id" data-type="combo">
-                                            <i class="fas fa-shopping-cart"></i>
-                                        </button>
+                                        <div class="card-cta">
+                                            <span>Xem chi tiết</span>
+                                            <i class="fas fa-arrow-right"></i>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            </a>
                         </div>
                     }
                 </div>
@@ -357,121 +356,7 @@
                                 ? originalPrice.ToString("N0")
                                 : product.PriceRange;
                             <div class="col-md-4 col-lg-3">
-                                <div class="product-card">
-                                    <div class="position-relative">
-                                        <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
-                                        @if (hasPercentDiscount)
-                                        {
-                                            <span class="badge-discount">-@discountValue%</span>
-                                        }
-                                        else if (hasAmountDiscount)
-                                        {
-                                            <span class="badge-discount">-@discountValue.Value.ToString("N0") ₫</span>
-                                        }
-                                        else if (hasFixedDiscount)
-                                        {
-                                            <span class="badge-discount">Giá ưu đãi</span>
-                                        }
-                                    </div>
-                                    <div class="product-info">
-                                        <h5 class="product-name">@product.Name</h5>
-
-                                        <div class="product-badges">
-                                            @if (product.IsSpicy)
-                                            {
-                                                <span class="badge-spicy">🌶️ Cay</span>
-                                            }
-                                            @if (product.IsVegetarian)
-                                            {
-                                                <span class="badge-vegetarian">🥗 Chay</span>
-                                            }
-                                        </div>
-
-                                        <div class="rating">
-                                            @for (int i = 1; i <= 5; i++)
-                                            {
-                                                if (i <= Math.Floor(product.AverageEvaluate))
-                                                {
-                                                    <i class="fas fa-star"></i>
-                                                }
-                                                else if (i - 0.5 <= product.AverageEvaluate)
-                                                {
-                                                    <i class="fas fa-star-half-alt"></i>
-                                                }
-                                                else
-                                                {
-                                                    <i class="far fa-star"></i>
-                                                }
-                                            }
-                                            <small>(@product.TotalEvaluate)</small>
-                                        </div>
-
-                                        <div class="mb-3">
-                                            @if (!hasDiscount)
-                                            {
-                                                <span class="final-price">@priceDisplay ₫</span>
-                                            }
-                                            else
-                                            {
-                                                <div>
-                                                    <span class="original-price">@originalPrice.ToString("N0") ₫</span>
-                                                </div>
-                                                <span class="final-price">@finalPrice.ToString("N0") ₫</span>
-                                                @if (hasPercentDiscount && savings > 0)
-                                                {
-                                                    <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
-                                                }
-                                                else if (hasAmountDiscount)
-                                                {
-                                                    <div class="small text-muted">Giảm @discountValue.Value.ToString("N0") ₫</div>
-                                                }
-                                                else if (hasFixedDiscount && savings > 0)
-                                                {
-                                                    <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
-                                                }
-                                            }
-                                        </div>
-
-                                        <div class="d-flex gap-2">
-                                            <a href="@Url.Action("ProductDetail", "Home", new { id = product.Id })"
-                                               class="btn btn-outline-primary flex-grow-1">Chi tiết</a>
-                                            <button class="btn btn-add-cart" data-id="@product.Id" data-type="product">
-                                                <i class="fas fa-shopping-cart"></i>
-                                            </button>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                }
-                else
-                {
-                    var productsByCategory = Model.Products
-                        .GroupBy(p => p.Category)
-                        .OrderBy(g => g.Key?.Index ?? 0);
-
-                    foreach (var categoryGroup in productsByCategory)
-                    {
-                        var category = categoryGroup.Key;
-                        <h3 class="sub-section-title">@(category?.Name ?? "Khác")</h3>
-                        <div class="row g-4">
-                            @foreach (var product in categoryGroup)
-                            {
-                                var defaultType = product.PrimaryProductType;
-                                var discountType = defaultType?.DiscountType ?? Assignment.Enums.DiscountType.None;
-                                var discountValue = defaultType?.Discount;
-                                var hasPercentDiscount = discountType == Assignment.Enums.DiscountType.Percent && discountValue.HasValue;
-                                var hasAmountDiscount = discountType == Assignment.Enums.DiscountType.Amount && discountValue.HasValue;
-                                var hasFixedDiscount = discountType == Assignment.Enums.DiscountType.FixedAmount && discountValue.HasValue;
-                                var hasDiscount = discountType != Assignment.Enums.DiscountType.None && discountValue.HasValue;
-                                var finalPrice = PriceCalculator.GetProductFinalPrice(product);
-                                var originalPrice = defaultType?.Price ?? 0m;
-                                var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
-                                var priceDisplay = string.IsNullOrWhiteSpace(product.PriceRange)
-                                    ? originalPrice.ToString("N0")
-                                    : product.PriceRange;
-                                <div class="col-md-4 col-lg-3">
+                                <a class="product-card-link" href="@Url.Action("ProductDetail", "Home", new { id = product.Id })">
                                     <div class="product-card">
                                         <div class="position-relative">
                                             <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
@@ -547,15 +432,127 @@
                                                 }
                                             </div>
 
-                                            <div class="d-flex gap-2">
-                                                <a href="@Url.Action("ProductDetail", "Home", new { id = product.Id })"
-                                                   class="btn btn-outline-primary flex-grow-1">Chi tiết</a>
-                                                <button class="btn btn-add-cart" data-id="@product.Id" data-type="product">
-                                                    <i class="fas fa-shopping-cart"></i>
-                                                </button>
+                                            <div class="card-cta">
+                                                <span>Xem chi tiết</span>
+                                                <i class="fas fa-arrow-right"></i>
                                             </div>
                                         </div>
                                     </div>
+                                </a>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    var productsByCategory = Model.Products
+                        .GroupBy(p => p.Category)
+                        .OrderBy(g => g.Key?.Index ?? 0);
+
+                    foreach (var categoryGroup in productsByCategory)
+                    {
+                        var category = categoryGroup.Key;
+                        <h3 class="sub-section-title">@(category?.Name ?? "Khác")</h3>
+                        <div class="row g-4">
+                            @foreach (var product in categoryGroup)
+                            {
+                                var defaultType = product.PrimaryProductType;
+                                var discountType = defaultType?.DiscountType ?? Assignment.Enums.DiscountType.None;
+                                var discountValue = defaultType?.Discount;
+                                var hasPercentDiscount = discountType == Assignment.Enums.DiscountType.Percent && discountValue.HasValue;
+                                var hasAmountDiscount = discountType == Assignment.Enums.DiscountType.Amount && discountValue.HasValue;
+                                var hasFixedDiscount = discountType == Assignment.Enums.DiscountType.FixedAmount && discountValue.HasValue;
+                                var hasDiscount = discountType != Assignment.Enums.DiscountType.None && discountValue.HasValue;
+                                var finalPrice = PriceCalculator.GetProductFinalPrice(product);
+                                var originalPrice = defaultType?.Price ?? 0m;
+                                var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
+                                var priceDisplay = string.IsNullOrWhiteSpace(product.PriceRange)
+                                    ? originalPrice.ToString("N0")
+                                    : product.PriceRange;
+                                <div class="col-md-4 col-lg-3">
+                                    <a class="product-card-link" href="@Url.Action("ProductDetail", "Home", new { id = product.Id })">
+                                        <div class="product-card">
+                                        <div class="position-relative">
+                                            <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
+                                            @if (hasPercentDiscount)
+                                            {
+                                                <span class="badge-discount">-@discountValue%</span>
+                                            }
+                                            else if (hasAmountDiscount)
+                                            {
+                                                <span class="badge-discount">-@discountValue.Value.ToString("N0") ₫</span>
+                                            }
+                                            else if (hasFixedDiscount)
+                                            {
+                                                <span class="badge-discount">Giá ưu đãi</span>
+                                            }
+                                        </div>
+                                        <div class="product-info">
+                                            <h5 class="product-name">@product.Name</h5>
+
+                                            <div class="product-badges">
+                                                @if (product.IsSpicy)
+                                                {
+                                                    <span class="badge-spicy">🌶️ Cay</span>
+                                                }
+                                                @if (product.IsVegetarian)
+                                                {
+                                                    <span class="badge-vegetarian">🥗 Chay</span>
+                                                }
+                                            </div>
+
+                                            <div class="rating">
+                                                @for (int i = 1; i <= 5; i++)
+                                                {
+                                                    if (i <= Math.Floor(product.AverageEvaluate))
+                                                    {
+                                                        <i class="fas fa-star"></i>
+                                                    }
+                                                    else if (i - 0.5 <= product.AverageEvaluate)
+                                                    {
+                                                        <i class="fas fa-star-half-alt"></i>
+                                                    }
+                                                    else
+                                                    {
+                                                        <i class="far fa-star"></i>
+                                                    }
+                                                }
+                                                <small>(@product.TotalEvaluate)</small>
+                                            </div>
+
+                                            <div class="mb-3">
+                                                @if (!hasDiscount)
+                                                {
+                                                    <span class="final-price">@priceDisplay ₫</span>
+                                                }
+                                                else
+                                                {
+                                                    <div>
+                                                        <span class="original-price">@originalPrice.ToString("N0") ₫</span>
+                                                    </div>
+                                                    <span class="final-price">@finalPrice.ToString("N0") ₫</span>
+                                                    @if (hasPercentDiscount && savings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                    }
+                                                    else if (hasAmountDiscount)
+                                                    {
+                                                        <div class="small text-muted">Giảm @discountValue.Value.ToString("N0") ₫</div>
+                                                    }
+                                                    else if (hasFixedDiscount && savings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                    }
+                                                }
+                                            </div>
+
+                                            <div class="card-cta">
+                                                <span>Xem chi tiết</span>
+                                                <i class="fas fa-arrow-right"></i>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
                                 </div>
                             }
                         </div>
@@ -574,94 +571,6 @@
 
 @section Scripts {
     <script>
-        function addToCart(id, type) {
-            console.log(`Bắt đầu addToCart với id: ${id}, type: ${type}`);
-
-            const url = type === 'product'
-                ? '@Url.Action("AddProduct", "Cart")'
-                : '@Url.Action("AddCombo", "Cart")';
-            console.log(`URL được tạo: ${url}`);
-
-            const paramName = type === 'product' ? 'productId' : 'comboId';
-            const data = { [paramName]: id, quantity: 1 };
-            const token = $('input[name="__RequestVerificationToken"]').val();
-
-            console.log("Token đã được tìm thấy.");
-
-            $.ajax({
-                url: url,
-                type: 'POST',
-                data: { ...data, __RequestVerificationToken: token },
-                success: function (response) {
-                    console.log("Thêm vào giỏ hàng thành công!", response);
-                    updateCartCount();
-                    showNotification('Đã thêm vào giỏ hàng!', 'success');
-                },
-                error: function (xhr, status, error) {
-                    console.error("Lỗi khi thêm vào giỏ hàng (AJAX Error):", {
-                        status: xhr.status,
-                        statusText: xhr.statusText,
-                        responseText: xhr.responseText,
-                        errorThrown: error
-                    });
-
-                    if (xhr.status === 401) {
-                        showNotification('Vui lòng đăng nhập để thêm sản phẩm.', 'error');
-                        setTimeout(() => { window.location.href = '/Identity/Account/Login'; }, 1500);
-                    } else {
-                        showNotification('Có lỗi xảy ra khi thêm vào giỏ hàng.', 'error');
-                    }
-                }
-            });
-        }
-
-        function updateCartCount() {
-            $.get('@Url.Action("GetCount", "Cart")', function (response) {
-                $('#cart-count').text(response.count);
-            });
-        }
-
-        function showNotification(message, type) {
-            const iconClass = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-            const title = type === 'success' ? 'Thành công' : 'Thông báo';
-
-            let container = $('.toast-container');
-            if (container.length === 0) {
-                container = $('<div>', { class: 'toast-container' }).appendTo('body');
-            }
-
-            const toast = $(
-                `<div class="toast-notification ${type}">
-                    <div class="toast-icon"><i class="fas ${iconClass}"></i></div>
-                    <div class="toast-body">
-                        <p class="title"></p>
-                        <p class="message"></p>
-                    </div>
-                    <button type="button" class="toast-close" aria-label="Đóng thông báo">
-                        <i class="fas fa-times"></i>
-                    </button>
-                    <div class="toast-progress"></div>
-                </div>`
-            );
-
-            toast.find('.title').text(title);
-            toast.find('.message').text(message);
-
-            container.append(toast);
-
-            const removeToast = () => {
-                toast.addClass('hide');
-                setTimeout(() => toast.remove(), 400);
-            };
-
-            const autoRemove = setTimeout(removeToast, 3500);
-
-            toast.find('.toast-close').on('click', () => {
-                clearTimeout(autoRemove);
-                removeToast();
-            });
-        }
-
         $(document).ready(function () {
             $('#resetFiltersBtn').on('click', function () {
                 const form = $('#home-search-form');
@@ -680,18 +589,6 @@
 
                 form.submit();
             });
-
-            $('.btn-add-cart').on('click', function () {
-                const button = $(this);
-                const id = button.data('id');
-                const type = button.data('type');
-
-                addToCart(id, type);
-            });
-
-            if ($('#cart-count').length > 0) {
-                updateCartCount();
-            }
         });
     </script>
 }

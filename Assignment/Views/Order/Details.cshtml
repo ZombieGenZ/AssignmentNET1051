@@ -113,21 +113,50 @@
                             @foreach (var item in Model.OrderItems!)
                             {
                                 var itemName = item.Product?.Name ?? item.Combo?.Name ?? "Không xác định";
-                                var lineTotal = item.Price * item.Quantity;
+                                var hasSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
+                                var lineTotal = hasSelections
+                                    ? item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity)
+                                    : item.Price * item.Quantity;
+                                var totalQuantity = hasSelections
+                                    ? item.ProductTypeSelections.Sum(selection => selection.Quantity)
+                                    : item.Quantity;
                                 <tr>
                                     <td>
                                         <div class="fw-semibold">@itemName</div>
-                                        @if (item.Product != null && !string.IsNullOrWhiteSpace(item.Product.Description))
+                                        @if (item.Product != null)
                                         {
                                             <div class="text-muted small">Sản phẩm</div>
                                         }
-                                        else if (item.Combo != null && !string.IsNullOrWhiteSpace(item.Combo.Description))
+                                        else if (item.Combo != null)
                                         {
                                             <div class="text-muted small">Combo</div>
                                         }
+                                        @if (hasSelections)
+                                        {
+                                            <ul class="list-unstyled mb-0 mt-2 small">
+                                                @foreach (var selection in item.ProductTypeSelections)
+                                                {
+                                                    var selectionName = selection.ProductType?.Name ?? "Loại sản phẩm";
+                                                    var selectionTotal = selection.UnitPrice * selection.Quantity;
+                                                    <li class="d-flex justify-content-between gap-3">
+                                                        <span>@selectionName × @selection.Quantity</span>
+                                                        <span class="text-muted">@string.Format("{0:N0}đ", selectionTotal)</span>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
                                     </td>
-                                    <td class="text-center">@item.Quantity</td>
-                                    <td class="text-end">@string.Format("{0:N0}đ", item.Price)</td>
+                                    <td class="text-center">@totalQuantity</td>
+                                    <td class="text-end">
+                                        @if (hasSelections)
+                                        {
+                                            <span class="text-muted">Theo loại</span>
+                                        }
+                                        else
+                                        {
+                                            @string.Format("{0:N0}đ", item.Price)
+                                        }
+                                    </td>
                                     <td class="text-end fw-semibold">@string.Format("{0:N0}đ", lineTotal)</td>
                                 </tr>
                             }

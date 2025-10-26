@@ -54,6 +54,18 @@ namespace Assignment.Services
             return Math.Round(Math.Max(minFinalPrice, 0), 2);
         }
 
+        public static double GetProductTypeFinalPrice(ProductType? productType)
+        {
+            if (productType == null)
+            {
+                return 0;
+            }
+
+            var discountValue = productType.Discount.HasValue ? (double?)productType.Discount.Value : null;
+            var unitPrice = ApplyDiscount((double)productType.Price, productType.DiscountType, discountValue);
+            return Math.Round(Math.Max(unitPrice, 0), 2);
+        }
+
         public static double GetComboBasePrice(IEnumerable<(Product? product, long quantity)> items)
         {
             if (items == null)

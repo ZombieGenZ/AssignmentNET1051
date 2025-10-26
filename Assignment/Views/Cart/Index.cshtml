@@ -69,24 +69,36 @@
                                     <tbody>
                                         @foreach (var item in Model.CartItems)
                                         {
-                                            double itemPrice = 0;
+                                            double itemUnitPrice = 0;
+                                            double itemTotal = 0;
                                             string itemName = "";
                                             string itemImage = "";
+                                            var hasProductSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
 
                                             if (item.Product != null)
                                             {
-                                                itemPrice = PriceCalculator.GetProductFinalPrice(item.Product);
                                                 itemName = item.Product.Name;
                                                 itemImage = item.Product.ProductImageUrl ?? "/images/no-image.jpg";
+
+                                                if (hasProductSelections)
+                                                {
+                                                    itemTotal = item.ProductTypeSelections
+                                                        .Sum(selection => selection.UnitPrice * selection.Quantity);
+                                                }
+                                                else
+                                                {
+                                                    itemUnitPrice = PriceCalculator.GetProductFinalPrice(item.Product);
+                                                    itemTotal = itemUnitPrice * item.Quantity;
+                                                }
                                             }
                                             else if (item.Combo != null)
                                             {
-                                                itemPrice = PriceCalculator.GetComboFinalPrice(item.Combo);
+                                                itemUnitPrice = PriceCalculator.GetComboFinalPrice(item.Combo);
                                                 itemName = item.Combo.Name;
                                                 itemImage = item.Combo.ImageUrl ?? "/images/no-image.jpg";
+                                                itemTotal = itemUnitPrice * item.Quantity;
                                             }
 
-                                            double itemTotal = itemPrice * item.Quantity;
                                             string itemTotalInvariant = itemTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
                                             totalPrice += itemTotal;
 
@@ -120,25 +132,41 @@
                                                     </div>
                                                 </td>
                                                 <td>
-                                                    <strong>@itemPrice.ToString("N0") đ</strong>
+                                                    @if (hasProductSelections)
+                                                    {
+                                                        <span class="text-muted small">Theo từng loại</span>
+                                                    }
+                                                    else
+                                                    {
+                                                        <strong>@itemUnitPrice.ToString("N0") đ</strong>
+                                                    }
                                                 </td>
                                                 <td class="text-center">
-                                                    <form asp-controller="Cart" asp-action="UpdateQuantity" method="post" class="d-inline">
-                                                        <input type="hidden" name="cartItemId" value="@item.Id" />
-                                                        <div class="input-group" style="width: 130px; margin: auto;">
-                                                            <button type="button" class="btn btn-outline-secondary btn-sm"
-                                                                    onclick="this.closest('form').querySelector('input[type=number]').stepDown(); this.closest('form').submit();">
-                                                                <i class="fas fa-minus"></i>
-                                                            </button>
-                                                            <input type="number" name="quantity" value="@item.Quantity"
-                                                                   min="1" class="form-control form-control-sm text-center"
-                                                                   onchange="this.form.submit()">
-                                                            <button type="button" class="btn btn-outline-secondary btn-sm"
-                                                                    onclick="this.closest('form').querySelector('input[type=number]').stepUp(); this.closest('form').submit();">
-                                                                <i class="fas fa-plus"></i>
-                                                            </button>
-                                                        </div>
-                                                    </form>
+                                                    @if (hasProductSelections)
+                                                    {
+                                                        <div class="fw-semibold">@item.ProductTypeSelections.Sum(selection => selection.Quantity)</div>
+                                                        <small class="text-muted">Tổng theo loại</small>
+                                                    }
+                                                    else
+                                                    {
+                                                        <form asp-controller="Cart" asp-action="UpdateQuantity" method="post" class="d-inline">
+                                                            @Html.AntiForgeryToken()
+                                                            <input type="hidden" name="cartItemId" value="@item.Id" />
+                                                            <div class="input-group" style="width: 130px; margin: auto;">
+                                                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                                        onclick="this.closest('form').querySelector('input[type=number]').stepDown(); this.closest('form').submit();">
+                                                                    <i class="fas fa-minus"></i>
+                                                                </button>
+                                                                <input type="number" name="quantity" value="@item.Quantity"
+                                                                       min="1" class="form-control form-control-sm text-center"
+                                                                       onchange="this.form.submit()">
+                                                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                                                        onclick="this.closest('form').querySelector('input[type=number]').stepUp(); this.closest('form').submit();">
+                                                                    <i class="fas fa-plus"></i>
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    }
                                                 </td>
                                                 <td class="text-end">
                                                     <strong class="text-primary">@itemTotal.ToString("N0") đ</strong>
@@ -146,6 +174,7 @@
                                                 <td class="text-center">
                                                     <form asp-controller="Cart" asp-action="Remove" method="post" class="d-inline"
                                                           onsubmit="return confirm('Bạn có chắc muốn xóa sản phẩm này?')">
+                                                        @Html.AntiForgeryToken()
                                                         <input type="hidden" name="cartItemId" value="@item.Id" />
                                                         <button type="submit" class="btn btn-danger btn-sm">
                                                             <i class="fas fa-trash"></i>
@@ -153,6 +182,56 @@
                                                     </form>
                                                 </td>
                                             </tr>
+                                            @if (hasProductSelections)
+                                            {
+                                                <tr class="bg-light">
+                                                    <td></td>
+                                                    <td colspan="4" class="py-0">
+                                                        <ul class="list-group list-group-flush selection-list">
+                                                            @foreach (var selection in item.ProductTypeSelections)
+                                                            {
+                                                                var selectionName = selection.ProductType?.Name ?? "Loại sản phẩm";
+                                                                var selectionTotal = selection.UnitPrice * selection.Quantity;
+                                                                <li class="list-group-item px-0 py-2">
+                                                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+                                                                        <div>
+                                                                            <div class="fw-semibold">@selectionName</div>
+                                                                            <div class="text-muted small">Đơn giá: @selection.UnitPrice.ToString("N0") đ</div>
+                                                                        </div>
+                                                                        <div class="d-flex align-items-center gap-2">
+                                                                            <form asp-controller="Cart" asp-action="UpdateProductTypeQuantity" method="post" class="d-flex align-items-center gap-2">
+                                                                                @Html.AntiForgeryToken()
+                                                                                <input type="hidden" name="selectionId" value="@selection.Id" />
+                                                                                <div class="input-group input-group-sm" style="width: 130px;">
+                                                                                    <button type="button" class="btn btn-outline-secondary"
+                                                                                            onclick="this.closest('form').querySelector('input[type=number]').stepDown(); this.closest('form').submit();">
+                                                                                        <i class="fas fa-minus"></i>
+                                                                                    </button>
+                                                                                    <input type="number" name="quantity" value="@selection.Quantity" min="1" class="form-control text-center"
+                                                                                           onchange="this.form.submit()" />
+                                                                                    <button type="button" class="btn btn-outline-secondary"
+                                                                                            onclick="this.closest('form').querySelector('input[type=number]').stepUp(); this.closest('form').submit();">
+                                                                                        <i class="fas fa-plus"></i>
+                                                                                    </button>
+                                                                                </div>
+                                                                            </form>
+                                                                            <form asp-controller="Cart" asp-action="RemoveProductType" method="post" onsubmit="return confirm('Bạn có chắc muốn xóa loại sản phẩm này?');">
+                                                                                @Html.AntiForgeryToken()
+                                                                                <input type="hidden" name="selectionId" value="@selection.Id" />
+                                                                                <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Xóa loại sản phẩm">
+                                                                                    <i class="fas fa-times"></i>
+                                                                                </button>
+                                                                            </form>
+                                                                        </div>
+                                                                        <div class="fw-semibold text-primary">@selectionTotal.ToString("N0") đ</div>
+                                                                    </div>
+                                                                </li>
+                                                            }
+                                                        </ul>
+                                                    </td>
+                                                    <td></td>
+                                                </tr>
+                                            }
                                         }
                                     </tbody>
                                 </table>

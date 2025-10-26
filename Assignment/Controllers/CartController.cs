@@ -1,11 +1,14 @@
 ﻿using Assignment.Data;
 using Assignment.Models;
 using Assignment.Services;
+using Assignment.ViewModels.Cart;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Linq;
+using System.Collections.Generic;
+using System;
 
 namespace Assignment.Controllers
 {
@@ -63,13 +66,23 @@ namespace Assignment.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> AddProduct(long productId, long quantity = 1)
+        public async Task<IActionResult> AddProduct([FromBody] AddProductToCartRequest request)
         {
+            if (request == null)
+            {
+                return Json(new { success = false, error = "Dữ liệu không hợp lệ." });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return Json(new { success = false, error = "Vui lòng chọn loại sản phẩm hợp lệ." });
+            }
+
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var product = await _context.Products
                 .Include(p => p.ProductTypes)
-                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == request.ProductId && !p.IsDeleted);
             if (product == null)
             {
                 return Json(new { success = false, error = "Sản phẩm không khả dụng." });
@@ -80,6 +93,12 @@ namespace Assignment.Controllers
             if (!product.IsPublish)
             {
                 return Json(new { success = false, error = "Sản phẩm không khả dụng." });
+            }
+
+            var normalizedSelections = NormalizeSelections(product, request.Selections);
+            if (!normalizedSelections.Any())
+            {
+                return Json(new { success = false, error = "Vui lòng chọn ít nhất một loại sản phẩm khả dụng." });
             }
 
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -92,22 +111,45 @@ namespace Assignment.Controllers
             }
 
             var existingItem = cart.CartItems
-                .FirstOrDefault(ci => ci.ProductId == productId);
+                .FirstOrDefault(ci => ci.ProductId == request.ProductId);
 
-            if (existingItem != null)
+            if (existingItem == null)
             {
-                existingItem.Quantity += quantity;
-            }
-            else
-            {
-                var cartItem = new CartItem
+                existingItem = new CartItem
                 {
                     CartId = cart.Id,
-                    ProductId = productId,
-                    Quantity = quantity
+                    ProductId = request.ProductId,
+                    Quantity = 0
                 };
-                _context.CartItems.Add(cartItem);
+                _context.CartItems.Add(existingItem);
             }
+
+            await _context.Entry(existingItem)
+                .Collection(ci => ci.ProductTypeSelections)
+                .LoadAsync();
+
+            foreach (var selection in normalizedSelections)
+            {
+                var existingSelection = existingItem.ProductTypeSelections
+                    .FirstOrDefault(s => s.ProductTypeId == selection.ProductType.Id);
+
+                if (existingSelection != null)
+                {
+                    existingSelection.Quantity += selection.Quantity;
+                    existingSelection.UnitPrice = selection.UnitPrice;
+                }
+                else
+                {
+                    existingItem.ProductTypeSelections.Add(new CartItemProductType
+                    {
+                        ProductTypeId = selection.ProductType.Id,
+                        Quantity = selection.Quantity,
+                        UnitPrice = selection.UnitPrice
+                    });
+                }
+            }
+
+            existingItem.Quantity = existingItem.ProductTypeSelections.Sum(s => (long)s.Quantity);
 
             await _context.SaveChangesAsync();
 
@@ -119,13 +161,23 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> BuyNowProduct(long productId, long quantity = 1)
+        public async Task<IActionResult> BuyNowProduct([FromBody] AddProductToCartRequest request)
         {
+            if (request == null)
+            {
+                return Json(new { success = false, error = "Dữ liệu không hợp lệ." });
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return Json(new { success = false, error = "Vui lòng chọn loại sản phẩm hợp lệ." });
+            }
+
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
             var product = await _context.Products
                 .Include(p => p.ProductTypes)
-                .FirstOrDefaultAsync(p => p.Id == productId && !p.IsDeleted);
+                .FirstOrDefaultAsync(p => p.Id == request.ProductId && !p.IsDeleted);
             if (product == null)
             {
                 return Json(new { success = false, error = "Sản phẩm không khả dụng." });
@@ -138,10 +190,10 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Sản phẩm không khả dụng." });
             }
 
-            var normalizedQuantity = quantity < 1 ? 1 : quantity;
-            if (product.TotalStock > 0 && normalizedQuantity > product.TotalStock)
+            var normalizedSelections = NormalizeSelections(product, request.Selections);
+            if (!normalizedSelections.Any())
             {
-                normalizedQuantity = product.TotalStock;
+                return Json(new { success = false, error = "Vui lòng chọn ít nhất một loại sản phẩm khả dụng." });
             }
 
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -153,21 +205,38 @@ namespace Assignment.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            var existingItem = cart.CartItems.FirstOrDefault(ci => ci.ProductId == productId);
-            if (existingItem != null)
-            {
-                existingItem.Quantity = normalizedQuantity;
-            }
-            else
+            var existingItem = cart.CartItems.FirstOrDefault(ci => ci.ProductId == request.ProductId);
+            if (existingItem == null)
             {
                 existingItem = new CartItem
                 {
                     CartId = cart.Id,
-                    ProductId = productId,
-                    Quantity = normalizedQuantity
+                    ProductId = request.ProductId
                 };
                 _context.CartItems.Add(existingItem);
             }
+
+            await _context.Entry(existingItem)
+                .Collection(ci => ci.ProductTypeSelections)
+                .LoadAsync();
+
+            if (existingItem.ProductTypeSelections.Any())
+            {
+                _context.CartItemProductTypes.RemoveRange(existingItem.ProductTypeSelections);
+                existingItem.ProductTypeSelections.Clear();
+            }
+
+            foreach (var selection in normalizedSelections)
+            {
+                existingItem.ProductTypeSelections.Add(new CartItemProductType
+                {
+                    ProductTypeId = selection.ProductType.Id,
+                    Quantity = selection.Quantity,
+                    UnitPrice = selection.UnitPrice
+                });
+            }
+
+            existingItem.Quantity = existingItem.ProductTypeSelections.Sum(s => (long)s.Quantity);
 
             await _context.SaveChangesAsync();
 
@@ -280,17 +349,82 @@ namespace Assignment.Controllers
                 return BadRequest("Số lượng phải lớn hơn 0");
             }
 
-            var cartItem = await _context.CartItems.FindAsync(cartItemId);
+            var cartItem = await _context.CartItems
+                .Include(ci => ci.ProductTypeSelections)
+                .FirstOrDefaultAsync(ci => ci.Id == cartItemId);
 
             if (cartItem == null)
             {
                 return NotFound();
             }
 
+            if (cartItem.ProductId.HasValue)
+            {
+                return BadRequest("Vui lòng cập nhật số lượng theo từng loại sản phẩm.");
+            }
+
             cartItem.Quantity = quantity;
             await _context.SaveChangesAsync();
 
             TempData["Success"] = "Đã cập nhật số lượng!";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateProductTypeQuantity(long selectionId, int quantity)
+        {
+            if (quantity < 1)
+            {
+                return BadRequest("Số lượng phải lớn hơn 0");
+            }
+
+            var selection = await _context.CartItemProductTypes
+                .Include(s => s.CartItem)
+                .ThenInclude(ci => ci.ProductTypeSelections)
+                .FirstOrDefaultAsync(s => s.Id == selectionId);
+
+            if (selection == null || selection.CartItem == null)
+            {
+                return NotFound();
+            }
+
+            selection.Quantity = quantity;
+            selection.CartItem.Quantity = selection.CartItem.ProductTypeSelections.Sum(s => (long)s.Quantity);
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Đã cập nhật số lượng loại sản phẩm!";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveProductType(long selectionId)
+        {
+            var selection = await _context.CartItemProductTypes
+                .Include(s => s.CartItem)
+                .ThenInclude(ci => ci.ProductTypeSelections)
+                .FirstOrDefaultAsync(s => s.Id == selectionId);
+
+            if (selection == null || selection.CartItem == null)
+            {
+                return NotFound();
+            }
+
+            _context.CartItemProductTypes.Remove(selection);
+
+            selection.CartItem.ProductTypeSelections.Remove(selection);
+            selection.CartItem.Quantity = selection.CartItem.ProductTypeSelections.Sum(s => (long)s.Quantity);
+
+            if (selection.CartItem.Quantity <= 0)
+            {
+                _context.CartItems.Remove(selection.CartItem);
+            }
+
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Đã xóa loại sản phẩm khỏi giỏ hàng!";
             return RedirectToAction(nameof(Index));
         }
 
@@ -341,6 +475,56 @@ namespace Assignment.Controllers
             var count = cart?.CartItems.Sum(ci => ci.Quantity) ?? 0;
 
             return Json(new { count });
+        }
+
+        private static List<(ProductType ProductType, int Quantity, double UnitPrice)> NormalizeSelections(Product product, IEnumerable<ProductTypeSelectionRequest> selections)
+        {
+            var results = new List<(ProductType ProductType, int Quantity, double UnitPrice)>();
+            if (product == null || selections == null)
+            {
+                return results;
+            }
+
+            var activeTypes = product.ProductTypes?
+                .Where(pt => !pt.IsDeleted && pt.IsPublish)
+                .ToDictionary(pt => pt.Id)
+                ?? new Dictionary<long, ProductType>();
+
+            if (!activeTypes.Any())
+            {
+                return results;
+            }
+
+            foreach (var grouping in selections
+                .Where(selection => selection != null)
+                .GroupBy(selection => selection.ProductTypeId))
+            {
+                if (!activeTypes.TryGetValue(grouping.Key, out var productType))
+                {
+                    continue;
+                }
+
+                var totalQuantity = grouping.Sum(selection => Math.Max(selection.Quantity, 0));
+                if (totalQuantity <= 0)
+                {
+                    continue;
+                }
+
+                if (productType.Stock > 0)
+                {
+                    totalQuantity = Math.Min(totalQuantity, productType.Stock);
+                }
+
+                if (totalQuantity <= 0)
+                {
+                    continue;
+                }
+
+                var unitPrice = PriceCalculator.GetProductTypeFinalPrice(productType);
+                results.Add((productType, totalQuantity, unitPrice));
+            }
+
+            return results;
         }
     }
 }
