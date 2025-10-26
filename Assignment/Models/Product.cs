@@ -85,7 +85,8 @@ namespace Assignment.Models
                 .Where(pt => pt.IsPublish)
                 .ToList();
 
-            IsPublish = publishedTypes.Any();
+            var hasPublishedTypes = publishedTypes.Any();
+            IsPublish = hasPublishedTypes && IsPublish;
 
             PrimaryProductType = publishedTypes
                 .OrderBy(pt => pt.Price)

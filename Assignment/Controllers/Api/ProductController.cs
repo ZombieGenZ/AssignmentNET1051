@@ -337,9 +337,10 @@ namespace Assignment.Controllers.Api
 
                 if (!activeTypes.Any())
                 {
-                    if (product.IsPublish != request.IsPublish)
+                    var desiredPublishState = false;
+                    if (product.IsPublish != desiredPublishState)
                     {
-                        product.IsPublish = request.IsPublish;
+                        product.IsPublish = desiredPublishState;
                         product.UpdatedAt = now;
                         updatedCount++;
                     }
@@ -355,6 +356,13 @@ namespace Assignment.Controllers.Api
                         type.UpdatedAt = now;
                         changed = true;
                     }
+                }
+
+                var desiredProductPublishState = request.IsPublish && activeTypes.Any(pt => pt.IsPublish);
+                if (product.IsPublish != desiredProductPublishState)
+                {
+                    product.IsPublish = desiredProductPublishState;
+                    changed = true;
                 }
 
                 if (!changed)
@@ -633,6 +641,10 @@ namespace Assignment.Controllers.Api
                     existing.IsPublish = false;
                 }
             }
+
+            var hasPublishedTypes = product.ProductTypes
+                .Any(pt => !pt.IsDeleted && pt.IsPublish);
+            product.IsPublish = request.IsPublish && hasPublishedTypes;
 
             errorMessage = null;
             return true;
