@@ -276,6 +276,7 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     await EnsureRoleMetadataColumnsAsync(dbContext);
     await EnsureVoucherMinimumRankColumnAsync(dbContext);
+    await EnsureProductTypeSelectionTablesAsync(dbContext);
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var usersWithoutSecurityStamp = await userManager.Users
@@ -339,6 +340,70 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.Run();
+
+static async Task EnsureProductTypeSelectionTablesAsync(ApplicationDbContext context)
+{
+    const string ensureSql = @"
+IF OBJECT_ID(N'dbo.CartItemProductTypes', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[CartItemProductTypes]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        [CartItemId] BIGINT NOT NULL,
+        [ProductTypeId] BIGINT NOT NULL,
+        [Quantity] INT NOT NULL,
+        [UnitPrice] FLOAT NOT NULL,
+        CONSTRAINT [PK_CartItemProductTypes] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_CartItemProductTypes_CartItemId] ON [dbo].[CartItemProductTypes]([CartItemId]);
+    CREATE INDEX [IX_CartItemProductTypes_ProductTypeId] ON [dbo].[CartItemProductTypes]([ProductTypeId]);
+
+    ALTER TABLE [dbo].[CartItemProductTypes] WITH CHECK
+        ADD CONSTRAINT [FK_CartItemProductTypes_CartItems_CartItemId]
+        FOREIGN KEY([CartItemId]) REFERENCES [dbo].[CartItems]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[CartItemProductTypes] WITH CHECK
+        ADD CONSTRAINT [FK_CartItemProductTypes_ProductTypes_ProductTypeId]
+        FOREIGN KEY([ProductTypeId]) REFERENCES [dbo].[ProductTypes]([Id]) ON DELETE CASCADE;
+END;
+
+IF OBJECT_ID(N'dbo.OrderItemProductTypes', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[OrderItemProductTypes]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        [OrderItemId] BIGINT NOT NULL,
+        [ProductTypeId] BIGINT NOT NULL,
+        [Quantity] INT NOT NULL,
+        [UnitPrice] FLOAT NOT NULL,
+        CONSTRAINT [PK_OrderItemProductTypes] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_OrderItemProductTypes_OrderItemId] ON [dbo].[OrderItemProductTypes]([OrderItemId]);
+    CREATE INDEX [IX_OrderItemProductTypes_ProductTypeId] ON [dbo].[OrderItemProductTypes]([ProductTypeId]);
+
+    ALTER TABLE [dbo].[OrderItemProductTypes] WITH CHECK
+        ADD CONSTRAINT [FK_OrderItemProductTypes_OrderItems_OrderItemId]
+        FOREIGN KEY([OrderItemId]) REFERENCES [dbo].[OrderItems]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[OrderItemProductTypes] WITH CHECK
+        ADD CONSTRAINT [FK_OrderItemProductTypes_ProductTypes_ProductTypeId]
+        FOREIGN KEY([ProductTypeId]) REFERENCES [dbo].[ProductTypes]([Id]) ON DELETE CASCADE;
+END;";
+
+    await context.Database.ExecuteSqlRawAsync(ensureSql);
+}
 
 static async Task EnsureRoleMetadataColumnsAsync(ApplicationDbContext context)
 {
