@@ -256,9 +256,8 @@
                             <textarea id="productDescription" class="form-control" rows="3" maxlength="10000" required></textarea>
                         </div>
                         <div class="col-md-4">
-                            <label for="productImageFile" class="form-label">Ảnh đại diện (URL)<span class="text-danger">*</span></label>
+                            <label for="productImageFile" class="form-label">Ảnh đại diện<span class="text-danger">*</span></label>
                             <input type="file" class="form-control" id="productImageFile" accept="image/*" />
-                            <input type="hidden" id="productImageUrl" required />
                             <div class="image-upload-preview mt-2" id="productImagePreviewWrapper">
                                 <img src="" alt="Xem trước ảnh sản phẩm" id="productImagePreview" class="d-none" />
                                 <div class="image-upload-placeholder" id="productImagePlaceholder">
@@ -269,7 +268,12 @@
                                     <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
                                 </div>
                             </div>
-                            <div class="form-text text-muted" id="productImageUploadFeedback">Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
+                            <div class="form-text text-muted" id="productImageUploadFeedback">Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
+                            <div class="mt-3">
+                                <label for="productImageUrl" class="form-label">Hoặc nhập URL ảnh</label>
+                                <input type="url" class="form-control" id="productImageUrl" placeholder="https://example.com/hinh-anh.jpg" inputmode="url" />
+                                <div class="form-text text-muted">Dán liên kết ảnh trực tiếp nếu ảnh được lưu trữ bên ngoài.</div>
+                            </div>
                         </div>
                         <div class="col-md-4 align-self-end">
                             <div class="form-check form-switch mt-2">
@@ -1561,7 +1565,7 @@
                 showProductImagePlaceholder();
                 setProductImageLoading(false);
 
-                const message = defaultImageFeedback || 'Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+                const message = defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
                 setProductImageFeedback(message, 'muted');
             }
 
@@ -1572,15 +1576,73 @@
                     imageFileInput.value = '';
                 }
 
-                if (url) {
-                    showProductImage(url);
+                const normalizedUrl = (url ?? '').toString().trim();
+
+                if (imageInput) {
+                    imageInput.value = normalizedUrl;
+                }
+
+                if (normalizedUrl) {
+                    showProductImage(normalizedUrl);
                     setProductImageFeedback('Ảnh hiện tại sẽ được giữ nguyên nếu bạn không tải ảnh mới.', 'muted');
                 } else {
                     showProductImagePlaceholder();
-                    const message = defaultImageFeedback || 'Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+                    const message = defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
                     setProductImageFeedback(message, 'muted');
                 }
             }
+
+            function normalizeProductImageUrl() {
+                if (!imageInput) {
+                    return '';
+                }
+
+                const trimmed = imageInput.value.trim();
+                if (trimmed !== imageInput.value) {
+                    imageInput.value = trimmed;
+                }
+
+                return trimmed;
+            }
+
+            function isValidImageUrl(url) {
+                if (!url) {
+                    return false;
+                }
+
+                try {
+                    const parsed = new URL(url, window.location.origin);
+                    return ['http:', 'https:'].includes(parsed.protocol);
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            function evaluateProductImageUrl({ forceSuccess = false } = {}) {
+                if (!imageInput) {
+                    return;
+                }
+
+                const value = normalizeProductImageUrl();
+
+                if (!value) {
+                    showProductImagePlaceholder();
+                    const message = defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+                    setProductImageFeedback(message, 'muted');
+                    return;
+                }
+
+                if (!isValidImageUrl(value)) {
+                    setProductImageFeedback('URL ảnh không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.', 'error');
+                    return;
+                }
+
+                revokeTemporaryImageUrl();
+                showProductImage(value);
+                setProductImageFeedback(forceSuccess ? 'URL ảnh đã được cập nhật.' : 'URL ảnh sẽ được sử dụng khi lưu.', forceSuccess ? 'success' : 'muted');
+            }
+
+            const evaluateProductImageUrlDebounced = debounce(() => evaluateProductImageUrl({ forceSuccess: false }), 500);
 
             function validateProductImageFile(file) {
                 if (!file) {
@@ -2526,11 +2588,18 @@
                     return;
                 }
 
-                const productImageUrl = imageInput.value.trim();
+                const productImageUrl = normalizeProductImageUrl();
                 if (!productImageUrl) {
-                    productFormErrors.innerHTML = '<ul class="mb-0"><li>Vui lòng tải lên ảnh đại diện cho sản phẩm.</li></ul>';
+                    productFormErrors.innerHTML = '<ul class="mb-0"><li>Vui lòng tải lên ảnh đại diện hoặc nhập URL ảnh cho sản phẩm.</li></ul>';
                     productFormErrors.classList.remove('d-none');
-                    setProductImageFeedback('Vui lòng tải lên ảnh đại diện cho sản phẩm.', 'error');
+                    setProductImageFeedback('Vui lòng tải lên ảnh đại diện hoặc nhập URL ảnh hợp lệ cho sản phẩm.', 'error');
+                    return;
+                }
+
+                if (!isValidImageUrl(productImageUrl)) {
+                    productFormErrors.innerHTML = '<ul class="mb-0"><li>URL ảnh sản phẩm không hợp lệ. Vui lòng kiểm tra lại.</li></ul>';
+                    productFormErrors.classList.remove('d-none');
+                    setProductImageFeedback('URL ảnh sản phẩm không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.', 'error');
                     return;
                 }
 
@@ -2748,6 +2817,16 @@
 
             if (productForm) {
                 productForm.addEventListener('submit', submitProduct);
+            }
+
+            if (imageInput) {
+                imageInput.addEventListener('input', () => {
+                    evaluateProductImageUrlDebounced();
+                });
+
+                imageInput.addEventListener('blur', () => {
+                    evaluateProductImageUrl({ forceSuccess: true });
+                });
             }
 
             if (imageFileInput) {
