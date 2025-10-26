@@ -244,7 +244,24 @@
                                                     @foreach (var item in order.OrderItems!)
                                                     {
                                                         var itemName = item.Product?.Name ?? item.Combo?.Name ?? "Không xác định";
-                                                        <li>@itemName x @item.Quantity (@string.Format("{0:N0}đ", item.Price))</li>
+                                                        var hasSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
+                                                        if (hasSelections)
+                                                        {
+                                                            <li>
+                                                                <div class="fw-semibold">@itemName</div>
+                                                                <ul class="list-unstyled ms-0">
+                                                                    @foreach (var selection in item.ProductTypeSelections)
+                                                                    {
+                                                                        var selectionName = selection.ProductType?.Name ?? "Loại sản phẩm";
+                                                                        <li class="text-muted">@selectionName × @selection.Quantity (@string.Format("{0:N0}đ", selection.UnitPrice))</li>
+                                                                    }
+                                                                </ul>
+                                                            </li>
+                                                        }
+                                                        else
+                                                        {
+                                                            <li>@itemName × @item.Quantity (@string.Format("{0:N0}đ", item.Price))</li>
+                                                        }
                                                     }
                                                 </ul>
                                             </div>

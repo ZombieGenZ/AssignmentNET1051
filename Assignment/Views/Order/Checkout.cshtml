@@ -11,6 +11,11 @@
     {
         totalPrice = cart.CartItems.Sum(item =>
         {
+            if (item.Product != null && item.ProductTypeSelections != null && item.ProductTypeSelections.Any())
+            {
+                return item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+            }
+
             var unitPrice = item.Product != null
                 ? PriceCalculator.GetProductFinalPrice(item.Product)
                 : PriceCalculator.GetComboFinalPrice(item.Combo);
@@ -128,10 +133,8 @@
                             <ul class="list-group list-group-flush mb-3">
                                 @foreach (var item in cart.CartItems)
                                 {
-                                    var itemPrice = item.Product != null
-                                        ? PriceCalculator.GetProductFinalPrice(item.Product)
-                                        : PriceCalculator.GetComboFinalPrice(item.Combo);
-                                    var itemTotal = itemPrice * item.Quantity;
+                                    var hasProductSelections = item.Product != null && item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
+                                    double itemTotal;
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";
                                     string itemImage = "/images/no-image.jpg";
@@ -155,12 +158,43 @@
                                         }
                                     }
 
-                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
-                                        <div class="d-flex align-items-center">
+                                    if (hasProductSelections)
+                                    {
+                                        itemTotal = item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+                                    }
+                                    else
+                                    {
+                                        var unitPrice = item.Product != null
+                                            ? PriceCalculator.GetProductFinalPrice(item.Product)
+                                            : PriceCalculator.GetComboFinalPrice(item.Combo);
+                                        itemTotal = unitPrice * item.Quantity;
+                                    }
+
+                                    <li class="list-group-item d-flex justify-content-between align-items-start px-0">
+                                        <div class="d-flex align-items-start">
                                             <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
                                             <div>
-                                                <h6 class="mb-0 small">@itemName</h6>
-                                                <small class="text-muted">@itemType &times; @item.Quantity</small>
+                                                <h6 class="mb-1 small">@itemName</h6>
+                                                @if (hasProductSelections)
+                                                {
+                                                    var totalSelectionQuantity = item.ProductTypeSelections.Sum(selection => selection.Quantity);
+                                                    <small class="text-muted d-block">@itemType • @totalSelectionQuantity món</small>
+                                                    <ul class="list-unstyled mb-0 mt-2 small">
+                                                        @foreach (var selection in item.ProductTypeSelections)
+                                                        {
+                                                            var selectionName = selection.ProductType?.Name ?? "Loại sản phẩm";
+                                                            var selectionTotal = selection.UnitPrice * selection.Quantity;
+                                                            <li class="d-flex justify-content-between gap-3">
+                                                                <span>@selectionName × @selection.Quantity</span>
+                                                                <span class="text-muted">@selectionTotal.ToString("N0") đ</span>
+                                                            </li>
+                                                        }
+                                                    </ul>
+                                                }
+                                                else
+                                                {
+                                                    <small class="text-muted">@itemType × @item.Quantity</small>
+                                                }
                                             </div>
                                         </div>
                                         <span class="fw-bold">@itemTotal.ToString("N0") đ</span>

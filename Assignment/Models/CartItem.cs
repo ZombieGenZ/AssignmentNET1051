@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Assignment.Models
 {
@@ -15,5 +16,7 @@ namespace Assignment.Models
         [Required]
         [Range(1, long.MaxValue)]
         public long Quantity { get; set; }
+
+        public virtual ICollection<CartItemProductType> ProductTypeSelections { get; set; } = new List<CartItemProductType>();
     }
 }
