@@ -87,21 +87,49 @@
 
         var parts = priceRange.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        string FormatPart(string part)
+        if (parts.Length == 0)
         {
-            return decimal.TryParse(part, NumberStyles.Number, CultureInfo.InvariantCulture, out var value)
-                ? value.ToString("N0", vietnamCulture)
-                : part;
+            if (fallbackPrice.HasValue && fallbackPrice.Value > 0)
+            {
+                return $"{fallbackPrice.Value.ToString("N0", vietnamCulture)} ₫";
+            }
+
+            return "Liên hệ";
+        }
+
+        (string Text, bool IsNumeric, decimal? Value) FormatPart(string? part)
+        {
+            var trimmed = part?.Trim() ?? string.Empty;
+            if (decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
+            {
+                return (value.ToString("N0", vietnamCulture), true, value);
+            }
+
+            return (trimmed, false, null);
+        }
+
+        string AppendCurrency(string text, bool isNumeric)
+        {
+            return isNumeric ? $"{text} ₫" : text;
         }
 
         if (parts.Length == 1)
         {
-            return $"{FormatPart(parts[0])} ₫";
+            var singlePart = FormatPart(parts[0]);
+            return AppendCurrency(singlePart.Text, singlePart.IsNumeric);
         }
 
-        var minPart = FormatPart(parts[0]);
-        var maxPart = FormatPart(parts[parts.Length - 1]);
-        return $"{minPart} - {maxPart} ₫";
+        var firstPart = FormatPart(parts[0]);
+        var lastPart = FormatPart(parts[^1]);
+
+        if (firstPart.Value.HasValue && lastPart.Value.HasValue && firstPart.Value.Value == lastPart.Value.Value)
+        {
+            return AppendCurrency(firstPart.Text, firstPart.IsNumeric);
+        }
+
+        var minText = AppendCurrency(firstPart.Text, firstPart.IsNumeric);
+        var maxText = AppendCurrency(lastPart.Text, lastPart.IsNumeric);
+        return $"{minText} - {maxText}";
     }
 }
 
