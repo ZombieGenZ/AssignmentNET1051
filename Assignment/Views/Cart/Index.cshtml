@@ -469,6 +469,23 @@
                 };
             }
 
+            function getItemSelectionState(checkbox) {
+                const itemId = checkbox.data('id');
+                const hasSelections = itemHasSelections(checkbox);
+                const selectionSubtotal = hasSelections ? calculateSelectionSubtotal(itemId) : null;
+                const hasCheckedSelections = selectionSubtotal ? selectionSubtotal.hasChecked : false;
+                const isBaseChecked = checkbox.is(':checked');
+                const isActive = hasSelections ? hasCheckedSelections : isBaseChecked;
+
+                return {
+                    itemId,
+                    hasSelections,
+                    selectionSubtotal,
+                    hasCheckedSelections,
+                    isActive
+                };
+            }
+
             function updateItemTotalDisplay(itemId, value) {
                 const element = $('.cart-item-total[data-item-id="' + itemId + '"]');
                 if (!element.length) {
@@ -484,27 +501,25 @@
 
                 checkboxes.each(function () {
                     const checkbox = $(this);
-                    const itemId = checkbox.data('id');
-                    const hasSelections = itemHasSelections(checkbox);
+                    const state = getItemSelectionState(checkbox);
 
-                    if (!checkbox.is(':checked')) {
-                        updateItemTotalDisplay(itemId, 0);
+                    if (!state.isActive) {
+                        updateItemTotalDisplay(state.itemId, 0);
                         return;
                     }
 
-                    if (hasSelections) {
-                        const selectionSubtotal = calculateSelectionSubtotal(itemId);
-                        if (!selectionSubtotal.hasChecked) {
-                            updateItemTotalDisplay(itemId, 0);
+                    if (state.hasSelections) {
+                        if (!state.selectionSubtotal || !state.selectionSubtotal.hasChecked) {
+                            updateItemTotalDisplay(state.itemId, 0);
                             return;
                         }
 
-                        subtotal += selectionSubtotal.total;
-                        updateItemTotalDisplay(itemId, selectionSubtotal.total);
+                        subtotal += state.selectionSubtotal.total;
+                        updateItemTotalDisplay(state.itemId, state.selectionSubtotal.total);
                     } else {
                         const totalValue = getNumericValue(checkbox, 'data-total');
                         subtotal += totalValue;
-                        updateItemTotalDisplay(itemId, totalValue);
+                        updateItemTotalDisplay(state.itemId, totalValue);
                     }
 
                     selectedCount++;
@@ -531,12 +546,12 @@
                 proceedButton.prop('disabled', selectedCount === 0);
                 noSelectionWarning.toggleClass('d-none', selectedCount !== 0);
 
-                if (selectedCount === checkboxes.length) {
+                if (selectedCount === checkboxes.length && checkboxes.length > 0) {
                     selectAll.prop('checked', true).prop('indeterminate', false);
                 } else if (selectedCount === 0) {
                     selectAll.prop('checked', false).prop('indeterminate', false);
                 } else {
-                    selectAll.prop('indeterminate', true);
+                    selectAll.prop('indeterminate', true).prop('checked', false);
                 }
             }
 
@@ -600,20 +615,19 @@
 
                 checkboxes.each(function () {
                     const checkbox = $(this);
-                    if (!checkbox.is(':checked')) {
+                    const state = getItemSelectionState(checkbox);
+
+                    if (!state.isActive) {
                         return;
                     }
 
-                    const itemId = checkbox.data('id');
-                    const hasSelections = itemHasSelections(checkbox);
-
-                    if (hasSelections) {
-                        const checkedSelections = getSelectionCheckboxes(itemId).filter(':checked');
+                    if (state.hasSelections) {
+                        const checkedSelections = getSelectionCheckboxes(state.itemId).filter(':checked');
                         if (!checkedSelections.length) {
                             return;
                         }
 
-                        selectedIds.push(itemId);
+                        selectedIds.push(state.itemId);
 
                         checkedSelections.each(function () {
                             const selectionId = $(this).val();
@@ -622,7 +636,7 @@
                             }
                         });
                     } else {
-                        selectedIds.push(itemId);
+                        selectedIds.push(state.itemId);
                     }
                 });
 
