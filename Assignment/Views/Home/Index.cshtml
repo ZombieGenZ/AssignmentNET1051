@@ -1,4 +1,5 @@
 @model Assignment.Models.HomeViewModel
+@using System
 @using Microsoft.AspNetCore.Routing
 @using System.Globalization
 @using System.Linq
@@ -13,6 +14,7 @@
     var showCombos = activeSegment == "all" || activeSegment == "combo";
     var showProducts = activeSegment == "all" || activeSegment == "category";
     var advancedOpen = filter.HasAdvancedFilters;
+    var defaultImageUrl = Url.Content("~/images/default-product.svg");
 
     var baseRoute = new RouteValueDictionary();
     if (!string.IsNullOrWhiteSpace(filter.SearchTerm))
@@ -284,14 +286,20 @@
                         var hasPercentDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue;
                         var hasAmountDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Amount && combo.Discount.HasValue;
                         var hasFixedDiscount = combo.DiscountType == Assignment.Enums.DiscountType.FixedAmount && combo.Discount.HasValue;
+                        var comboHasOwnDiscount = hasPercentDiscount || hasAmountDiscount || hasFixedDiscount;
+                        var comboHasProductDiscount = combo.HasProductDiscount;
+                        var comboHasAnyDiscount = comboHasOwnDiscount || comboHasProductDiscount;
                         var comboFinalPrice = PriceCalculator.GetComboFinalPrice(combo);
-                        var comboHasDiscount = hasPercentDiscount || hasAmountDiscount || hasFixedDiscount;
-                        var comboSavings = comboHasDiscount ? Math.Max(combo.Price - comboFinalPrice, 0) : 0;
+                        var comboSavings = comboHasOwnDiscount ? Math.Max(combo.Price - comboFinalPrice, 0) : 0;
+                        var comboImageUrl = string.IsNullOrWhiteSpace(combo.ImageUrl) ? defaultImageUrl : combo.ImageUrl;
                         <div class="col-md-4 col-lg-3">
                             <a class="product-card-link" href="@Url.Action("ComboDetail", "Home", new { id = combo.Id })">
                                 <div class="product-card">
                                     <div class="position-relative">
-                                        <img src="@combo.ImageUrl" class="product-image" alt="@combo.Name" />
+                                        <img src="@comboImageUrl"
+                                             class="product-image"
+                                             alt="@combo.Name"
+                                             onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                         @if (hasPercentDiscount)
                                         {
                                             <span class="badge-discount">-@combo.Discount%</span>
@@ -303,6 +311,10 @@
                                         else if (hasFixedDiscount)
                                         {
                                             <span class="badge-discount">Giá ưu đãi</span>
+                                        }
+                                        else if (comboHasProductDiscount)
+                                        {
+                                            <span class="badge-discount">Món ưu đãi</span>
                                         }
                                     </div>
                                     <div class="product-info">
@@ -339,27 +351,35 @@
                                         </div>
 
                                         <div class="mb-3">
-                                            @if (!comboHasDiscount)
+                                            @if (!comboHasAnyDiscount)
                                             {
                                                 <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
                                             }
                                             else
                                             {
-                                                <div>
-                                                    <span class="original-price">@combo.Price.ToString("N0") ₫</span>
-                                                </div>
-                                                <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
-                                                @if (hasPercentDiscount && comboSavings > 0)
+                                                @if (comboHasOwnDiscount)
                                                 {
-                                                    <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                    <div>
+                                                        <span class="original-price">@combo.Price.ToString("N0") ₫</span>
+                                                    </div>
+                                                    <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                                    @if (hasPercentDiscount && comboSavings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                    }
+                                                    else if (hasAmountDiscount)
+                                                    {
+                                                        <div class="small text-muted">Giảm @combo.Discount.Value.ToString("N0") ₫</div>
+                                                    }
+                                                    else if (hasFixedDiscount && comboSavings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                    }
                                                 }
-                                                else if (hasAmountDiscount)
+                                                else
                                                 {
-                                                    <div class="small text-muted">Giảm @combo.Discount.Value.ToString("N0") ₫</div>
-                                                }
-                                                else if (hasFixedDiscount && comboSavings > 0)
-                                                {
-                                                    <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                    <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                                    <div class="small text-muted text-success">Bao gồm món đang giảm giá</div>
                                                 }
                                             }
                                         </div>
@@ -414,11 +434,35 @@
                             var originalPrice = defaultType?.Price ?? 0m;
                             var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
                             var priceDisplay = FormatPriceRange(product.PriceRange, originalPrice);
+                            var productTypes = (product.ProductTypes ?? Enumerable.Empty<Assignment.Models.ProductType>())
+                                .Where(pt => !pt.IsDeleted);
+                            var publishedProductTypes = productTypes.Where(pt => pt.IsPublish).ToList();
+                            var discountCandidates = (publishedProductTypes.Any() ? publishedProductTypes : productTypes)
+                                .Where(pt => pt.DiscountType != Assignment.Enums.DiscountType.None && pt.Discount.HasValue &&
+                                            (pt.DiscountType == Assignment.Enums.DiscountType.FixedAmount || pt.Discount.Value > 0))
+                                .Select(pt =>
+                                {
+                                    var typeFinalPrice = PriceCalculator.GetProductTypeFinalPrice(pt);
+                                    var typeSavings = Math.Max((double)pt.Price - typeFinalPrice, 0);
+                                    return new { Type = pt, FinalPrice = typeFinalPrice, Savings = typeSavings };
+                                })
+                                .OrderByDescending(x => x.Savings)
+                                .ThenBy(x => x.Type.Price)
+                                .FirstOrDefault();
+                            var bestDiscountType = discountCandidates?.Type;
+                            var bestDiscountFinalPrice = discountCandidates?.FinalPrice ?? 0;
+                            var bestDiscountSavings = discountCandidates?.Savings ?? 0;
+                            var hasOtherTypeDiscount = !hasDiscount && bestDiscountType != null;
+                            var hasAnyTypeDiscount = hasDiscount || bestDiscountType != null;
+                            var productImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl) ? defaultImageUrl : product.ProductImageUrl;
                             <div class="col-md-4 col-lg-3">
                                 <a class="product-card-link" href="@Url.Action("ProductDetail", "Home", new { id = product.Id })">
                                     <div class="product-card">
                                         <div class="position-relative">
-                                            <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
+                                            <img src="@productImageUrl"
+                                                 class="product-image"
+                                                 alt="@product.Name"
+                                                 onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                             @if (hasPercentDiscount)
                                             {
                                                 <span class="badge-discount">-@discountValue%</span>
@@ -430,6 +474,21 @@
                                             else if (hasFixedDiscount)
                                             {
                                                 <span class="badge-discount">Giá ưu đãi</span>
+                                            }
+                                            else if (hasOtherTypeDiscount && bestDiscountType != null)
+                                            {
+                                                if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                                {
+                                                    <span class="badge-discount">-@bestDiscountType.Discount%</span>
+                                                }
+                                                else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Amount && bestDiscountType.Discount.HasValue)
+                                                {
+                                                    <span class="badge-discount">-@bestDiscountType.Discount.Value.ToString("N0") ₫</span>
+                                                }
+                                                else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.FixedAmount)
+                                                {
+                                                    <span class="badge-discount">Giá ưu đãi</span>
+                                                }
                                             }
                                         </div>
                                         <div class="product-info">
@@ -466,11 +525,11 @@
                                             </div>
 
                                             <div class="mb-3">
-                                                @if (!hasDiscount)
+                                                @if (!hasAnyTypeDiscount)
                                                 {
                                                     <span class="final-price">@priceDisplay</span>
                                                 }
-                                                else
+                                                else if (hasDiscount)
                                                 {
                                                     <div>
                                                         <span class="original-price">@originalPrice.ToString("N0") ₫</span>
@@ -487,6 +546,19 @@
                                                     else if (hasFixedDiscount && savings > 0)
                                                     {
                                                         <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                    }
+                                                }
+                                                else if (hasOtherTypeDiscount && bestDiscountType != null)
+                                                {
+                                                    var bestOriginalPrice = bestDiscountType.Price;
+                                                    var bestFinalPriceDisplay = Convert.ToDecimal(bestDiscountFinalPrice).ToString("N0");
+                                                    <div>
+                                                        <span class="original-price">@bestOriginalPrice.ToString("N0") ₫</span>
+                                                    </div>
+                                                    <span class="final-price">@bestFinalPriceDisplay ₫</span>
+                                                    @if (bestDiscountSavings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @bestDiscountSavings.ToString("N0") ₫</div>
                                                     }
                                                 }
                                             </div>
@@ -526,11 +598,35 @@
                                 var originalPrice = defaultType?.Price ?? 0m;
                                 var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
                                 var priceDisplay = FormatPriceRange(product.PriceRange, originalPrice);
+                                var productTypes = (product.ProductTypes ?? Enumerable.Empty<Assignment.Models.ProductType>())
+                                    .Where(pt => !pt.IsDeleted);
+                                var publishedProductTypes = productTypes.Where(pt => pt.IsPublish).ToList();
+                                var discountCandidates = (publishedProductTypes.Any() ? publishedProductTypes : productTypes)
+                                    .Where(pt => pt.DiscountType != Assignment.Enums.DiscountType.None && pt.Discount.HasValue &&
+                                                (pt.DiscountType == Assignment.Enums.DiscountType.FixedAmount || pt.Discount.Value > 0))
+                                    .Select(pt =>
+                                    {
+                                        var typeFinalPrice = PriceCalculator.GetProductTypeFinalPrice(pt);
+                                        var typeSavings = Math.Max((double)pt.Price - typeFinalPrice, 0);
+                                        return new { Type = pt, FinalPrice = typeFinalPrice, Savings = typeSavings };
+                                    })
+                                    .OrderByDescending(x => x.Savings)
+                                    .ThenBy(x => x.Type.Price)
+                                    .FirstOrDefault();
+                                var bestDiscountType = discountCandidates?.Type;
+                                var bestDiscountFinalPrice = discountCandidates?.FinalPrice ?? 0;
+                                var bestDiscountSavings = discountCandidates?.Savings ?? 0;
+                                var hasOtherTypeDiscount = !hasDiscount && bestDiscountType != null;
+                                var hasAnyTypeDiscount = hasDiscount || bestDiscountType != null;
+                                var productImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl) ? defaultImageUrl : product.ProductImageUrl;
                                 <div class="col-md-4 col-lg-3">
                                     <a class="product-card-link" href="@Url.Action("ProductDetail", "Home", new { id = product.Id })">
                                         <div class="product-card">
                                         <div class="position-relative">
-                                            <img src="@product.ProductImageUrl" class="product-image" alt="@product.Name" />
+                                            <img src="@productImageUrl"
+                                                 class="product-image"
+                                                 alt="@product.Name"
+                                                 onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                             @if (hasPercentDiscount)
                                             {
                                                 <span class="badge-discount">-@discountValue%</span>
@@ -542,6 +638,21 @@
                                             else if (hasFixedDiscount)
                                             {
                                                 <span class="badge-discount">Giá ưu đãi</span>
+                                            }
+                                            else if (hasOtherTypeDiscount && bestDiscountType != null)
+                                            {
+                                                if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                                {
+                                                    <span class="badge-discount">-@bestDiscountType.Discount%</span>
+                                                }
+                                                else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Amount && bestDiscountType.Discount.HasValue)
+                                                {
+                                                    <span class="badge-discount">-@bestDiscountType.Discount.Value.ToString("N0") ₫</span>
+                                                }
+                                                else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.FixedAmount)
+                                                {
+                                                    <span class="badge-discount">Giá ưu đãi</span>
+                                                }
                                             }
                                         </div>
                                         <div class="product-info">
@@ -578,11 +689,11 @@
                                             </div>
 
                                             <div class="mb-3">
-                                                @if (!hasDiscount)
+                                                @if (!hasAnyTypeDiscount)
                                                 {
                                                     <span class="final-price">@priceDisplay</span>
                                                 }
-                                                else
+                                                else if (hasDiscount)
                                                 {
                                                     <div>
                                                         <span class="original-price">@originalPrice.ToString("N0") ₫</span>
@@ -599,6 +710,19 @@
                                                     else if (hasFixedDiscount && savings > 0)
                                                     {
                                                         <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                    }
+                                                }
+                                                else if (hasOtherTypeDiscount && bestDiscountType != null)
+                                                {
+                                                    var bestOriginalPrice = bestDiscountType.Price;
+                                                    var bestFinalPriceDisplay = Convert.ToDecimal(bestDiscountFinalPrice).ToString("N0");
+                                                    <div>
+                                                        <span class="original-price">@bestOriginalPrice.ToString("N0") ₫</span>
+                                                    </div>
+                                                    <span class="final-price">@bestFinalPriceDisplay ₫</span>
+                                                    @if (bestDiscountSavings > 0)
+                                                    {
+                                                        <div class="small text-muted">Tiết kiệm @bestDiscountSavings.ToString("N0") ₫</div>
                                                     }
                                                 }
                                             </div>

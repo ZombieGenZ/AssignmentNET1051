@@ -74,10 +74,7 @@ namespace Assignment.Controllers
 
             foreach (var combo in combos)
             {
-                foreach (var item in combo.ComboItems ?? Enumerable.Empty<ComboItem>())
-                {
-                    item.Product?.RefreshDerivedFields();
-                }
+                combo.RefreshDerivedFields();
             }
 
             var categories = await _context.Categories
@@ -150,7 +147,7 @@ namespace Assignment.Controllers
             if (filter.OnlyDiscounted)
             {
                 filteredProducts = filteredProducts.Where(p => p.HasDiscount);
-                filteredCombos = filteredCombos.Where(c => c.DiscountType != DiscountType.None);
+                filteredCombos = filteredCombos.Where(c => c.HasAnyDiscount);
             }
 
             if (filter.Segment == "category" && filter.CategoryId.HasValue)
@@ -292,10 +289,7 @@ namespace Assignment.Controllers
             if (combo == null)
                 return NotFound();
 
-            foreach (var item in combo.ComboItems ?? Enumerable.Empty<ComboItem>())
-            {
-                item.Product?.RefreshDerivedFields();
-            }
+            combo.RefreshDerivedFields();
 
             var viewModel = new ComboDetailViewModel
             {

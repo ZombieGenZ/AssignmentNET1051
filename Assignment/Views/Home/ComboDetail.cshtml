@@ -1,10 +1,13 @@
 @model Assignment.ViewModels.Combos.ComboDetailViewModel
 @using Assignment.Services
 
-@{
+@{ 
     var combo = Model.Combo;
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
     ViewData["Title"] = combo.Name;
+    combo.RefreshDerivedFields();
+    var defaultImageUrl = Url.Content("~/images/default-product.svg");
+    var comboImageUrl = string.IsNullOrWhiteSpace(combo.ImageUrl) ? defaultImageUrl : combo.ImageUrl;
 }
 
 <style>
@@ -1066,7 +1069,10 @@
             <div class="row g-lg-5 align-items-start">
                 <div class="col-lg-6 mb-4 mb-lg-0">
                     <div class="combo-media">
-                        <img src="@combo.ImageUrl" class="combo-detail-image" alt="@combo.Name" />
+                        <img src="@comboImageUrl"
+                             class="combo-detail-image"
+                             alt="@combo.Name"
+                             onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                         @if (combo.DiscountType == Assignment.Enums.DiscountType.Percent && combo.Discount.HasValue)
                         {
                             <span class="discount-chip">-@combo.Discount%</span>
@@ -1074,6 +1080,10 @@
                         else if (combo.DiscountType == Assignment.Enums.DiscountType.FixedAmount && combo.Discount.HasValue)
                         {
                             <span class="discount-chip">Ưu đãi</span>
+                        }
+                        else if (combo.HasProductDiscount)
+                        {
+                            <span class="discount-chip">Món ưu đãi</span>
                         }
                     </div>
                 </div>
@@ -1116,12 +1126,20 @@
                             var hasAmountDiscount = combo.DiscountType == Assignment.Enums.DiscountType.Amount && combo.Discount.HasValue;
                             var finalPrice = PriceCalculator.GetComboFinalPrice(combo);
                             var savings = Math.Max(combo.Price - finalPrice, 0);
+                            var hasOwnDiscount = combo.HasOwnDiscount;
+                            var hasProductDiscount = combo.HasProductDiscount;
                         }
 
                         <div class="price-section">
-                            @if (!combo.Discount.HasValue || combo.DiscountType == Assignment.Enums.DiscountType.None)
+                            @if (!hasOwnDiscount)
                             {
                                 <div class="final-price">@combo.Price.ToString("N0") ₫</div>
+                                @if (hasProductDiscount)
+                                {
+                                    <div class="price-subtext text-success">
+                                        <i class="fas fa-tag me-1"></i> Combo có món đang giảm giá
+                                    </div>
+                                }
                             }
                             else if (hasPercentDiscount)
                             {
@@ -1260,8 +1278,13 @@
 
                                     if (product != null)
                                     {
+                                        var itemImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl)
+                                            ? defaultImageUrl
+                                            : product.ProductImageUrl;
                                         <a class="combo-item-card" asp-controller="Home" asp-action="ProductDetail" asp-route-id="@product.Id">
-                                            <img src="@(product.ProductImageUrl ?? "/images/no-image.jpg")" alt="@product.Name" />
+                                            <img src="@itemImageUrl"
+                                                 alt="@product.Name"
+                                                 onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                             <div>
                                                 <strong>@product.Name</strong>
                                                 <span>x@item.Quantity</span>
@@ -1271,7 +1294,7 @@
                                     else
                                     {
                                         <div class="combo-item-card">
-                                            <img src="/images/no-image.jpg" alt="Sản phẩm" />
+                                            <img src="@defaultImageUrl" alt="Sản phẩm" />
                                             <div>
                                                 <strong>Sản phẩm</strong>
                                                 <span>x@item.Quantity</span>

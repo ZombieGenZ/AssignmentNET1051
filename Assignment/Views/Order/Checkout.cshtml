@@ -38,6 +38,7 @@
     var selectedPaymentMethod = Model.PaymentMethod.HasValue && Model.PaymentMethod.Value != PaymentMethodType.Cash
         ? Model.PaymentMethod.Value
         : PaymentMethodType.Bank;
+    var defaultImageUrl = Url.Content("~/images/default-product.svg");
 }
 
 <div class="container my-5">
@@ -138,24 +139,24 @@
                                     double itemTotal;
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";
-                                    string itemImage = "/images/no-image.jpg";
+                                    string itemImage = defaultImageUrl;
 
                                     if (item.Product != null)
                                     {
                                         itemName = item.Product.Name;
                                         itemType = "Sản phẩm";
-                                        if (!string.IsNullOrEmpty(item.Product.ProductImageUrl))
+                                        if (!string.IsNullOrWhiteSpace(item.Product.ProductImageUrl))
                                         {
-                                            itemImage = item.Product.ProductImageUrl;
+                                            itemImage = item.Product.ProductImageUrl!;
                                         }
                                     }
                                     else if (item.Combo != null)
                                     {
                                         itemName = item.Combo.Name;
                                         itemType = "Combo";
-                                        if (!string.IsNullOrEmpty(item.Combo.ImageUrl))
+                                        if (!string.IsNullOrWhiteSpace(item.Combo.ImageUrl))
                                         {
-                                            itemImage = item.Combo.ImageUrl;
+                                            itemImage = item.Combo.ImageUrl!;
                                         }
                                     }
 
@@ -173,7 +174,7 @@
 
                                     <li class="list-group-item d-flex justify-content-between align-items-start px-0">
                                         <div class="d-flex align-items-start">
-                                            <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                            <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.onerror=null;this.src='@defaultImageUrl';">
                                             <div>
                                                 <h6 class="mb-1 small">@itemName</h6>
                                                 @if (hasProductSelections)

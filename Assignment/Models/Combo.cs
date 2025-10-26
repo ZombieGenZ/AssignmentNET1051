@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 
 namespace Assignment.Models
 {
@@ -44,5 +45,25 @@ namespace Assignment.Models
         [Range(0, 5)]
         public double AverageEvaluate { get; set; } = 0;
         public virtual IEnumerable<ComboItem>? ComboItems { get; set; }
+
+        [NotMapped]
+        public bool HasProductDiscount { get; private set; }
+
+        [NotMapped]
+        public bool HasOwnDiscount => DiscountType != Enums.DiscountType.None && Discount.HasValue;
+
+        [NotMapped]
+        public bool HasAnyDiscount => HasOwnDiscount || HasProductDiscount;
+
+        public void RefreshDerivedFields()
+        {
+            foreach (var item in ComboItems ?? Enumerable.Empty<ComboItem>())
+            {
+                item.Product?.RefreshDerivedFields();
+            }
+
+            HasProductDiscount = (ComboItems ?? Enumerable.Empty<ComboItem>())
+                .Any(ci => ci.Product?.HasDiscount == true);
+        }
     }
 }
