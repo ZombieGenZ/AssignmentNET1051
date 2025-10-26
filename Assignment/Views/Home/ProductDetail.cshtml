@@ -16,6 +16,8 @@
         .ToList()
         ?? new List<Assignment.Models.ProductType>();
     var hasAvailableTypes = availableTypes.Any();
+    var defaultImageUrl = Url.Content("~/images/default-product.svg");
+    var productImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl) ? defaultImageUrl : product.ProductImageUrl;
 }
 
 <style>
@@ -1094,7 +1096,10 @@
             <div class="row g-lg-5 align-items-start">
                 <div class="col-lg-6 mb-4 mb-lg-0">
                     <div class="product-media">
-                        <img src="@product.ProductImageUrl" class="product-detail-image" alt="@product.Name" />
+                        <img src="@productImageUrl"
+                             class="product-detail-image"
+                             alt="@product.Name"
+                             onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                         @if (discountType == Assignment.Enums.DiscountType.Percent && discountValue.HasValue)
                         {
                             <span class="discount-chip">-@discountValue%</span>

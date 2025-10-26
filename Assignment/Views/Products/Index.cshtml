@@ -2287,7 +2287,7 @@
                     }
 
                     const product = await response.json();
-                    const imageUrl = escapeHtml(product.productImageUrl || '/images/no-image.jpg');
+                    const imageUrl = escapeHtml(product.productImageUrl || '/images/default-product.svg');
                     const productName = escapeHtml(product.name ?? 'Sản phẩm');
                     const categoryName = escapeHtml(product.categoryName ?? 'Không có danh mục');
                     const statusBadge = product.isPublish

@@ -2,6 +2,7 @@
 
 @{
     ViewData["Title"] = "Lịch Sử Mua Hàng";
+    var defaultImageUrl = Url.Content("~/images/default-product.svg");
 }
 
 <div class="container my-5">
@@ -54,7 +55,7 @@
                                 {
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";
-                                    string itemImage = "/images/no-image.jpg";
+                                    string itemImage = defaultImageUrl;
                                     bool isAvailable = true;
                                     string? detailUrl = null;
                                     var hasProductSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
@@ -68,9 +69,9 @@
                                         {
                                             detailUrl = Url.Action("ProductDetail", "Home", new { id = item.ProductId });
                                         }
-                                        if (!string.IsNullOrEmpty(item.Product.ProductImageUrl))
+                                        if (!string.IsNullOrWhiteSpace(item.Product.ProductImageUrl))
                                         {
-                                            itemImage = item.Product.ProductImageUrl;
+                                            itemImage = item.Product.ProductImageUrl!;
                                         }
                                     }
                                     else if (item.Combo != null)
@@ -82,9 +83,9 @@
                                         {
                                             detailUrl = Url.Action("ComboDetail", "Home", new { id = item.ComboId });
                                         }
-                                        if (!string.IsNullOrEmpty(item.Combo.ImageUrl))
+                                        if (!string.IsNullOrWhiteSpace(item.Combo.ImageUrl))
                                         {
-                                            itemImage = item.Combo.ImageUrl;
+                                            itemImage = item.Combo.ImageUrl!;
                                         }
                                     }
 
@@ -95,7 +96,7 @@
 
                                     <li class="list-group-item d-flex justify-content-between align-items-start">
                                         <div class="d-flex align-items-start">
-                                            <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;">
+                                            <img src="@itemImage" alt="@itemName" class="img-thumbnail me-3" style="width: 60px; height: 60px; object-fit: cover;" onerror="this.onerror=null;this.src='@defaultImageUrl';">
                                             <div>
                                                 <h6 class="mb-0">
                                                     @if (!string.IsNullOrEmpty(detailUrl) && isAvailable)

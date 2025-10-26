@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="title desc">
+  <title id="title">Hình ảnh mặc định</title>
+  <desc id="desc">Biểu tượng món ăn mặc định hiển thị khi không có ảnh sản phẩm.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e0f2fe" />
+      <stop offset="100%" stop-color="#c7d2fe" />
+    </linearGradient>
+    <linearGradient id="plate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="100%" stop-color="#e2e8f0" />
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" rx="32" fill="url(#bg)" />
+  <g transform="translate(40 60)">
+    <ellipse cx="80" cy="120" rx="80" ry="32" fill="url(#plate)" />
+    <ellipse cx="80" cy="118" rx="58" ry="20" fill="#ffffff" opacity="0.85" />
+    <g transform="translate(40 10)">
+      <path d="M40 80c-20 0-36-16-36-36s16-36 36-36 36 16 36 36-16 36-36 36z" fill="#f59e0b" opacity="0.9" />
+      <path d="M40 68c-13 0-24-11-24-24s11-24 24-24 24 11 24 24-11 24-24 24z" fill="#fff" opacity="0.9" />
+      <path d="M14 78c4-8 14-14 26-14s22 6 26 14" fill="none" stroke="#ef4444" stroke-width="5" stroke-linecap="round" />
+    </g>
+    <g transform="translate(16 0)">
+      <rect x="8" y="-12" width="10" height="48" rx="5" fill="#1d4ed8" opacity="0.8" />
+      <rect x="128" y="-12" width="10" height="48" rx="5" fill="#1d4ed8" opacity="0.8" />
+    </g>
+  </g>
+  <text x="50%" y="86%" text-anchor="middle" font-family="'Segoe UI', sans-serif" font-size="18" fill="#1e293b" opacity="0.85">
+    Hình ảnh đang cập nhật
+  </text>
+</svg>

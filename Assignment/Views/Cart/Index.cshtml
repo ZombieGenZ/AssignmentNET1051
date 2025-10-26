@@ -1,6 +1,6 @@
 ﻿@model Assignment.Models.Cart
 
-@{
+@{ 
     ViewData["Title"] = "Giỏ Hàng";
     double totalPrice = 0;
     double discount = (double)(TempData["DiscountAmount"] ?? 0.0);
@@ -9,6 +9,7 @@
     string discountInvariant = discount.ToString(System.Globalization.CultureInfo.InvariantCulture);
     TempData.Keep("DiscountAmount");
     TempData.Keep("VoucherCode");
+    var defaultImageUrl = Url.Content("~/images/default-product.svg");
 }
 
 <div class="container my-5 cart-page">
@@ -75,10 +76,12 @@
                                             string itemImage = "";
                                             var hasProductSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
 
-                                            if (item.Product != null)
-                                            {
-                                                itemName = item.Product.Name;
-                                                itemImage = item.Product.ProductImageUrl ?? "/images/no-image.jpg";
+        if (item.Product != null)
+        {
+            itemName = item.Product.Name;
+            itemImage = string.IsNullOrWhiteSpace(item.Product.ProductImageUrl)
+                ? defaultImageUrl
+                : item.Product.ProductImageUrl;
 
                                                 if (hasProductSelections)
                                                 {
@@ -91,15 +94,22 @@
                                                     itemTotal = itemUnitPrice * item.Quantity;
                                                 }
                                             }
-                                            else if (item.Combo != null)
-                                            {
-                                                itemUnitPrice = PriceCalculator.GetComboFinalPrice(item.Combo);
-                                                itemName = item.Combo.Name;
-                                                itemImage = item.Combo.ImageUrl ?? "/images/no-image.jpg";
-                                                itemTotal = itemUnitPrice * item.Quantity;
-                                            }
+        else if (item.Combo != null)
+        {
+            itemUnitPrice = PriceCalculator.GetComboFinalPrice(item.Combo);
+            itemName = item.Combo.Name;
+            itemImage = string.IsNullOrWhiteSpace(item.Combo.ImageUrl)
+                ? defaultImageUrl
+                : item.Combo.ImageUrl;
+            itemTotal = itemUnitPrice * item.Quantity;
+        }
 
-                                            string itemTotalInvariant = itemTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (string.IsNullOrWhiteSpace(itemImage))
+        {
+            itemImage = defaultImageUrl;
+        }
+
+        string itemTotalInvariant = itemTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
                                             totalPrice += itemTotal;
 
                                             <tr>
@@ -118,7 +128,8 @@
                                                     <div class="d-flex align-items-center">
                                                         <img src="@itemImage" alt="@itemName"
                                                              class="img-thumbnail me-3"
-                                                             style="width: 80px; height: 80px; object-fit: cover;">
+                                                             style="width: 80px; height: 80px; object-fit: cover;"
+                                                             onerror="this.onerror=null;this.src='@defaultImageUrl';">
                                                         <div>
                                                             <h6 class="mb-0">@itemName</h6>
                                                             @if (item.Product != null)
