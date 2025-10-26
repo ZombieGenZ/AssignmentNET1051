@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Assignment.Models
 {
@@ -16,5 +17,7 @@ namespace Assignment.Models
         public virtual Combo? Combo { get; set; }
         public long? ProductId { get; set; }
         public virtual Product? Product { get; set; }
+
+        public virtual ICollection<OrderItemProductType> ProductTypeSelections { get; set; } = new List<OrderItemProductType>();
     }
 }

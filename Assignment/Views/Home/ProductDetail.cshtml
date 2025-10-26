@@ -1,5 +1,6 @@
 @model Assignment.ViewModels.Products.ProductDetailViewModel
 @using Assignment.Services
+@using System.Linq
 
 @{
     var product = Model.Product;
@@ -9,6 +10,12 @@
     var defaultType = product.PrimaryProductType;
     var discountType = defaultType?.DiscountType ?? Assignment.Enums.DiscountType.None;
     var discountValue = defaultType?.Discount;
+    var availableTypes = product.ProductTypes?
+        .Where(pt => !pt.IsDeleted && pt.IsPublish)
+        .OrderBy(pt => pt.Price)
+        .ToList()
+        ?? new List<Assignment.Models.ProductType>();
+    var hasAvailableTypes = availableTypes.Any();
 }
 
 <style>
@@ -849,52 +856,130 @@
         font-weight: 600;
     }
 
-    .quantity-selector {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        margin: 0;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        border-radius: 16px;
-        padding: 0.75rem 1rem;
-        width: fit-content;
-    }
-
-    .quantity-btn {
-        width: 42px;
-        height: 42px;
-        border: none;
-        background: #2563eb;
-        color: white;
-        border-radius: 12px;
-        font-size: 1.2rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
-    }
-
-    .quantity-btn:hover {
-        background: #1d4ed8;
-        transform: translateY(-1px);
-        box-shadow: 0 10px 20px rgba(37, 99, 235, 0.25);
-    }
-
-    .quantity-input {
-        width: 70px;
-        text-align: center;
-        font-size: 1.25rem;
-        font-weight: 600;
-        border: none;
-        background: transparent;
-        color: #0f172a;
-    }
-
     .detail-actions {
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
         margin-top: 1.5rem;
+    }
+
+    .type-selection {
+        margin-top: 2rem;
+    }
+
+    .type-selection-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .type-selection-title i {
+        color: #2563eb;
+    }
+
+    .type-option {
+        position: relative;
+        height: 100%;
+    }
+
+    .type-option input[type="checkbox"] {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .type-option-card {
+        height: 100%;
+        border: 1px solid #e2e8f0;
+        border-radius: 16px;
+        padding: 1rem 1.25rem;
+        background: #f8fafc;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        cursor: pointer;
+    }
+
+    .type-option-card .type-option-name {
+        font-weight: 700;
+        color: #0f172a;
+        font-size: 1rem;
+    }
+
+    .type-option-card .type-option-price {
+        font-weight: 700;
+        color: #2563eb;
+        font-size: 1.1rem;
+    }
+
+    .type-option-card .type-option-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        font-size: 0.9rem;
+        color: #475569;
+    }
+
+    .type-option-card .type-option-badges {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .type-option input[type="checkbox"]:checked + .type-option-card {
+        border-color: #2563eb;
+        background: #eef2ff;
+        box-shadow: 0 16px 32px rgba(37, 99, 235, 0.12);
+        transform: translateY(-2px);
+    }
+
+    .type-option-disabled .type-option-card {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .type-selection-error {
+        font-weight: 600;
+    }
+
+    .modal-type-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 0.75rem 0;
+        border-bottom: 1px solid #e2e8f0;
+    }
+
+    .modal-type-item:last-child {
+        border-bottom: none;
+    }
+
+    .modal-type-name {
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .modal-type-meta {
+        color: #475569;
+        font-size: 0.9rem;
+    }
+
+    .modal-type-quantity .btn {
+        width: 36px;
+        height: 36px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-type-quantity input {
+        width: 70px;
+        text-align: center;
     }
 
     .btn-add-large {
@@ -978,11 +1063,6 @@
 
         .product-title {
             font-size: 1.75rem;
-        }
-
-        .quantity-selector {
-            width: 100%;
-            justify-content: space-between;
         }
 
         .detail-actions {
@@ -1167,18 +1247,72 @@
                             </div>
                         </div>
 
-                        <div class="detail-actions">
-                            <div class="quantity-selector">
-                                <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
-                                <input type="number" id="quantity" class="quantity-input" value="1" min="1" max="@product.TotalStock" />
-                                <button type="button" class="quantity-btn" onclick="increaseQuantity()">+</button>
+                        <div class="type-selection">
+                            <div class="type-selection-title">
+                                <i class="fas fa-list-alt"></i>
+                                Chọn loại sản phẩm
                             </div>
+                            @if (hasAvailableTypes)
+                            {
+                                <div class="row g-3">
+                                    @foreach (var type in availableTypes)
+                                    {
+                                        var typeFinalPrice = PriceCalculator.GetProductTypeFinalPrice(type);
+                                        var checkboxId = $"product-type-{type.Id}";
+                                        var isAvailable = type.Stock > 0;
+                                        <div class="col-md-6">
+                                            <div class="type-option @(isAvailable ? string.Empty : "type-option-disabled")">
+                                                <input type="checkbox"
+                                                       class="form-check-input type-checkbox"
+                                                       id="@checkboxId"
+                                                       value="@type.Id"
+                                                       data-name="@type.Name"
+                                                       data-price="@typeFinalPrice"
+                                                       data-stock="@type.Stock"
+                                                       @(isAvailable ? null : "disabled") />
+                                                <label class="type-option-card" for="@checkboxId">
+                                                    <div class="d-flex justify-content-between align-items-start">
+                                                        <span class="type-option-name">@type.Name</span>
+                                                        <span class="type-option-price">@typeFinalPrice.ToString("N0") ₫</span>
+                                                    </div>
+                                                    <div class="type-option-meta">
+                                                        <span><i class="fas fa-clock me-1"></i>@type.PreparationTime phút</span>
+                                                        <span><i class="fas fa-fire me-1"></i>@type.Calories kcal</span>
+                                                        <span><i class="fas fa-box-open me-1"></i>@(isAvailable ? $"Còn {type.Stock}" : "Hết hàng")</span>
+                                                    </div>
+                                                    <div class="type-option-badges">
+                                                        @if (type.IsSpicy)
+                                                        {
+                                                            <span class="badge bg-danger text-white">🌶️ Cay</span>
+                                                        }
+                                                        @if (type.IsVegetarian)
+                                                        {
+                                                            <span class="badge bg-success text-white">🥗 Chay</span>
+                                                        }
+                                                    </div>
+                                                </label>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                <div id="typeSelectionError" class="type-selection-error text-danger mt-2 d-none">
+                                    Vui lòng chọn ít nhất một loại sản phẩm để tiếp tục.
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="alert alert-warning mt-3" role="alert">
+                                    Hiện tại sản phẩm này chưa có loại sản phẩm khả dụng.
+                                </div>
+                            }
+                        </div>
 
-                            <button type="button" class="btn-add-large" onclick="addToCartWithQuantity()" @(product.TotalStock <= 0 ? "disabled" : "")>
+                        <div class="detail-actions">
+                            <button type="button" class="btn-add-large" onclick="openTypeSelection('cart')" @(hasAvailableTypes ? null : "disabled")>
                                 <i class="fas fa-shopping-cart me-2"></i>
                                 Thêm vào giỏ hàng
                             </button>
-                            <button type="button" class="btn-buy-now" onclick="buyNow()" @(product.TotalStock <= 0 ? "disabled" : "")>
+                            <button type="button" class="btn-buy-now" onclick="openTypeSelection('buy')" @(hasAvailableTypes ? null : "disabled")>
                                 <i class="fas fa-bolt me-2"></i>Mua ngay
                             </button>
                         </div>
@@ -1197,6 +1331,25 @@
                     <div class="description-section h-100">
                         <h3><i class="fas fa-list-ul me-2"></i>Thành phần</h3>
                         <p>@product.CombinedIngredients</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="modal fade" id="typeQuantityModal" tabindex="-1" aria-labelledby="typeQuantityModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="typeQuantityModalLabel">Chọn số lượng cho từng loại</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted mb-3">Vui lòng nhập số lượng mong muốn cho mỗi loại sản phẩm đã chọn.</p>
+                            <div id="selectedTypeList"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                            <button type="button" class="btn btn-primary" id="confirmTypeSelectionBtn">Xác nhận</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1461,72 +1614,141 @@
 
 @section Scripts {
     <script>
-        const maxStock = @product.TotalStock;
         const loginUrl = '@Url.Page("/Account/Login", new { area = "Identity" })';
+        const addToCartUrl = '@Url.Action("AddProduct", "Cart")';
+        const buyNowUrl = '@Url.Action("BuyNowProduct", "Cart")';
+        const cartCountUrl = '@Url.Action("GetCount", "Cart")';
+        let typeSelectionModal = null;
+        let currentAction = 'cart';
 
-        function increaseQuantity() {
-            const input = document.getElementById('quantity');
-            const currentValue = parseInt(input.value);
-            if (currentValue < maxStock) {
-                input.value = currentValue + 1;
+        function openTypeSelection(action) {
+            currentAction = action;
+            const selectedCheckboxes = $('.type-checkbox:checked');
+
+            if (selectedCheckboxes.length === 0) {
+                $('#typeSelectionError').removeClass('d-none');
+                return;
             }
-        }
 
-        function decreaseQuantity() {
-            const input = document.getElementById('quantity');
-            const currentValue = parseInt(input.value);
-            if (currentValue > 1) {
-                input.value = currentValue - 1;
-            }
-        }
+            $('#typeSelectionError').addClass('d-none');
 
-        function addToCartWithQuantity() {
-            const quantity = parseInt(document.getElementById('quantity').value);
-            const token = $('input[name="__RequestVerificationToken"]').val();
+            const container = $('#selectedTypeList');
+            container.empty();
 
-            $.ajax({
-                url: '@Url.Action("AddProduct", "Cart")',
-                type: 'POST',
-                data: {
-                    __RequestVerificationToken: token,
-                    productId: @product.Id,
-                    quantity: quantity
-                },
-                success: function() {
-                    showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
-                    $.get('@Url.Action("GetCount", "Cart")', function(data) {
-                        updateCartCount(data.count);
-                    });
-                },
-                error: function() {
-                    showNotification('Có lỗi xảy ra, vui lòng thử lại.', 'error');
-                }
-            });
-        }
+            selectedCheckboxes.each(function () {
+                const checkbox = $(this);
+                const typeId = Number(checkbox.val());
+                const typeName = checkbox.data('name');
+                const typePrice = Number(checkbox.data('price'));
+                const typeStock = Number(checkbox.data('stock'));
+                const maxAttr = typeStock > 0 ? `max="${typeStock}"` : '';
+                const stockLabel = typeStock > 0 ? `Còn ${typeStock}` : 'Không giới hạn';
 
-        function buyNow() {
-            const quantity = parseInt(document.getElementById('quantity').value);
-            const token = $('input[name="__RequestVerificationToken"]').val();
+                const item = $(
+                    `<div class="modal-type-item" data-type-id="${typeId}">
+                        <div>
+                            <div class="modal-type-name">${typeName}</div>
+                            <div class="modal-type-meta">Giá: ${typePrice.toLocaleString('vi-VN')} ₫ • ${stockLabel}</div>
+                        </div>
+                        <div class="input-group input-group-sm modal-type-quantity">
+                            <button class="btn btn-outline-secondary quantity-minus" type="button" aria-label="Giảm số lượng">-</button>
+                            <input type="number" class="form-control type-quantity-input" value="1" min="1" ${maxAttr}>
+                            <button class="btn btn-outline-secondary quantity-plus" type="button" aria-label="Tăng số lượng">+</button>
+                        </div>
+                    </div>`
+                );
 
-            $.ajax({
-                url: '@Url.Action("BuyNowProduct", "Cart")',
-                type: 'POST',
-                data: {
-                    __RequestVerificationToken: token,
-                    productId: @product.Id,
-                    quantity: quantity
-                },
-                success: function (response) {
-                    if (response && response.success && response.redirectUrl) {
-                        window.location.href = response.redirectUrl;
-                        return;
+                item.find('.quantity-minus').on('click', function () {
+                    const input = $(this).siblings('input');
+                    const currentValue = parseInt(input.val(), 10) || 1;
+                    if (currentValue > 1) {
+                        input.val(currentValue - 1);
                     }
+                });
 
-                    if (response && response.error) {
-                        showNotification(response.error, 'error');
+                item.find('.quantity-plus').on('click', function () {
+                    const input = $(this).siblings('input');
+                    const max = parseInt(input.attr('max'), 10);
+                    const currentValue = parseInt(input.val(), 10) || 1;
+                    if (!Number.isNaN(max) && max > 0) {
+                        input.val(Math.min(currentValue + 1, max));
                     } else {
-                        showNotification('Không thể xử lý yêu cầu. Vui lòng thử lại.', 'error');
+                        input.val(currentValue + 1);
                     }
+                });
+
+                container.append(item);
+            });
+
+            if (!typeSelectionModal) {
+                typeSelectionModal = new bootstrap.Modal(document.getElementById('typeQuantityModal'));
+            }
+
+            typeSelectionModal.show();
+        }
+
+        function submitTypeSelection() {
+            const selections = [];
+
+            $('#selectedTypeList .modal-type-item').each(function () {
+                const item = $(this);
+                const typeId = Number(item.data('type-id'));
+                const input = item.find('.type-quantity-input');
+                let quantity = parseInt(input.val(), 10);
+                const max = parseInt(input.attr('max'), 10);
+
+                if (!Number.isInteger(quantity) || quantity < 1) {
+                    quantity = 1;
+                }
+
+                if (!Number.isNaN(max) && max > 0) {
+                    quantity = Math.min(quantity, max);
+                }
+
+                input.val(quantity);
+                selections.push({ productTypeId: typeId, quantity: quantity });
+            });
+
+            if (selections.length === 0) {
+                typeSelectionModal?.hide();
+                return;
+            }
+
+            const payload = JSON.stringify({ productId: @product.Id, selections: selections });
+            const token = $('input[name="__RequestVerificationToken"]').first().val();
+            const isBuyNow = currentAction === 'buy';
+
+            $.ajax({
+                url: isBuyNow ? buyNowUrl : addToCartUrl,
+                type: 'POST',
+                contentType: 'application/json',
+                data: payload,
+                headers: isBuyNow ? { 'RequestVerificationToken': token } : {},
+                success: function (response) {
+                    if (isBuyNow) {
+                        if (response && response.success && response.redirectUrl) {
+                            window.location.href = response.redirectUrl;
+                            return;
+                        }
+
+                        const errorMessage = response && response.error
+                            ? response.error
+                            : 'Không thể xử lý yêu cầu. Vui lòng thử lại.';
+                        showNotification(errorMessage, 'error');
+                    } else {
+                        showNotification('Đã thêm sản phẩm vào giỏ hàng!', 'success');
+                        if (response && typeof response.count === 'number') {
+                            updateCartCount(response.count);
+                        } else {
+                            $.get(cartCountUrl, function (data) {
+                                if (data && typeof data.count === 'number') {
+                                    updateCartCount(data.count);
+                                }
+                            });
+                        }
+                    }
+
+                    typeSelectionModal?.hide();
                 },
                 error: function (xhr) {
                     if (xhr && xhr.status === 401 && loginUrl) {
@@ -1534,10 +1756,18 @@
                         return;
                     }
 
-                    showNotification('Có lỗi xảy ra, vui lòng thử lại.', 'error');
+                    const message = xhr?.responseJSON?.error ?? 'Có lỗi xảy ra, vui lòng thử lại.';
+                    showNotification(message, 'error');
                 }
             });
         }
+
+        $(function () {
+            $('#confirmTypeSelectionBtn').on('click', submitTypeSelection);
+            $('.type-checkbox').on('change', function () {
+                $('#typeSelectionError').addClass('d-none');
+            });
+        });
 
         function updateCartCount(count) {
              $('#cart-count').text(count).show();

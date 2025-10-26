@@ -114,19 +114,49 @@ namespace Assignment.Controllers
             }
 
             order.SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id));
-            var orderItems = filteredItems.Select(cartItem => new OrderItem
+            var orderItems = new List<OrderItem>();
+
+            foreach (var cartItem in filteredItems)
             {
-                Price = GetCartItemUnitPrice(cartItem),
-                Quantity = cartItem.Quantity,
-                ProductId = cartItem.ProductId,
-                ComboId = cartItem.ComboId,
-                Product = cartItem.Product,
-                Combo = cartItem.Combo
-            }).ToList();
+                if (cartItem.Product != null && cartItem.ProductTypeSelections != null && cartItem.ProductTypeSelections.Any())
+                {
+                    var selectionItems = cartItem.ProductTypeSelections
+                        .Select(selection => new OrderItemProductType
+                        {
+                            ProductTypeId = selection.ProductTypeId,
+                            Quantity = selection.Quantity,
+                            UnitPrice = selection.UnitPrice
+                        })
+                        .ToList();
+
+                    var totalSelectionQuantity = selectionItems.Sum(selection => (long)selection.Quantity);
+
+                    orderItems.Add(new OrderItem
+                    {
+                        ProductId = cartItem.ProductId,
+                        Product = cartItem.Product,
+                        Quantity = totalSelectionQuantity,
+                        Price = 0,
+                        ProductTypeSelections = selectionItems
+                    });
+                }
+                else
+                {
+                    orderItems.Add(new OrderItem
+                    {
+                        Price = GetCartItemUnitPrice(cartItem),
+                        Quantity = cartItem.Quantity,
+                        ProductId = cartItem.ProductId,
+                        ComboId = cartItem.ComboId,
+                        Product = cartItem.Product,
+                        Combo = cartItem.Combo
+                    });
+                }
+            }
 
             order.OrderItems = orderItems;
-            order.TotalQuantity = orderItems.Sum(oi => oi.Quantity);
-            order.TotalPrice = orderItems.Sum(oi => oi.Price * oi.Quantity);
+            order.TotalQuantity = orderItems.Sum(GetOrderItemTotalQuantity);
+            order.TotalPrice = orderItems.Sum(GetOrderItemTotalPrice);
 
             var subtotal = order.TotalPrice;
             var isNewCustomer = await IsNewCustomerAsync(userId);
@@ -271,7 +301,7 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Các sản phẩm đã chọn không còn khả dụng." });
             }
 
-            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            var subtotal = filteredItems.Sum(GetCartItemTotalPrice);
             var isNewCustomer = await IsNewCustomerAsync(userId);
             var user = string.IsNullOrWhiteSpace(userId)
                 ? null
@@ -368,7 +398,7 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Các sản phẩm đã chọn không còn khả dụng." });
             }
 
-            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            var subtotal = filteredItems.Sum(GetCartItemTotalPrice);
             var isNewCustomer = await IsNewCustomerAsync(userId);
             var user = string.IsNullOrWhiteSpace(userId)
                 ? null
@@ -457,7 +487,7 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Các sản phẩm đã chọn không còn khả dụng." });
             }
 
-            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            var subtotal = filteredItems.Sum(GetCartItemTotalPrice);
             var sanitizedAppliedIds = appliedVoucherIds?
                 .Where(id => id > 0)
                 .Distinct()
@@ -938,7 +968,7 @@ namespace Assignment.Controllers
 
                 productBase = productItems
                     .Where(item => item.Product != null && allowedProductIds.Contains(item.Product.Id))
-                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+                    .Sum(item => GetCartItemTotalPrice(item));
             }
             else if (voucher.ProductScope == VoucherProductScope.NoProducts)
             {
@@ -947,7 +977,7 @@ namespace Assignment.Controllers
             else
             {
                 productBase = productItems
-                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+                    .Sum(item => GetCartItemTotalPrice(item));
             }
 
             double comboBase;
@@ -960,7 +990,7 @@ namespace Assignment.Controllers
 
                 comboBase = comboItems
                     .Where(item => item.Combo != null && allowedComboIds.Contains(item.Combo.Id))
-                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+                    .Sum(item => GetCartItemTotalPrice(item));
             }
             else if (voucher.ComboScope == VoucherComboScope.NoCombos)
             {
@@ -969,7 +999,7 @@ namespace Assignment.Controllers
             else
             {
                 comboBase = comboItems
-                    .Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+                    .Sum(item => GetCartItemTotalPrice(item));
             }
 
             var discountBase = productBase + comboBase;
@@ -1042,7 +1072,7 @@ namespace Assignment.Controllers
             cart.CartItems = filteredItems;
             ViewBag.Cart = cart;
 
-            var subtotal = filteredItems.Sum(item => GetCartItemUnitPrice(item) * item.Quantity);
+            var subtotal = filteredItems.Sum(GetCartItemTotalPrice);
             SetInitialVoucherViewData(summaries ?? Enumerable.Empty<VoucherDiscountSummary>(), subtotal);
 
             var appliedIds = summaries?.Select(summary => summary.Id).ToList() ?? new List<long>();
@@ -1343,6 +1373,49 @@ namespace Assignment.Controllers
             }
 
             return 0;
+        }
+
+        private static double GetCartItemTotalPrice(CartItem cartItem)
+        {
+            if (cartItem.Product != null)
+            {
+                if (cartItem.ProductTypeSelections != null && cartItem.ProductTypeSelections.Any())
+                {
+                    return cartItem.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+                }
+
+                cartItem.Product.RefreshDerivedFields();
+                var unitPrice = PriceCalculator.GetProductFinalPrice(cartItem.Product);
+                return unitPrice * cartItem.Quantity;
+            }
+
+            if (cartItem.Combo != null)
+            {
+                var unitPrice = PriceCalculator.GetComboFinalPrice(cartItem.Combo);
+                return unitPrice * cartItem.Quantity;
+            }
+
+            return 0;
+        }
+
+        private static double GetOrderItemTotalPrice(OrderItem orderItem)
+        {
+            if (orderItem.ProductTypeSelections != null && orderItem.ProductTypeSelections.Any())
+            {
+                return orderItem.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+            }
+
+            return orderItem.Price * orderItem.Quantity;
+        }
+
+        private static long GetOrderItemTotalQuantity(OrderItem orderItem)
+        {
+            if (orderItem.ProductTypeSelections != null && orderItem.ProductTypeSelections.Any())
+            {
+                return orderItem.ProductTypeSelections.Sum(selection => (long)selection.Quantity);
+            }
+
+            return orderItem.Quantity;
         }
 
         private bool CanManageOrders()

@@ -188,6 +188,50 @@ namespace Assignment.Migrations
                     b.ToTable("CartItems");
                 });
 
+            modelBuilder.Entity("Assignment.Models.CartItemProductType", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("CartItemId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("CreateBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("ProductTypeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<double>("UnitPrice")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CartItemId");
+
+                    b.HasIndex("ProductTypeId");
+
+                    b.ToTable("CartItemProductTypes");
+                });
+
             modelBuilder.Entity("Assignment.Models.Category", b =>
                 {
                     b.Property<long>("Id")
@@ -464,6 +508,50 @@ namespace Assignment.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("OrderItems");
+                });
+
+            modelBuilder.Entity("Assignment.Models.OrderItemProductType", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreateBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("OrderItemId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ProductTypeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<double>("UnitPrice")
+                        .HasColumnType("float");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderItemId");
+
+                    b.HasIndex("ProductTypeId");
+
+                    b.ToTable("OrderItemProductTypes");
                 });
 
             modelBuilder.Entity("Assignment.Models.OrderVoucher", b =>
@@ -1348,6 +1436,25 @@ namespace Assignment.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("Assignment.Models.CartItemProductType", b =>
+                {
+                    b.HasOne("Assignment.Models.CartItem", "CartItem")
+                        .WithMany("ProductTypeSelections")
+                        .HasForeignKey("CartItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Assignment.Models.ProductType", "ProductType")
+                        .WithMany()
+                        .HasForeignKey("ProductTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CartItem");
+
+                    b.Navigation("ProductType");
+                });
+
             modelBuilder.Entity("Assignment.Models.ComboItem", b =>
                 {
                     b.HasOne("Assignment.Models.Combo", "Combo")
@@ -1397,6 +1504,25 @@ namespace Assignment.Migrations
                     b.Navigation("Order");
 
                     b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("Assignment.Models.OrderItemProductType", b =>
+                {
+                    b.HasOne("Assignment.Models.OrderItem", "OrderItem")
+                        .WithMany("ProductTypeSelections")
+                        .HasForeignKey("OrderItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Assignment.Models.ProductType", "ProductType")
+                        .WithMany()
+                        .HasForeignKey("ProductTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("OrderItem");
+
+                    b.Navigation("ProductType");
                 });
 
             modelBuilder.Entity("Assignment.Models.OrderVoucher", b =>
@@ -1647,6 +1773,11 @@ namespace Assignment.Migrations
                     b.Navigation("CartItems");
                 });
 
+            modelBuilder.Entity("Assignment.Models.CartItem", b =>
+                {
+                    b.Navigation("ProductTypeSelections");
+                });
+
             modelBuilder.Entity("Assignment.Models.Category", b =>
                 {
                     b.Navigation("Products");
@@ -1662,6 +1793,11 @@ namespace Assignment.Migrations
                     b.Navigation("OrderItems");
 
                     b.Navigation("OrderVouchers");
+                });
+
+            modelBuilder.Entity("Assignment.Models.OrderItem", b =>
+                {
+                    b.Navigation("ProductTypeSelections");
                 });
 
             modelBuilder.Entity("Assignment.Models.Reward", b =>
