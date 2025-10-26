@@ -4,6 +4,7 @@ using Assignment.Services;
 using Assignment.ViewModels.Cart;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Claims;
 using System.Linq;
@@ -42,7 +43,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public IActionResult ProceedToCheckout(long[] selectedItemIds)
+        public IActionResult ProceedToCheckout(long[] selectedItemIds, long[]? selectedSelectionIds)
         {
             if (selectedItemIds == null || selectedItemIds.Length == 0)
             {
@@ -61,8 +62,27 @@ namespace Assignment.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            var normalizedSelectionIds = selectedSelectionIds?
+                .Where(id => id > 0)
+                .Distinct()
+                .ToArray() ?? Array.Empty<long>();
+
             var idString = string.Join(',', normalizedIds);
-            return RedirectToAction("Checkout", "Order", new { cartItemIds = idString });
+            var selectionIdString = normalizedSelectionIds.Length > 0
+                ? string.Join(',', normalizedSelectionIds)
+                : null;
+
+            var routeValues = new Microsoft.AspNetCore.Routing.RouteValueDictionary
+            {
+                ["cartItemIds"] = idString
+            };
+
+            if (!string.IsNullOrEmpty(selectionIdString))
+            {
+                routeValues["selectedSelectionIds"] = selectionIdString;
+            }
+
+            return RedirectToAction("Checkout", "Order", routeValues);
         }
 
         [HttpPost]

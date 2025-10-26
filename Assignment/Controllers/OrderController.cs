@@ -34,7 +34,7 @@ namespace Assignment.Controllers
             _logger = logger;
         }
 
-        public async Task<IActionResult> Checkout(string? cartItemIds)
+        public async Task<IActionResult> Checkout(string? cartItemIds, string? selectedSelectionIds)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -46,7 +46,8 @@ namespace Assignment.Controllers
             }
 
             var selectedIds = ParseSelectedCartItemIds(cartItemIds);
-            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+            var selectedSelectionSet = ParseSelectedCartSelectionIds(selectedSelectionIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds, selectedSelectionSet);
 
             if (!filteredItems.Any())
             {
@@ -55,6 +56,11 @@ namespace Assignment.Controllers
             }
 
             var user = await _userManager.GetUserAsync(User);
+            var sanitizedSelectionIds = filteredItems
+                .SelectMany(ci => ci.ProductTypeSelections ?? Enumerable.Empty<CartItemProductType>())
+                .Select(selection => selection.Id)
+                .Distinct()
+                .ToList();
             var order = new Order
             {
                 Name = !string.IsNullOrWhiteSpace(user?.FullName)
@@ -63,7 +69,8 @@ namespace Assignment.Controllers
                 Email = user?.Email,
                 Phone = user?.PhoneNumber ?? string.Empty,
                 UserId = userId,
-                SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id))
+                SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id)),
+                SelectedCartSelectionIds = string.Join(',', sanitizedSelectionIds)
             };
 
             await PrepareCheckoutViewData(cart, filteredItems, Enumerable.Empty<VoucherDiscountSummary>());
@@ -86,7 +93,8 @@ namespace Assignment.Controllers
             }
 
             var selectedIds = ParseSelectedCartItemIds(order.SelectedCartItemIds);
-            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+            var selectedSelectionSet = ParseSelectedCartSelectionIds(order.SelectedCartSelectionIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds, selectedSelectionSet);
 
             if (!filteredItems.Any())
             {
@@ -114,6 +122,10 @@ namespace Assignment.Controllers
             }
 
             order.SelectedCartItemIds = string.Join(',', filteredItems.Select(ci => ci.Id));
+            order.SelectedCartSelectionIds = string.Join(',', filteredItems
+                .SelectMany(ci => ci.ProductTypeSelections ?? Enumerable.Empty<CartItemProductType>())
+                .Select(selection => selection.Id)
+                .Distinct());
             var orderItems = new List<OrderItem>();
 
             foreach (var cartItem in filteredItems)
@@ -273,7 +285,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> ApplyVoucher(string voucherCode, string? selectedCartItemIds, List<long>? appliedVoucherIds)
+        public async Task<IActionResult> ApplyVoucher(string voucherCode, string? selectedCartItemIds, string? selectedCartSelectionIds, List<long>? appliedVoucherIds)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -294,7 +306,8 @@ namespace Assignment.Controllers
                 .ToList() ?? new List<long>();
 
             var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
-            var filteredItems = FilterCartItems(cart.CartItems, selectedIds).ToList();
+            var selectedSelectionSet = ParseSelectedCartSelectionIds(selectedCartSelectionIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds, selectedSelectionSet).ToList();
 
             if (!filteredItems.Any())
             {
@@ -375,7 +388,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> RecalculateVouchers(List<long>? appliedVoucherIds, string? selectedCartItemIds)
+        public async Task<IActionResult> RecalculateVouchers(List<long>? appliedVoucherIds, string? selectedCartItemIds, string? selectedCartSelectionIds)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -391,7 +404,8 @@ namespace Assignment.Controllers
                 .ToList() ?? new List<long>();
 
             var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
-            var filteredItems = FilterCartItems(cart.CartItems, selectedIds).ToList();
+            var selectedSelectionSet = ParseSelectedCartSelectionIds(selectedCartSelectionIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds, selectedSelectionSet).ToList();
 
             if (!filteredItems.Any())
             {
@@ -469,7 +483,7 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> GetApplicableVouchers(string? selectedCartItemIds, List<long>? appliedVoucherIds)
+        public async Task<IActionResult> GetApplicableVouchers(string? selectedCartItemIds, string? selectedCartSelectionIds, List<long>? appliedVoucherIds)
         {
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
@@ -480,7 +494,8 @@ namespace Assignment.Controllers
             }
 
             var selectedIds = ParseSelectedCartItemIds(selectedCartItemIds);
-            var filteredItems = FilterCartItems(cart.CartItems, selectedIds);
+            var selectedSelectionSet = ParseSelectedCartSelectionIds(selectedCartSelectionIds);
+            var filteredItems = FilterCartItems(cart.CartItems, selectedIds, selectedSelectionSet);
 
             if (!filteredItems.Any())
             {
@@ -855,6 +870,27 @@ namespace Assignment.Controllers
             }
 
             var parts = selectedCartItemIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var part in parts)
+            {
+                if (long.TryParse(part, out var value) && value > 0)
+                {
+                    result.Add(value);
+                }
+            }
+
+            return result;
+        }
+
+        private static ISet<long> ParseSelectedCartSelectionIds(string? selectedCartSelectionIds)
+        {
+            var result = new HashSet<long>();
+
+            if (string.IsNullOrWhiteSpace(selectedCartSelectionIds))
+            {
+                return result;
+            }
+
+            var parts = selectedCartSelectionIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
             foreach (var part in parts)
             {
                 if (long.TryParse(part, out var value) && value > 0)
@@ -1344,19 +1380,107 @@ namespace Assignment.Controllers
 
         private record VoucherDiscountSummary(long Id, string Code, string Name, double DiscountAmount);
 
-        private static List<CartItem> FilterCartItems(IEnumerable<CartItem> cartItems, ISet<long> selectedIds)
+        private static List<CartItem> FilterCartItems(
+            IEnumerable<CartItem> cartItems,
+            ISet<long> selectedIds,
+            ISet<long>? selectedSelectionIds = null)
         {
             if (cartItems == null)
             {
                 return new List<CartItem>();
             }
 
-            if (selectedIds == null || selectedIds.Count == 0)
+            var selectionFilter = selectedSelectionIds ?? new HashSet<long>();
+            var hasSelectionFilter = selectionFilter.Count > 0;
+
+            var itemsToProcess = cartItems;
+
+            if (selectedIds != null && selectedIds.Count > 0)
             {
-                return cartItems.ToList();
+                itemsToProcess = itemsToProcess.Where(ci => ci != null && selectedIds.Contains(ci.Id));
             }
 
-            return cartItems.Where(ci => selectedIds.Contains(ci.Id)).ToList();
+            var result = new List<CartItem>();
+
+            foreach (var cartItem in itemsToProcess)
+            {
+                if (cartItem == null)
+                {
+                    continue;
+                }
+
+                var hasSelections = cartItem.ProductTypeSelections != null && cartItem.ProductTypeSelections.Any();
+                List<CartItemProductType> filteredSelections;
+
+                if (hasSelections)
+                {
+                    IEnumerable<CartItemProductType> baseSelections = cartItem.ProductTypeSelections
+                        .Where(selection => selection != null);
+
+                    if (hasSelectionFilter)
+                    {
+                        baseSelections = baseSelections.Where(selection => selectionFilter.Contains(selection.Id));
+                    }
+
+                    filteredSelections = baseSelections
+                        .Select(CloneCartItemSelection)
+                        .ToList();
+
+                    if (!filteredSelections.Any())
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    filteredSelections = new List<CartItemProductType>();
+                }
+
+                var clonedItem = CloneCartItem(cartItem, filteredSelections);
+                result.Add(clonedItem);
+            }
+
+            return result;
+        }
+
+        private static CartItem CloneCartItem(CartItem source, List<CartItemProductType> selections)
+        {
+            return new CartItem
+            {
+                Id = source.Id,
+                CartId = source.CartId,
+                Cart = source.Cart,
+                ComboId = source.ComboId,
+                Combo = source.Combo,
+                ProductId = source.ProductId,
+                Product = source.Product,
+                Quantity = source.Quantity,
+                CreateBy = source.CreateBy,
+                CreatedAt = source.CreatedAt,
+                UpdatedAt = source.UpdatedAt,
+                IsDeleted = source.IsDeleted,
+                DeletedAt = source.DeletedAt,
+                ProductTypeSelections = selections
+            };
+        }
+
+        private static CartItemProductType CloneCartItemSelection(CartItemProductType selection)
+        {
+            return new CartItemProductType
+            {
+                Id = selection.Id,
+                CartItemId = selection.CartItemId,
+                CartItem = null,
+                ProductTypeId = selection.ProductTypeId,
+                ProductType = selection.ProductType,
+                Quantity = selection.Quantity,
+                UnitPrice = selection.UnitPrice,
+                CreateBy = selection.CreateBy,
+                CreatedAt = selection.CreatedAt,
+                UpdatedAt = selection.UpdatedAt,
+                IsDeleted = selection.IsDeleted,
+                DeletedAt = selection.DeletedAt
+            };
         }
 
         private static double GetCartItemUnitPrice(CartItem cartItem)
