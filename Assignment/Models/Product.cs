@@ -97,20 +97,22 @@ namespace Assignment.Models
             TotalStock = activeTypes.Any() ? activeTypes.Max(pt => pt.Stock) : 0;
             TotalSold = activeTypes.Sum(pt => pt.Sold);
 
-            if (publishedTypes.Any())
+            var priceSourceTypes = publishedTypes.Any() ? publishedTypes : activeTypes;
+
+            if (priceSourceTypes.Any())
             {
-                HasDiscount = publishedTypes.Any(pt =>
+                HasDiscount = priceSourceTypes.Any(pt =>
                     pt.DiscountType != DiscountType.None && (pt.Discount ?? 0) > 0);
 
-                var minPrice = publishedTypes.Min(pt => pt.Price);
-                var maxPrice = publishedTypes.Max(pt => pt.Price);
+                var minPrice = priceSourceTypes.Min(pt => pt.Price);
+                var maxPrice = priceSourceTypes.Max(pt => pt.Price);
                 PriceRange = minPrice == maxPrice
                     ? FormatPrice(minPrice)
                     : $"{FormatPrice(minPrice)} - {FormatPrice(maxPrice)}";
 
-                MinPreparationTime = publishedTypes.Min(pt => pt.PreparationTime);
-                MinCalories = publishedTypes.Min(pt => pt.Calories);
-                CombinedIngredients = string.Join(", ", publishedTypes
+                MinPreparationTime = priceSourceTypes.Min(pt => pt.PreparationTime);
+                MinCalories = priceSourceTypes.Min(pt => pt.Calories);
+                CombinedIngredients = string.Join(", ", priceSourceTypes
                     .Select(pt => pt.Ingredients)
                     .Where(s => !string.IsNullOrWhiteSpace(s))
                     .Select(s => s.Trim())
