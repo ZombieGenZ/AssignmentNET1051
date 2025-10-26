@@ -84,6 +84,22 @@
             justify-content: center;
             background-color: rgba(255, 255, 255, 0.7);
         }
+
+        .product-types-accordion .accordion-item + .accordion-item {
+            margin-top: 1rem;
+        }
+
+        .product-type-item .accordion-button {
+            padding-right: 3rem;
+        }
+
+        .product-type-item .btn-close {
+            z-index: 5;
+        }
+
+        .product-type-image-preview-wrapper {
+            min-height: 140px;
+        }
     </style>
 }
 
@@ -255,13 +271,6 @@
                             </div>
                             <div class="form-text text-muted" id="productImageUploadFeedback">Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
                         </div>
-                        <div class="col-12">
-                            <div class="alert alert-info mb-0">
-                                <div class="fw-semibold mb-1">Loại sản phẩm</div>
-                                <div class="mb-0 small">Giá bán, tồn kho, giảm giá, thời gian chuẩn bị, calories và thành phần sẽ được quản lý riêng cho từng loại sản phẩm.</div>
-                                <div class="small mb-0">Trạng thái cay/đồ chay của sản phẩm sẽ được tự động xác định dựa trên các loại sản phẩm đã thêm.</div>
-                            </div>
-                        </div>
                     </div>
                     <hr class="my-4" />
                     <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
@@ -282,7 +291,7 @@
                             </button>
                         </div>
                     </div>
-                    <div id="productTypesContainer" class="d-flex flex-column gap-3"></div>
+                    <div id="productTypesContainer" class="accordion product-types-accordion"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -750,8 +759,8 @@
                 if (!hasItems) {
                     if (!placeholder) {
                         placeholder = document.createElement('div');
-                        placeholder.className = 'product-types-empty border rounded py-4 text-center text-muted';
-                        placeholder.textContent = 'Chưa có loại sản phẩm nào. Vui lòng thêm mới hoặc nhập từ file.';
+                        placeholder.className = 'product-types-empty border rounded py-4 px-3 text-center text-muted';
+                        placeholder.innerHTML = '<div>Chưa có loại sản phẩm nào. Vui lòng thêm mới hoặc nhập từ file.</div>';
                         productTypesContainer.appendChild(placeholder);
                     }
                 } else if (placeholder) {
@@ -759,17 +768,273 @@
                 }
             }
 
+            function updateProductTypeHeaderState(item) {
+                if (!item) {
+                    return;
+                }
+
+                const index = Number(item.dataset.index ?? '');
+                const defaultTitle = Number.isFinite(index) && index > 0
+                    ? `Loại sản phẩm #${index}`
+                    : 'Loại sản phẩm';
+
+                const nameInputEl = item.querySelector('.product-type-name');
+                const priceInputEl = item.querySelector('.product-type-price');
+                const stockInputEl = item.querySelector('.product-type-stock');
+                const discountSelectEl = item.querySelector('.product-type-discount-type');
+                const discountInputEl = item.querySelector('.product-type-discount');
+                const publishCheckboxEl = item.querySelector('.product-type-is-publish');
+                const spicyCheckboxEl = item.querySelector('.product-type-is-spicy');
+                const vegetarianCheckboxEl = item.querySelector('.product-type-is-vegetarian');
+
+                const titleEl = item.querySelector('.product-type-title');
+                const summaryEl = item.querySelector('.product-type-summary');
+                const publishBadgeEl = item.querySelector('.product-type-publish-badge');
+                const spicyFlagEl = item.querySelector('.product-type-flag-spicy');
+                const vegetarianFlagEl = item.querySelector('.product-type-flag-vegetarian');
+
+                const nameValue = nameInputEl?.value?.trim() || '';
+                if (titleEl) {
+                    titleEl.textContent = nameValue || defaultTitle;
+                }
+
+                const priceRaw = priceInputEl?.value;
+                const priceValue = priceRaw === undefined || priceRaw === null || priceRaw === ''
+                    ? null
+                    : Number(priceRaw);
+                const stockRaw = stockInputEl?.value;
+                const stockValue = stockRaw === undefined || stockRaw === null || stockRaw === ''
+                    ? null
+                    : Number(stockRaw);
+
+                const priceText = priceValue !== null && Number.isFinite(priceValue) && priceValue >= 0
+                    ? currencyFormatter.format(priceValue)
+                    : 'Chưa có giá';
+
+                const stockText = stockValue !== null && Number.isFinite(stockValue) && stockValue >= 0
+                    ? `${Math.round(stockValue).toLocaleString('vi-VN')} tồn kho`
+                    : 'Tồn kho chưa rõ';
+
+                const discountTypeValue = Number(discountSelectEl?.value ?? DISCOUNT_NONE);
+                const discountRaw = discountInputEl?.value;
+                const discountValue = discountRaw === undefined || discountRaw === null || discountRaw === ''
+                    ? null
+                    : Number(discountRaw);
+
+                let discountText = '';
+                if (discountTypeValue !== DISCOUNT_NONE
+                    && discountValue !== null
+                    && Number.isFinite(discountValue)
+                    && discountValue >= 0) {
+                    if (discountTypeValue === DISCOUNT_PERCENT) {
+                        discountText = ` · Giảm ${discountValue.toLocaleString('vi-VN')}%`;
+                    } else if (discountTypeValue === DISCOUNT_FIXED) {
+                        discountText = ` · Giá ưu đãi ${currencyFormatter.format(discountValue)}`;
+                    } else if (discountTypeValue === DISCOUNT_AMOUNT) {
+                        discountText = ` · Giảm ${currencyFormatter.format(discountValue)}`;
+                    }
+                }
+
+                if (summaryEl) {
+                    summaryEl.textContent = `${priceText} · ${stockText}${discountText}`;
+                }
+
+                const isPublishChecked = publishCheckboxEl?.checked ?? true;
+                if (publishBadgeEl) {
+                    publishBadgeEl.textContent = isPublishChecked ? 'Xuất bản' : 'Đang ẩn';
+                    publishBadgeEl.className = isPublishChecked
+                        ? 'badge rounded-pill product-type-publish-badge bg-success-subtle border border-success text-success'
+                        : 'badge rounded-pill product-type-publish-badge bg-secondary-subtle border border-secondary text-secondary';
+                }
+
+                const isSpicyChecked = spicyCheckboxEl?.checked ?? false;
+                if (spicyFlagEl) {
+                    spicyFlagEl.classList.toggle('d-none', !isSpicyChecked);
+                }
+
+                const isVegetarianChecked = vegetarianCheckboxEl?.checked ?? false;
+                if (vegetarianFlagEl) {
+                    vegetarianFlagEl.classList.toggle('d-none', !isVegetarianChecked);
+                }
+            }
+
+            function setupProductTypeImageUpload(item, initialUrl = '') {
+                if (!item) {
+                    return () => { };
+                }
+
+                const fileInput = item.querySelector('.product-type-image-file');
+                const urlInput = item.querySelector('.product-type-image-url');
+                const previewWrapper = item.querySelector('.product-type-image-preview-wrapper');
+                const previewImage = item.querySelector('.product-type-image-preview');
+                const placeholder = item.querySelector('.product-type-image-placeholder');
+                const uploadingIndicator = item.querySelector('.product-type-image-uploading');
+                const feedbackEl = item.querySelector('.product-type-image-feedback');
+
+                let temporaryUrl = null;
+                const defaultFeedback = feedbackEl ? feedbackEl.textContent.trim() : 'Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+
+                const setFeedback = (message, state = 'muted') => {
+                    if (!feedbackEl) {
+                        return;
+                    }
+
+                    feedbackEl.textContent = message;
+                    feedbackEl.classList.remove('text-danger', 'text-success', 'text-muted');
+
+                    if (state === 'error') {
+                        feedbackEl.classList.add('text-danger');
+                    } else if (state === 'success') {
+                        feedbackEl.classList.add('text-success');
+                    } else {
+                        feedbackEl.classList.add('text-muted');
+                    }
+                };
+
+                const showPlaceholder = () => {
+                    if (previewImage) {
+                        previewImage.src = '';
+                        previewImage.classList.add('d-none');
+                    }
+
+                    if (placeholder) {
+                        placeholder.classList.remove('d-none');
+                    }
+                };
+
+                const showImage = (url) => {
+                    if (previewImage) {
+                        previewImage.src = url;
+                        previewImage.classList.remove('d-none');
+                    }
+
+                    if (placeholder) {
+                        placeholder.classList.add('d-none');
+                    }
+                };
+
+                const setLoading = (isLoading) => {
+                    if (uploadingIndicator) {
+                        uploadingIndicator.classList.toggle('d-none', !isLoading);
+                    }
+
+                    if (previewWrapper) {
+                        previewWrapper.classList.toggle('uploading', isLoading);
+                    }
+                };
+
+                const revokeTemporaryUrl = () => {
+                    if (temporaryUrl) {
+                        URL.revokeObjectURL(temporaryUrl);
+                        temporaryUrl = null;
+                    }
+                };
+
+                const applyImageUrl = (url) => {
+                    if (urlInput) {
+                        urlInput.value = url || '';
+                    }
+
+                    if (url) {
+                        showImage(url);
+                        setFeedback('Ảnh hiện tại sẽ được giữ nguyên nếu bạn không tải ảnh mới.', 'muted');
+                    } else {
+                        showPlaceholder();
+                        setFeedback(defaultFeedback, 'muted');
+                    }
+                };
+
+                applyImageUrl(initialUrl);
+
+                const handleChange = async (event) => {
+                    const file = event?.target?.files ? event.target.files[0] : null;
+
+                    if (!file) {
+                        applyImageUrl(urlInput?.value || '');
+                        return;
+                    }
+
+                    const validationMessage = validateProductImageFile(file);
+                    if (validationMessage) {
+                        setFeedback(validationMessage, 'error');
+
+                        if (fileInput) {
+                            fileInput.value = '';
+                        }
+
+                        applyImageUrl(urlInput?.value || '');
+                        return;
+                    }
+
+                    revokeTemporaryUrl();
+                    temporaryUrl = URL.createObjectURL(file);
+                    showImage(temporaryUrl);
+                    setFeedback('Đang tải ảnh lên...', 'muted');
+                    setLoading(true);
+
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    try {
+                        const response = await fetch(IMAGE_UPLOAD_URL, {
+                            method: 'POST',
+                            headers: {
+                                ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                            },
+                            body: formData
+                        });
+
+                        if (!response.ok) {
+                            const errorResponse = await response.json().catch(() => null);
+                            const message = errorResponse?.message || 'Không thể tải ảnh lên. Vui lòng thử lại sau.';
+                            throw new Error(message);
+                        }
+
+                        const result = await response.json();
+                        if (!result || !result.url) {
+                            throw new Error('Máy chủ không trả về đường dẫn ảnh.');
+                        }
+
+                        applyImageUrl(result.url);
+                        setFeedback('Tải ảnh thành công.', 'success');
+                    } catch (error) {
+                        const previousUrl = urlInput?.value || '';
+                        applyImageUrl(previousUrl);
+                        setFeedback(error.message || 'Không thể tải ảnh lên. Vui lòng thử lại sau.', 'error');
+                    } finally {
+                        revokeTemporaryUrl();
+                        setLoading(false);
+                        if (fileInput) {
+                            fileInput.value = '';
+                        }
+                    }
+                };
+
+                if (fileInput) {
+                    fileInput.addEventListener('change', handleChange);
+                }
+
+                return () => {
+                    if (fileInput) {
+                        fileInput.removeEventListener('change', handleChange);
+                    }
+                    revokeTemporaryUrl();
+                };
+            }
+
             function createProductTypeItem(initialData = {}) {
                 productTypeCounter += 1;
                 const index = productTypeCounter;
 
                 const item = document.createElement('div');
-                item.className = 'product-type-item border rounded p-3 position-relative';
+                item.className = 'accordion-item product-type-item position-relative';
                 item.dataset.index = index.toString();
 
                 const typeId = initialData.id ?? '';
                 const nameId = `productTypeName_${index}`;
-                const imageId = `productTypeImage_${index}`;
+                const imageFileId = `productTypeImageFile_${index}`;
+                const imageHiddenId = `productTypeImage_${index}`;
+                const imagePreviewId = `productTypeImagePreview_${index}`;
                 const priceId = `productTypePrice_${index}`;
                 const stockId = `productTypeStock_${index}`;
                 const discountTypeId = `productTypeDiscountType_${index}`;
@@ -780,68 +1045,115 @@
                 const publishId = `productTypePublish_${index}`;
                 const spicyId = `productTypeSpicy_${index}`;
                 const vegetarianId = `productTypeVegetarian_${index}`;
+                const collapseId = `productTypeCollapse_${index}`;
+                const headerId = `productTypeHeading_${index}`;
+
+                const hasExistingId = initialData.id !== undefined && initialData.id !== null && initialData.id !== '';
+                const initialName = initialData.name ?? '';
+                const initialPublish = initialData.isPublish !== undefined ? Boolean(initialData.isPublish) : true;
+                const initialSpicy = Boolean(initialData.isSpicy);
+                const initialVegetarian = Boolean(initialData.isVegetarian);
+
+                const publishBadgeClass = initialPublish
+                    ? 'badge rounded-pill product-type-publish-badge bg-success-subtle border border-success text-success'
+                    : 'badge rounded-pill product-type-publish-badge bg-secondary-subtle border border-secondary text-secondary';
+                const publishBadgeText = initialPublish ? 'Xuất bản' : 'Đang ẩn';
+                const defaultTitle = initialName ? escapeHtml(initialName) : `Loại sản phẩm #${index}`;
+
+                item.dataset.isExisting = hasExistingId ? 'true' : 'false';
 
                 item.innerHTML = `
-                    <button type="button" class="btn-close position-absolute top-0 end-0 mt-2 me-2" aria-label="Xóa loại sản phẩm"></button>
-                    <input type="hidden" class="product-type-id" value="${escapeHtml(typeId)}" />
-                    <div class="row g-3">
-                        <div class="col-md-6">
-                            <label for="${nameId}" class="form-label">Tên loại sản phẩm<span class="text-danger">*</span></label>
-                            <input type="text" class="form-control product-type-name" id="${nameId}" maxlength="200" required />
-                        </div>
-                        <div class="col-md-6">
-                            <label for="${imageId}" class="form-label">Ảnh loại (URL)</label>
-                            <input type="url" class="form-control product-type-image-url" id="${imageId}" maxlength="1000" />
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <label for="${priceId}" class="form-label">Giá bán (VND)<span class="text-danger">*</span></label>
-                            <input type="number" class="form-control product-type-price" id="${priceId}" min="0" step="0.01" required />
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <label for="${stockId}" class="form-label">Tồn kho<span class="text-danger">*</span></label>
-                            <input type="number" class="form-control product-type-stock" id="${stockId}" min="0" step="1" required />
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <label for="${discountTypeId}" class="form-label">Loại giảm giá</label>
-                            <select class="form-select product-type-discount-type" id="${discountTypeId}">
-                                <option value="${DISCOUNT_NONE}">Không áp dụng</option>
-                                <option value="${DISCOUNT_PERCENT}">Giảm theo %</option>
-                                <option value="${DISCOUNT_FIXED}">Giảm giá cố định</option>
-                                <option value="${DISCOUNT_AMOUNT}">Giảm theo tiền</option>
-                            </select>
-                        </div>
-                        <div class="col-sm-6 col-md-4 product-type-discount-wrapper">
-                            <label for="${discountId}" class="form-label product-type-discount-label">Giá trị giảm</label>
-                            <input type="number" class="form-control product-type-discount" id="${discountId}" min="0" step="1" />
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <label for="${prepId}" class="form-label">Thời gian chuẩn bị (phút)</label>
-                            <input type="number" class="form-control product-type-preparation-time" id="${prepId}" min="0" step="1" />
-                        </div>
-                        <div class="col-sm-6 col-md-4">
-                            <label for="${caloriesId}" class="form-label">Calories</label>
-                            <input type="number" class="form-control product-type-calories" id="${caloriesId}" min="0" step="1" />
-                        </div>
-                        <div class="col-12">
-                            <label for="${ingredientsId}" class="form-label">Thành phần<span class="text-danger">*</span></label>
-                            <textarea class="form-control product-type-ingredients" id="${ingredientsId}" rows="2" maxlength="2000" required></textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch mt-2">
-                                <input class="form-check-input product-type-is-publish" type="checkbox" id="${publishId}" />
-                                <label class="form-check-label" for="${publishId}">Xuất bản</label>
+                    <button type="button" class="btn-close product-type-remove position-absolute top-0 end-0 mt-2 me-2" aria-label="Xóa loại sản phẩm"></button>
+                    <h2 class="accordion-header" id="${headerId}">
+                        <button class="accordion-button ${hasExistingId ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#${collapseId}" aria-expanded="${hasExistingId ? 'false' : 'true'}" aria-controls="${collapseId}">
+                            <div class="w-100">
+                                <div class="d-flex justify-content-between align-items-center gap-2">
+                                    <span class="product-type-title fw-semibold">${defaultTitle}</span>
+                                    <span class="${publishBadgeClass}">${publishBadgeText}</span>
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                                    <span class="small text-muted product-type-summary">Nhấn để xem chi tiết</span>
+                                    <span class="badge bg-warning-subtle text-warning product-type-flag product-type-flag-spicy ${initialSpicy ? '' : 'd-none'}">Cay</span>
+                                    <span class="badge bg-primary-subtle text-primary product-type-flag product-type-flag-vegetarian ${initialVegetarian ? '' : 'd-none'}">Đồ chay</span>
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch mt-2">
-                                <input class="form-check-input product-type-is-spicy" type="checkbox" id="${spicyId}" />
-                                <label class="form-check-label" for="${spicyId}">Món cay</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch mt-2">
-                                <input class="form-check-input product-type-is-vegetarian" type="checkbox" id="${vegetarianId}" />
-                                <label class="form-check-label" for="${vegetarianId}">Đồ chay</label>
+                        </button>
+                    </h2>
+                    <div id="${collapseId}" class="accordion-collapse collapse ${hasExistingId ? '' : 'show'}" aria-labelledby="${headerId}">
+                        <div class="accordion-body">
+                            <input type="hidden" class="product-type-id" value="${escapeHtml(typeId)}" />
+                            <input type="hidden" class="product-type-image-url" id="${imageHiddenId}" />
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="${nameId}" class="form-label">Tên loại sản phẩm<span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control product-type-name" id="${nameId}" maxlength="200" required />
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="${imageFileId}" class="form-label">Ảnh loại</label>
+                                    <input type="file" class="form-control product-type-image-file" id="${imageFileId}" accept="image/*" />
+                                    <div class="image-upload-preview mt-2 product-type-image-preview-wrapper">
+                                        <img src="" alt="Xem trước ảnh loại sản phẩm" class="product-type-image-preview d-none" id="${imagePreviewId}" />
+                                        <div class="image-upload-placeholder product-type-image-placeholder">
+                                            <i class="fas fa-image fa-lg"></i>
+                                            <div>Chưa chọn ảnh</div>
+                                        </div>
+                                        <div class="image-upload-spinner d-none product-type-image-uploading">
+                                            <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                                        </div>
+                                    </div>
+                                    <div class="form-text text-muted product-type-image-feedback">Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="${priceId}" class="form-label">Giá bán (VND)<span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control product-type-price" id="${priceId}" min="0" step="0.01" required />
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="${stockId}" class="form-label">Tồn kho<span class="text-danger">*</span></label>
+                                    <input type="number" class="form-control product-type-stock" id="${stockId}" min="0" step="1" required />
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="${discountTypeId}" class="form-label">Loại giảm giá</label>
+                                    <select class="form-select product-type-discount-type" id="${discountTypeId}">
+                                        <option value="${DISCOUNT_NONE}">Không áp dụng</option>
+                                        <option value="${DISCOUNT_PERCENT}">Giảm theo %</option>
+                                        <option value="${DISCOUNT_FIXED}">Giảm giá cố định</option>
+                                        <option value="${DISCOUNT_AMOUNT}">Giảm theo tiền</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-6 col-md-4 product-type-discount-wrapper">
+                                    <label for="${discountId}" class="form-label product-type-discount-label">Giá trị giảm</label>
+                                    <input type="number" class="form-control product-type-discount" id="${discountId}" min="0" step="1" />
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="${prepId}" class="form-label">Thời gian chuẩn bị (phút)</label>
+                                    <input type="number" class="form-control product-type-preparation-time" id="${prepId}" min="0" step="1" />
+                                </div>
+                                <div class="col-sm-6 col-md-4">
+                                    <label for="${caloriesId}" class="form-label">Calories</label>
+                                    <input type="number" class="form-control product-type-calories" id="${caloriesId}" min="0" step="1" />
+                                </div>
+                                <div class="col-12">
+                                    <label for="${ingredientsId}" class="form-label">Thành phần<span class="text-danger">*</span></label>
+                                    <textarea class="form-control product-type-ingredients" id="${ingredientsId}" rows="2" maxlength="2000" required></textarea>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input product-type-is-publish" type="checkbox" id="${publishId}" />
+                                        <label class="form-check-label" for="${publishId}">Xuất bản</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input product-type-is-spicy" type="checkbox" id="${spicyId}" />
+                                        <label class="form-check-label" for="${spicyId}">Món cay</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-check form-switch mt-2">
+                                        <input class="form-check-input product-type-is-vegetarian" type="checkbox" id="${vegetarianId}" />
+                                        <label class="form-check-label" for="${vegetarianId}">Đồ chay</label>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>`;
@@ -858,6 +1170,7 @@
                 const publishCheckboxEl = item.querySelector('.product-type-is-publish');
                 const spicyCheckboxEl = item.querySelector('.product-type-is-spicy');
                 const vegetarianCheckboxEl = item.querySelector('.product-type-is-vegetarian');
+                const cleanupFunctions = [];
 
                 if (nameInputEl) {
                     nameInputEl.value = initialData.name ?? '';
@@ -888,29 +1201,60 @@
                     ingredientsInputEl.value = initialData.ingredients ?? '';
                 }
                 if (publishCheckboxEl) {
-                    const initialPublish = initialData.isPublish !== undefined ? Boolean(initialData.isPublish) : true;
                     publishCheckboxEl.checked = initialPublish;
                 }
                 if (spicyCheckboxEl) {
-                    spicyCheckboxEl.checked = Boolean(initialData.isSpicy);
+                    spicyCheckboxEl.checked = initialSpicy;
                 }
                 if (vegetarianCheckboxEl) {
-                    vegetarianCheckboxEl.checked = Boolean(initialData.isVegetarian);
+                    vegetarianCheckboxEl.checked = initialVegetarian;
                 }
 
-                const removeButton = item.querySelector('.btn-close');
+                const removeButton = item.querySelector('.product-type-remove');
                 if (removeButton) {
                     removeButton.addEventListener('click', () => {
+                        cleanupFunctions.forEach(fn => fn());
                         item.remove();
                         updateProductTypesEmptyState();
                     });
                 }
 
                 if (discountSelect) {
-                    discountSelect.addEventListener('change', () => updateProductTypeDiscountState(item));
+                    discountSelect.addEventListener('change', () => {
+                        updateProductTypeDiscountState(item);
+                        updateProductTypeHeaderState(item);
+                    });
+                }
+
+                if (nameInputEl) {
+                    nameInputEl.addEventListener('input', () => updateProductTypeHeaderState(item));
+                }
+                if (priceInputEl) {
+                    priceInputEl.addEventListener('input', () => updateProductTypeHeaderState(item));
+                }
+                if (stockInputEl) {
+                    stockInputEl.addEventListener('input', () => updateProductTypeHeaderState(item));
+                }
+                if (discountInputEl) {
+                    discountInputEl.addEventListener('input', () => updateProductTypeHeaderState(item));
+                }
+                if (publishCheckboxEl) {
+                    publishCheckboxEl.addEventListener('change', () => updateProductTypeHeaderState(item));
+                }
+                if (spicyCheckboxEl) {
+                    spicyCheckboxEl.addEventListener('change', () => updateProductTypeHeaderState(item));
+                }
+                if (vegetarianCheckboxEl) {
+                    vegetarianCheckboxEl.addEventListener('change', () => updateProductTypeHeaderState(item));
                 }
 
                 updateProductTypeDiscountState(item);
+                updateProductTypeHeaderState(item);
+
+                const cleanupImageUpload = setupProductTypeImageUpload(item, initialData.productTypeImageUrl ?? '');
+                if (typeof cleanupImageUpload === 'function') {
+                    cleanupFunctions.push(cleanupImageUpload);
+                }
 
                 return item;
             }
@@ -923,6 +1267,14 @@
                 const item = createProductTypeItem(initialData);
                 productTypesContainer.appendChild(item);
                 updateProductTypesEmptyState();
+
+                if (item && item.dataset.isExisting !== 'true') {
+                    const collapseElement = item.querySelector('.accordion-collapse');
+                    if (collapseElement) {
+                        const collapseInstance = bootstrap.Collapse.getOrCreateInstance(collapseElement, { toggle: false });
+                        collapseInstance.show();
+                    }
+                }
             }
 
             function getProductTypeItems() {
