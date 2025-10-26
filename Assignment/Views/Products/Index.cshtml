@@ -240,28 +240,6 @@
                             <textarea id="productDescription" class="form-control" rows="3" maxlength="10000" required></textarea>
                         </div>
                         <div class="col-md-4">
-                            <label for="productPrice" class="form-label">Giá bán (VND)<span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="productPrice" min="0" step="0.01" required />
-                        </div>
-                        <div class="col-md-4">
-                            <label for="productStock" class="form-label">Tồn kho<span class="text-danger">*</span></label>
-                            <input type="number" class="form-control" id="productStock" min="0" step="1" required />
-                        </div>
-                        <div class="col-md-4">
-                            <label for="productDiscountType" class="form-label">Loại giảm giá</label>
-                            <select id="productDiscountType" class="form-select">
-                                @foreach (var discount in discountLabels)
-                                {
-                                    <option value="@((int)discount.Key)">@discount.Value</option>
-                                }
-                            </select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="productDiscount" class="form-label" id="productDiscountLabel">Giá trị giảm</label>
-                            <input type="number" class="form-control" id="productDiscount" min="0" step="1" />
-                            <small class="text-muted">Bỏ trống nếu không áp dụng.</small>
-                        </div>
-                        <div class="col-md-4">
                             <label for="productImageFile" class="form-label">Ảnh đại diện (URL)<span class="text-danger">*</span></label>
                             <input type="file" class="form-control" id="productImageFile" accept="image/*" />
                             <input type="hidden" id="productImageUrl" required />
@@ -277,37 +255,34 @@
                             </div>
                             <div class="form-text text-muted" id="productImageUploadFeedback">Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
                         </div>
-                        <div class="col-md-4">
-                            <label for="productPreparationTime" class="form-label">Thời gian chuẩn bị (phút)</label>
-                            <input type="number" class="form-control" id="productPreparationTime" min="0" step="1" />
-                        </div>
-                        <div class="col-md-4">
-                            <label for="productCalories" class="form-label">Calories</label>
-                            <input type="number" class="form-control" id="productCalories" min="0" step="1" />
-                        </div>
                         <div class="col-12">
-                            <label for="productIngredients" class="form-label">Thành phần<span class="text-danger">*</span></label>
-                            <textarea id="productIngredients" class="form-control" rows="2" maxlength="1000" required></textarea>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="productIsPublish" />
-                                <label class="form-check-label" for="productIsPublish">Xuất bản ngay</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="productIsSpicy" />
-                                <label class="form-check-label" for="productIsSpicy">Món cay</label>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="form-check form-switch">
-                                <input class="form-check-input" type="checkbox" id="productIsVegetarian" />
-                                <label class="form-check-label" for="productIsVegetarian">Đồ chay</label>
+                            <div class="alert alert-info mb-0">
+                                <div class="fw-semibold mb-1">Loại sản phẩm</div>
+                                <div class="mb-0 small">Giá bán, tồn kho, giảm giá, thời gian chuẩn bị, calories và thành phần sẽ được quản lý riêng cho từng loại sản phẩm.</div>
+                                <div class="small mb-0">Trạng thái cay/đồ chay của sản phẩm sẽ được tự động xác định dựa trên các loại sản phẩm đã thêm.</div>
                             </div>
                         </div>
                     </div>
+                    <hr class="my-4" />
+                    <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                        <h5 class="mb-0">Danh sách loại sản phẩm</h5>
+                        <div class="d-flex flex-wrap gap-2">
+                            <a class="btn btn-outline-secondary btn-sm" id="downloadProductTypesTemplateLink" href="/api/products/types/template">
+                                <i class="fas fa-file-download me-1"></i>Tải file mẫu
+                            </a>
+                            <input type="file" accept=".xlsx" id="productTypesImportInput" class="d-none" />
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="importProductTypesBtn">
+                                <i class="fas fa-file-import me-1"></i>Nhập từ file
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm" id="clearProductTypesBtn">
+                                <i class="fas fa-trash-can me-1"></i>Xóa tất cả
+                            </button>
+                            <button type="button" class="btn btn-outline-success btn-sm" id="addProductTypeBtn">
+                                <i class="fas fa-plus me-1"></i>Thêm loại sản phẩm
+                            </button>
+                        </div>
+                    </div>
+                    <div id="productTypesContainer" class="d-flex flex-column gap-3"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -425,12 +400,6 @@
 
             const nameInput = document.getElementById('productName');
             const descriptionInput = document.getElementById('productDescription');
-            const priceInput = document.getElementById('productPrice');
-            const stockInput = document.getElementById('productStock');
-            const discountTypeSelect = document.getElementById('productDiscountType');
-            const discountInput = document.getElementById('productDiscount');
-            const discountLabel = document.getElementById('productDiscountLabel');
-            const publishCheckbox = document.getElementById('productIsPublish');
             const imageInput = document.getElementById('productImageUrl');
             const imageFileInput = document.getElementById('productImageFile');
             const imagePreviewWrapper = document.getElementById('productImagePreviewWrapper');
@@ -443,13 +412,15 @@
             const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
             let isUploadingImage = false;
             let temporaryImageObjectUrl = null;
-            const prepInput = document.getElementById('productPreparationTime');
-            const caloriesInput = document.getElementById('productCalories');
-            const ingredientsInput = document.getElementById('productIngredients');
-            const spicyCheckbox = document.getElementById('productIsSpicy');
-            const vegetarianCheckbox = document.getElementById('productIsVegetarian');
             const categorySelect = document.getElementById('productCategory');
             const submitButton = document.getElementById('productSubmitBtn');
+            const productTypesContainer = document.getElementById('productTypesContainer');
+            const addProductTypeBtn = document.getElementById('addProductTypeBtn');
+            const clearProductTypesBtn = document.getElementById('clearProductTypesBtn');
+            const importProductTypesBtn = document.getElementById('importProductTypesBtn');
+            const productTypesImportInput = document.getElementById('productTypesImportInput');
+            const downloadProductTypesTemplateLink = document.getElementById('downloadProductTypesTemplateLink');
+            const importProductTypesBtnInitialHtml = importProductTypesBtn ? importProductTypesBtn.innerHTML : '';
 
             let editingProductId = null;
             let deleteProductId = null;
@@ -598,42 +569,528 @@
                 return value ? 'Có' : 'Không';
             }
 
-            function toggleDiscountField() {
-                if (!discountInput) {
+            function calculateTypeFinalPrice(type) {
+                if (!type) {
+                    return 0;
+                }
+
+                const basePrice = Number(type.price ?? 0);
+                const discountType = Number(type.discountType ?? DISCOUNT_NONE);
+                const discountValue = type.discount !== null && type.discount !== undefined
+                    ? Number(type.discount)
+                    : null;
+
+                let finalPrice = basePrice;
+                if (discountType === DISCOUNT_PERCENT && discountValue !== null) {
+                    finalPrice = basePrice - (basePrice * discountValue / 100);
+                } else if (discountType === DISCOUNT_FIXED && discountValue !== null) {
+                    finalPrice = discountValue;
+                } else if (discountType === DISCOUNT_AMOUNT && discountValue !== null) {
+                    finalPrice = basePrice - discountValue;
+                }
+
+                if (!Number.isFinite(finalPrice) || finalPrice < 0) {
+                    return 0;
+                }
+
+                return Math.round(finalPrice * 100) / 100;
+            }
+
+            function getDisplayedProductTypes(product) {
+                const types = Array.isArray(product?.productTypes) ? product.productTypes : [];
+                const published = types.filter(type => type?.isPublish);
+                return published.length > 0 ? published : types;
+            }
+
+            function formatPriceRangeFromTypes(types) {
+                const finalPrices = types
+                    .map(type => calculateTypeFinalPrice(type))
+                    .filter(price => Number.isFinite(price) && price >= 0);
+
+                if (finalPrices.length === 0) {
+                    return '';
+                }
+
+                const minPrice = Math.min(...finalPrices);
+                const maxPrice = Math.max(...finalPrices);
+
+                if (Math.abs(minPrice - maxPrice) < 0.01) {
+                    return currencyFormatter.format(minPrice);
+                }
+
+                return `${currencyFormatter.format(minPrice)} - ${currencyFormatter.format(maxPrice)}`;
+            }
+
+            function buildTypePriceHtml(type) {
+                const basePrice = Number(type?.price ?? 0);
+                const discountType = Number(type?.discountType ?? DISCOUNT_NONE);
+                const discountValue = type?.discount !== null && type?.discount !== undefined
+                    ? Number(type.discount)
+                    : null;
+                const finalPrice = calculateTypeFinalPrice(type);
+
+                if (discountType === DISCOUNT_PERCENT && discountValue !== null) {
+                    return `
+                        <div class="d-flex flex-column">
+                            <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
+                            <span class="fw-semibold text-danger">${currencyFormatter.format(finalPrice)}</span>
+                            <span class="small text-muted">Giảm ${Number(discountValue).toLocaleString('vi-VN')}%</span>
+                        </div>`;
+                }
+
+                if (discountType === DISCOUNT_FIXED && discountValue !== null) {
+                    return `
+                        <div class="d-flex flex-column">
+                            <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
+                            <span class="fw-semibold text-danger">${currencyFormatter.format(finalPrice)}</span>
+                            <span class="small text-muted">Giá ưu đãi</span>
+                        </div>`;
+                }
+
+                if (discountType === DISCOUNT_AMOUNT && discountValue !== null) {
+                    return `
+                        <div class="d-flex flex-column">
+                            <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
+                            <span class="fw-semibold text-danger">${currencyFormatter.format(finalPrice)}</span>
+                            <span class="small text-muted">Giảm ${currencyFormatter.format(discountValue)}</span>
+                        </div>`;
+                }
+
+                return `<span class="fw-semibold">${currencyFormatter.format(finalPrice)}</span>`;
+            }
+
+            function normalizeDiscountType(value) {
+                if (typeof value === 'number' && Number.isFinite(value)) {
+                    return value;
+                }
+
+                if (typeof value === 'string') {
+                    const trimmed = value.trim();
+                    if (trimmed.length === 0) {
+                        return DISCOUNT_NONE;
+                    }
+
+                    if (Number.isFinite(Number(trimmed))) {
+                        return Number(trimmed);
+                    }
+
+                    switch (trimmed.toLowerCase()) {
+                        case 'percent':
+                            return DISCOUNT_PERCENT;
+                        case 'fixed':
+                        case 'fixedamount':
+                        case 'fixed_amount':
+                            return DISCOUNT_FIXED;
+                        case 'amount':
+                            return DISCOUNT_AMOUNT;
+                        case 'none':
+                            return DISCOUNT_NONE;
+                    }
+                }
+
+                return DISCOUNT_NONE;
+            }
+
+            let productTypeCounter = 0;
+
+            function updateProductTypeDiscountState(item) {
+                if (!item) {
                     return;
                 }
 
-                const discountType = Number(discountTypeSelect.value || DISCOUNT_NONE);
-                const isNone = discountType === DISCOUNT_NONE;
-                discountInput.disabled = isNone;
+                const discountSelect = item.querySelector('.product-type-discount-type');
+                const discountWrapper = item.querySelector('.product-type-discount-wrapper');
+                const discountInput = item.querySelector('.product-type-discount');
+                const discountLabelEl = item.querySelector('.product-type-discount-label');
 
-                if (isNone) {
-                    discountInput.value = '';
+                const discountType = Number(discountSelect?.value ?? DISCOUNT_NONE);
+                const isNone = discountType === DISCOUNT_NONE;
+
+                if (discountWrapper) {
+                    discountWrapper.style.display = isNone ? 'none' : '';
                 }
 
-                discountInput.min = '0';
-                discountInput.step = '1';
+                if (discountInput) {
+                    discountInput.disabled = isNone;
+                    if (isNone) {
+                        discountInput.value = '';
+                    }
+                    discountInput.setAttribute('min', '0');
+                    discountInput.setAttribute('step', '1');
+                    if (discountType === DISCOUNT_PERCENT) {
+                        discountInput.setAttribute('max', '100');
+                    } else {
+                        discountInput.removeAttribute('max');
+                    }
+                }
+
+                if (!discountLabelEl) {
+                    return;
+                }
 
                 if (discountType === DISCOUNT_PERCENT) {
-                    if (discountLabel) {
-                        discountLabel.textContent = 'Giá trị giảm (%)';
-                    }
-                    discountInput.setAttribute('max', '100');
-                } else if (discountType === DISCOUNT_AMOUNT) {
-                    if (discountLabel) {
-                        discountLabel.textContent = 'Giá trị giảm (VND)';
-                    }
-                    discountInput.removeAttribute('max');
+                    discountLabelEl.textContent = 'Giá trị giảm (%)';
                 } else if (discountType === DISCOUNT_FIXED) {
-                    if (discountLabel) {
-                        discountLabel.textContent = 'Giá bán ưu đãi (VND)';
-                    }
-                    discountInput.removeAttribute('max');
+                    discountLabelEl.textContent = 'Giá bán ưu đãi (VND)';
+                } else if (discountType === DISCOUNT_AMOUNT) {
+                    discountLabelEl.textContent = 'Giá trị giảm (VND)';
                 } else {
-                    if (discountLabel) {
-                        discountLabel.textContent = 'Giá trị giảm';
+                    discountLabelEl.textContent = 'Giá trị giảm';
+                }
+            }
+
+            function updateProductTypesEmptyState() {
+                if (!productTypesContainer) {
+                    return;
+                }
+
+                let placeholder = productTypesContainer.querySelector('.product-types-empty');
+                const hasItems = productTypesContainer.querySelectorAll('.product-type-item').length > 0;
+
+                if (!hasItems) {
+                    if (!placeholder) {
+                        placeholder = document.createElement('div');
+                        placeholder.className = 'product-types-empty border rounded py-4 text-center text-muted';
+                        placeholder.textContent = 'Chưa có loại sản phẩm nào. Vui lòng thêm mới hoặc nhập từ file.';
+                        productTypesContainer.appendChild(placeholder);
                     }
-                    discountInput.removeAttribute('max');
+                } else if (placeholder) {
+                    placeholder.remove();
+                }
+            }
+
+            function createProductTypeItem(initialData = {}) {
+                productTypeCounter += 1;
+                const index = productTypeCounter;
+
+                const item = document.createElement('div');
+                item.className = 'product-type-item border rounded p-3 position-relative';
+                item.dataset.index = index.toString();
+
+                const typeId = initialData.id ?? '';
+                const nameId = `productTypeName_${index}`;
+                const imageId = `productTypeImage_${index}`;
+                const priceId = `productTypePrice_${index}`;
+                const stockId = `productTypeStock_${index}`;
+                const discountTypeId = `productTypeDiscountType_${index}`;
+                const discountId = `productTypeDiscount_${index}`;
+                const prepId = `productTypePreparation_${index}`;
+                const caloriesId = `productTypeCalories_${index}`;
+                const ingredientsId = `productTypeIngredients_${index}`;
+                const publishId = `productTypePublish_${index}`;
+                const spicyId = `productTypeSpicy_${index}`;
+                const vegetarianId = `productTypeVegetarian_${index}`;
+
+                item.innerHTML = `
+                    <button type="button" class="btn-close position-absolute top-0 end-0 mt-2 me-2" aria-label="Xóa loại sản phẩm"></button>
+                    <input type="hidden" class="product-type-id" value="${escapeHtml(typeId)}" />
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="${nameId}" class="form-label">Tên loại sản phẩm<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control product-type-name" id="${nameId}" maxlength="200" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="${imageId}" class="form-label">Ảnh loại (URL)</label>
+                            <input type="url" class="form-control product-type-image-url" id="${imageId}" maxlength="1000" />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label for="${priceId}" class="form-label">Giá bán (VND)<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control product-type-price" id="${priceId}" min="0" step="0.01" required />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label for="${stockId}" class="form-label">Tồn kho<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control product-type-stock" id="${stockId}" min="0" step="1" required />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label for="${discountTypeId}" class="form-label">Loại giảm giá</label>
+                            <select class="form-select product-type-discount-type" id="${discountTypeId}">
+                                <option value="${DISCOUNT_NONE}">Không áp dụng</option>
+                                <option value="${DISCOUNT_PERCENT}">Giảm theo %</option>
+                                <option value="${DISCOUNT_FIXED}">Giảm giá cố định</option>
+                                <option value="${DISCOUNT_AMOUNT}">Giảm theo tiền</option>
+                            </select>
+                        </div>
+                        <div class="col-sm-6 col-md-4 product-type-discount-wrapper">
+                            <label for="${discountId}" class="form-label product-type-discount-label">Giá trị giảm</label>
+                            <input type="number" class="form-control product-type-discount" id="${discountId}" min="0" step="1" />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label for="${prepId}" class="form-label">Thời gian chuẩn bị (phút)</label>
+                            <input type="number" class="form-control product-type-preparation-time" id="${prepId}" min="0" step="1" />
+                        </div>
+                        <div class="col-sm-6 col-md-4">
+                            <label for="${caloriesId}" class="form-label">Calories</label>
+                            <input type="number" class="form-control product-type-calories" id="${caloriesId}" min="0" step="1" />
+                        </div>
+                        <div class="col-12">
+                            <label for="${ingredientsId}" class="form-label">Thành phần<span class="text-danger">*</span></label>
+                            <textarea class="form-control product-type-ingredients" id="${ingredientsId}" rows="2" maxlength="2000" required></textarea>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input product-type-is-publish" type="checkbox" id="${publishId}" />
+                                <label class="form-check-label" for="${publishId}">Xuất bản</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input product-type-is-spicy" type="checkbox" id="${spicyId}" />
+                                <label class="form-check-label" for="${spicyId}">Món cay</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch mt-2">
+                                <input class="form-check-input product-type-is-vegetarian" type="checkbox" id="${vegetarianId}" />
+                                <label class="form-check-label" for="${vegetarianId}">Đồ chay</label>
+                            </div>
+                        </div>
+                    </div>`;
+
+                const nameInputEl = item.querySelector('.product-type-name');
+                const imageInputEl = item.querySelector('.product-type-image-url');
+                const priceInputEl = item.querySelector('.product-type-price');
+                const stockInputEl = item.querySelector('.product-type-stock');
+                const discountSelect = item.querySelector('.product-type-discount-type');
+                const discountInputEl = item.querySelector('.product-type-discount');
+                const prepInputEl = item.querySelector('.product-type-preparation-time');
+                const caloriesInputEl = item.querySelector('.product-type-calories');
+                const ingredientsInputEl = item.querySelector('.product-type-ingredients');
+                const publishCheckboxEl = item.querySelector('.product-type-is-publish');
+                const spicyCheckboxEl = item.querySelector('.product-type-is-spicy');
+                const vegetarianCheckboxEl = item.querySelector('.product-type-is-vegetarian');
+
+                if (nameInputEl) {
+                    nameInputEl.value = initialData.name ?? '';
+                }
+                if (imageInputEl) {
+                    imageInputEl.value = initialData.productTypeImageUrl ?? '';
+                }
+                if (priceInputEl) {
+                    priceInputEl.value = initialData.price ?? '';
+                }
+                if (stockInputEl) {
+                    stockInputEl.value = initialData.stock ?? '';
+                }
+                if (discountSelect) {
+                    const normalizedDiscountType = normalizeDiscountType(initialData.discountType);
+                    discountSelect.value = normalizedDiscountType;
+                }
+                if (discountInputEl) {
+                    discountInputEl.value = initialData.discount ?? '';
+                }
+                if (prepInputEl) {
+                    prepInputEl.value = initialData.preparationTime ?? '';
+                }
+                if (caloriesInputEl) {
+                    caloriesInputEl.value = initialData.calories ?? '';
+                }
+                if (ingredientsInputEl) {
+                    ingredientsInputEl.value = initialData.ingredients ?? '';
+                }
+                if (publishCheckboxEl) {
+                    const initialPublish = initialData.isPublish !== undefined ? Boolean(initialData.isPublish) : true;
+                    publishCheckboxEl.checked = initialPublish;
+                }
+                if (spicyCheckboxEl) {
+                    spicyCheckboxEl.checked = Boolean(initialData.isSpicy);
+                }
+                if (vegetarianCheckboxEl) {
+                    vegetarianCheckboxEl.checked = Boolean(initialData.isVegetarian);
+                }
+
+                const removeButton = item.querySelector('.btn-close');
+                if (removeButton) {
+                    removeButton.addEventListener('click', () => {
+                        item.remove();
+                        updateProductTypesEmptyState();
+                    });
+                }
+
+                if (discountSelect) {
+                    discountSelect.addEventListener('change', () => updateProductTypeDiscountState(item));
+                }
+
+                updateProductTypeDiscountState(item);
+
+                return item;
+            }
+
+            function addProductType(initialData = {}) {
+                if (!productTypesContainer) {
+                    return;
+                }
+
+                const item = createProductTypeItem(initialData);
+                productTypesContainer.appendChild(item);
+                updateProductTypesEmptyState();
+            }
+
+            function getProductTypeItems() {
+                if (!productTypesContainer) {
+                    return [];
+                }
+
+                return Array.from(productTypesContainer.querySelectorAll('.product-type-item'));
+            }
+
+            function collectProductTypes() {
+                const items = getProductTypeItems();
+                const types = [];
+                const errors = [];
+
+                items.forEach((item, index) => {
+                    const idValue = item.querySelector('.product-type-id')?.value || '';
+                    const nameValue = item.querySelector('.product-type-name')?.value?.trim() || '';
+                    const imageValue = item.querySelector('.product-type-image-url')?.value?.trim() || '';
+
+                    const priceRaw = item.querySelector('.product-type-price')?.value;
+                    const parsedPrice = Number(priceRaw);
+                    const priceValue = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : 0;
+
+                    const stockRaw = item.querySelector('.product-type-stock')?.value;
+                    const parsedStock = Number(stockRaw);
+                    const stockValue = Number.isFinite(parsedStock) && parsedStock >= 0 ? Math.round(parsedStock) : 0;
+
+                    const discountTypeValue = Number(item.querySelector('.product-type-discount-type')?.value ?? DISCOUNT_NONE);
+                    const discountRaw = item.querySelector('.product-type-discount')?.value;
+
+                    const prepRaw = item.querySelector('.product-type-preparation-time')?.value;
+                    const parsedPrep = Number(prepRaw);
+                    const prepValue = Number.isFinite(parsedPrep) && parsedPrep >= 0 ? Math.round(parsedPrep) : 0;
+
+                    const caloriesRaw = item.querySelector('.product-type-calories')?.value;
+                    const parsedCalories = Number(caloriesRaw);
+                    const caloriesValue = Number.isFinite(parsedCalories) && parsedCalories >= 0 ? Math.round(parsedCalories) : 0;
+
+                    const ingredientsValue = item.querySelector('.product-type-ingredients')?.value?.trim() || '';
+                    const isPublishValue = item.querySelector('.product-type-is-publish')?.checked ?? true;
+                    const isSpicyValue = item.querySelector('.product-type-is-spicy')?.checked ?? false;
+                    const isVegetarianValue = item.querySelector('.product-type-is-vegetarian')?.checked ?? false;
+
+                    if (!nameValue) {
+                        errors.push(`Loại sản phẩm #${index + 1} cần có tên.`);
+                    }
+
+                    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+                        errors.push(`Giá bán của loại sản phẩm #${index + 1} không hợp lệ.`);
+                    }
+
+                    if (!Number.isFinite(parsedStock) || parsedStock < 0) {
+                        errors.push(`Tồn kho của loại sản phẩm #${index + 1} không hợp lệ.`);
+                    }
+
+                    if (!ingredientsValue) {
+                        errors.push(`Loại sản phẩm #${index + 1} cần nhập thành phần.`);
+                    }
+
+                    let discountValue = null;
+                    if (discountTypeValue !== DISCOUNT_NONE && discountRaw !== undefined && discountRaw !== null && discountRaw !== '') {
+                        const parsedDiscount = Number(discountRaw);
+                        if (!Number.isFinite(parsedDiscount) || parsedDiscount < 0) {
+                            errors.push(`Giá trị giảm của loại sản phẩm #${index + 1} không hợp lệ.`);
+                        } else {
+                            discountValue = parsedDiscount;
+                        }
+                    }
+
+                    types.push({
+                        id: idValue ? Number(idValue) : null,
+                        name: nameValue,
+                        productTypeImageUrl: imageValue || null,
+                        price: priceValue,
+                        stock: stockValue,
+                        discountType: Number.isFinite(discountTypeValue) ? discountTypeValue : DISCOUNT_NONE,
+                        discount: discountValue,
+                        preparationTime: prepValue,
+                        calories: caloriesValue,
+                        ingredients: ingredientsValue,
+                        isPublish: Boolean(isPublishValue),
+                        isSpicy: Boolean(isSpicyValue),
+                        isVegetarian: Boolean(isVegetarianValue)
+                    });
+                });
+
+                return { types, errors };
+            }
+
+            function setProductTypes(types) {
+                if (!productTypesContainer) {
+                    return;
+                }
+
+                productTypesContainer.innerHTML = '';
+                productTypeCounter = 0;
+
+                if (!Array.isArray(types) || types.length === 0) {
+                    addProductType({ isPublish: true });
+                    return;
+                }
+
+                types.forEach(type => {
+                    addProductType({
+                        id: type.id,
+                        name: type.name,
+                        productTypeImageUrl: type.productTypeImageUrl,
+                        price: Number(type.price ?? 0),
+                        stock: Number(type.stock ?? 0),
+                        discountType: normalizeDiscountType(type.discountType),
+                        discount: type.discount !== null && type.discount !== undefined ? Number(type.discount) : null,
+                        preparationTime: Number(type.preparationTime ?? 0),
+                        calories: Number(type.calories ?? 0),
+                        ingredients: type.ingredients ?? '',
+                        isPublish: type.isPublish !== false,
+                        isSpicy: Boolean(type.isSpicy),
+                        isVegetarian: Boolean(type.isVegetarian)
+                    });
+                });
+            }
+
+            async function importProductTypesFromFile(file) {
+                if (!file) {
+                    return null;
+                }
+
+                const extension = file.name.split('.').pop()?.toLowerCase();
+                if (extension !== 'xlsx') {
+                    showAlert('Vui lòng chọn file Excel (.xlsx) để nhập loại sản phẩm.', 'warning');
+                    return null;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/api/products/types/import', {
+                        method: 'POST',
+                        headers: {
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: formData
+                    });
+
+                    if (response.status === 400) {
+                        const result = await response.json().catch(() => null);
+                        const message = result?.message || 'File không hợp lệ. Vui lòng kiểm tra và thử lại.';
+                        showAlert(message, 'warning');
+                        return null;
+                    }
+
+                    if (response.status === 403) {
+                        showAlert('Bạn không có quyền nhập loại sản phẩm.', 'warning');
+                        return null;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Failed to import');
+                    }
+
+                    const result = await response.json().catch(() => null);
+                    return {
+                        productTypes: Array.isArray(result?.productTypes) ? result.productTypes : [],
+                        warnings: Array.isArray(result?.warnings) ? result.warnings : []
+                    };
+                } catch (error) {
+                    throw error;
                 }
             }
 
@@ -997,40 +1454,35 @@
                     tr.appendChild(nameCell);
 
                     const priceCell = document.createElement('td');
-                    const discountType = Number(product.discountType ?? 0);
-                    const basePrice = Number(product.price ?? 0);
-                    const discountValue = product.discount;
+                    const displayedTypes = getDisplayedProductTypes(product);
+                    let priceRangeText = formatPriceRangeFromTypes(displayedTypes);
+                    if (!priceRangeText) {
+                        if (displayedTypes.length > 0) {
+                            priceRangeText = currencyFormatter.format(calculateTypeFinalPrice(displayedTypes[0]));
+                        } else {
+                            priceRangeText = currencyFormatter.format(Number(product.price ?? 0));
+                        }
+                    }
 
-                    if (discountType === DISCOUNT_PERCENT && discountValue !== null && discountValue !== undefined) {
-                        const discountedPrice = Math.max(basePrice - (basePrice * discountValue / 100), 0);
-                        priceCell.innerHTML = `
-                            <div class="d-flex flex-column">
-                                <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
-                                <span class="fw-semibold text-danger">${currencyFormatter.format(discountedPrice)}</span>
-                                <span class="small text-muted">Giảm ${discountValue}%</span>
-                            </div>`;
-                    } else if (discountType === DISCOUNT_FIXED && discountValue !== null && discountValue !== undefined) {
-                        priceCell.innerHTML = `
-                            <div class="d-flex flex-column">
-                                <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
-                                <span class="fw-semibold text-danger">${currencyFormatter.format(discountValue)}</span>
-                                <span class="small text-muted">Giá ưu đãi</span>
-                            </div>`;
-                    } else if (discountType === DISCOUNT_AMOUNT && discountValue !== null && discountValue !== undefined) {
-                        const discountedPrice = Math.max(basePrice - discountValue, 0);
-                        priceCell.innerHTML = `
-                            <div class="d-flex flex-column">
-                                <del class="text-muted small">${currencyFormatter.format(basePrice)}</del>
-                                <span class="fw-semibold text-danger">${currencyFormatter.format(discountedPrice)}</span>
-                                <span class="small text-muted">Giảm ${currencyFormatter.format(discountValue)}</span>
-                            </div>`;
-                    } else {
-                        priceCell.innerHTML = `<span class="fw-semibold">${currencyFormatter.format(basePrice)}</span>`;
+                    const hasDiscount = displayedTypes.some(type => {
+                        const discountType = Number(type?.discountType ?? DISCOUNT_NONE);
+                        const discountValue = type?.discount !== null && type?.discount !== undefined
+                            ? Number(type.discount)
+                            : null;
+                        return discountType !== DISCOUNT_NONE && discountValue !== null && discountValue > 0;
+                    });
+
+                    priceCell.innerHTML = `<span class="fw-semibold">${escapeHtml(priceRangeText)}</span>`;
+                    if (hasDiscount) {
+                        priceCell.innerHTML += '<div class="small text-danger">Có khuyến mãi</div>';
                     }
                     tr.appendChild(priceCell);
 
                     const stockCell = document.createElement('td');
-                    stockCell.textContent = Number(product.stock ?? 0).toLocaleString('vi-VN');
+                    const stockValue = Number.isFinite(Number(product.totalStock))
+                        ? Number(product.totalStock)
+                        : Number(product.stock ?? 0);
+                    stockCell.textContent = stockValue.toLocaleString('vi-VN');
                     tr.appendChild(stockCell);
 
                     const categoryCell = document.createElement('td');
@@ -1380,20 +1832,104 @@
                     }
 
                     const product = await response.json();
-                    const discountType = Number(product.discountType ?? 0);
-                    let discountText = discountLabelMap[discountType] ?? 'Không xác định';
-                    if (discountType === DISCOUNT_PERCENT && product.discount) {
-                        discountText += ` (${Number(product.discount).toLocaleString('vi-VN')}%)`;
-                    } else if ((discountType === DISCOUNT_FIXED || discountType === DISCOUNT_AMOUNT) && product.discount) {
-                        discountText += ` (${currencyFormatter.format(Number(product.discount))})`;
-                    }
-
                     const imageUrl = escapeHtml(product.productImageUrl || '/images/no-image.jpg');
                     const productName = escapeHtml(product.name ?? 'Sản phẩm');
                     const categoryName = escapeHtml(product.categoryName ?? 'Không có danh mục');
                     const statusBadge = product.isPublish
                         ? '<span class="badge bg-success">Đã xuất bản</span>'
                         : '<span class="badge bg-secondary">Bản nháp</span>';
+
+                    const displayedTypes = getDisplayedProductTypes(product);
+                    let priceSummary = formatPriceRangeFromTypes(displayedTypes);
+                    if (!priceSummary) {
+                        if (displayedTypes.length > 0) {
+                            priceSummary = currencyFormatter.format(calculateTypeFinalPrice(displayedTypes[0]));
+                        } else {
+                            priceSummary = currencyFormatter.format(Number(product.price ?? 0));
+                        }
+                    }
+
+                    const hasDiscount = displayedTypes.some(type => {
+                        const discountType = Number(type?.discountType ?? DISCOUNT_NONE);
+                        const discountValue = type?.discount !== null && type?.discount !== undefined
+                            ? Number(type.discount)
+                            : null;
+                        return discountType !== DISCOUNT_NONE && discountValue !== null && discountValue > 0;
+                    });
+
+                    const totalStock = Number.isFinite(Number(product.totalStock))
+                        ? Number(product.totalStock)
+                        : Number(product.stock ?? 0);
+                    const totalSold = Number.isFinite(Number(product.totalSold))
+                        ? Number(product.totalSold)
+                        : Number(product.sold ?? 0);
+                    const minPreparation = Number.isFinite(Number(product.minPreparationTime))
+                        ? Number(product.minPreparationTime)
+                        : Number(product.preparationTime ?? 0);
+                    const minCalories = Number.isFinite(Number(product.minCalories))
+                        ? Number(product.minCalories)
+                        : Number(product.calories ?? 0);
+
+                    const combinedIngredients = Array.from(new Set((Array.isArray(product.productTypes) ? product.productTypes : [])
+                        .map(type => (type.ingredients || '').trim())
+                        .filter(Boolean))).join(', ');
+
+                    const ingredientsText = combinedIngredients
+                        ? escapeHtml(combinedIngredients)
+                        : escapeHtml(product.ingredients ?? '—');
+
+                    const allTypes = Array.isArray(product.productTypes) ? product.productTypes : [];
+                    const typeCards = allTypes.length > 0
+                        ? allTypes.map(type => {
+                            const typeName = escapeHtml(type.name ?? 'Loại sản phẩm');
+                            const typeImageUrl = type.productTypeImageUrl ? escapeHtml(type.productTypeImageUrl) : '';
+                            const typePriceHtml = buildTypePriceHtml(type);
+                            const typeStock = Number(type.stock ?? 0).toLocaleString('vi-VN');
+                            const typeSold = Number(type.sold ?? 0).toLocaleString('vi-VN');
+                            const typePreparation = Number(type.preparationTime ?? 0).toLocaleString('vi-VN');
+                            const typeCalories = Number(type.calories ?? 0).toLocaleString('vi-VN');
+                            const typeIngredients = escapeHtml(type.ingredients ?? '—');
+
+                            const badges = [];
+                            badges.push(type.isPublish
+                                ? '<span class="badge bg-success me-1">Xuất bản</span>'
+                                : '<span class="badge bg-secondary me-1">Đang ẩn</span>');
+                            if (type.isSpicy) {
+                                badges.push('<span class="badge bg-warning text-dark me-1">Cay</span>');
+                            }
+                            if (type.isVegetarian) {
+                                badges.push('<span class="badge bg-primary me-1">Đồ chay</span>');
+                            }
+
+                            const badgesHtml = badges.join('');
+                            const imageSection = typeImageUrl
+                                ? `<img src="${typeImageUrl}" alt="${typeName}" class="rounded" style="width: 64px; height: 64px; object-fit: cover;" />`
+                                : `<div class="bg-light border rounded d-flex align-items-center justify-content-center" style="width: 64px; height: 64px;"><i class="fas fa-image text-muted"></i></div>`;
+
+                            return `
+                                <div class="border rounded p-3">
+                                    <div class="d-flex gap-3 align-items-start">
+                                        ${imageSection}
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center gap-2">
+                                                <div>
+                                                    <h6 class="mb-1">${typeName}</h6>
+                                                    <div>${badgesHtml}</div>
+                                                </div>
+                                                <div class="text-lg-end">${typePriceHtml}</div>
+                                            </div>
+                                            <div class="row g-2 mt-2 small text-muted">
+                                                <div class="col-sm-6 col-lg-3">Tồn kho: <span class="text-dark">${typeStock}</span></div>
+                                                <div class="col-sm-6 col-lg-3">Đã bán: <span class="text-dark">${typeSold}</span></div>
+                                                <div class="col-sm-6 col-lg-3">Chuẩn bị: <span class="text-dark">${typePreparation} phút</span></div>
+                                                <div class="col-sm-6 col-lg-3">Calories: <span class="text-dark">${typeCalories}</span></div>
+                                            </div>
+                                            <div class="small mt-2">Thành phần: <span class="text-dark">${typeIngredients}</span></div>
+                                        </div>
+                                    </div>
+                                </div>`;
+                        }).join('')
+                        : '<div class="text-muted">Không có loại sản phẩm nào.</div>';
 
                     detailBody.innerHTML = `
                         <div class="d-flex align-items-start gap-3">
@@ -1407,27 +1943,27 @@
                         <div class="row g-3 mt-2">
                             <div class="col-md-4">
                                 <div class="small text-muted">Giá bán</div>
-                                <div class="fw-semibold">${currencyFormatter.format(Number(product.price ?? 0))}</div>
+                                <div class="fw-semibold">${escapeHtml(priceSummary)}</div>
                             </div>
                             <div class="col-md-4">
                                 <div class="small text-muted">Tồn kho</div>
-                                <div>${Number(product.stock ?? 0).toLocaleString('vi-VN')}</div>
+                                <div>${totalStock.toLocaleString('vi-VN')}</div>
                             </div>
                             <div class="col-md-4">
                                 <div class="small text-muted">Đã bán</div>
-                                <div>${Number(product.sold ?? 0).toLocaleString('vi-VN')}</div>
+                                <div>${totalSold.toLocaleString('vi-VN')}</div>
                             </div>
                             <div class="col-md-4">
-                                <div class="small text-muted">Giảm giá</div>
-                                <div>${escapeHtml(discountText)}</div>
+                                <div class="small text-muted">Khuyến mãi</div>
+                                <div>${hasDiscount ? 'Có khuyến mãi' : 'Không có khuyến mãi'}</div>
                             </div>
                             <div class="col-md-4">
-                                <div class="small text-muted">Thời gian chuẩn bị</div>
-                                <div>${Number(product.preparationTime ?? 0).toLocaleString('vi-VN')} phút</div>
+                                <div class="small text-muted">Thời gian chuẩn bị nhanh nhất</div>
+                                <div>${minPreparation > 0 ? `${minPreparation.toLocaleString('vi-VN')} phút` : '—'}</div>
                             </div>
                             <div class="col-md-4">
-                                <div class="small text-muted">Calories</div>
-                                <div>${Number(product.calories ?? 0).toLocaleString('vi-VN')}</div>
+                                <div class="small text-muted">Calories thấp nhất</div>
+                                <div>${minCalories > 0 ? minCalories.toLocaleString('vi-VN') : '—'}</div>
                             </div>
                             <div class="col-md-4">
                                 <div class="small text-muted">Món cay</div>
@@ -1448,7 +1984,11 @@
                         </div>
                         <div class="mt-3">
                             <h6 class="mb-2">Thành phần</h6>
-                            <p class="mb-0">${escapeHtml(product.ingredients ?? '—')}</p>
+                            <p class="mb-0">${ingredientsText}</p>
+                        </div>
+                        <div class="mt-3">
+                            <h6 class="mb-2">Các loại sản phẩm</h6>
+                            <div class="d-flex flex-column gap-3">${typeCards}</div>
                         </div>
                         <div class="mt-3 row g-3">
                             <div class="col-md-6">
@@ -1472,34 +2012,27 @@
             }
 
             function resetForm() {
-                productForm.reset();
+                if (productForm) {
+                    productForm.reset();
+                }
                 productFormErrors.classList.add('d-none');
                 productFormErrors.innerHTML = '';
                 editingProductId = null;
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Thêm mới';
-                toggleDiscountField();
                 resetProductImageState();
+                setProductTypes([]);
                 resetModalScroll();
             }
 
             function fillForm(product) {
                 nameInput.value = product.name ?? '';
                 descriptionInput.value = product.description ?? '';
-                priceInput.value = product.price ?? 0;
-                stockInput.value = product.stock ?? 0;
-                discountTypeSelect.value = product.discountType ?? 0;
-                discountInput.value = product.discount ?? '';
-                publishCheckbox.checked = Boolean(product.isPublish);
                 imageInput.value = product.productImageUrl ?? '';
                 setProductImageFromUrl(imageInput.value);
-                prepInput.value = product.preparationTime ?? 0;
-                caloriesInput.value = product.calories ?? 0;
-                ingredientsInput.value = product.ingredients ?? '';
-                spicyCheckbox.checked = Boolean(product.isSpicy);
-                vegetarianCheckbox.checked = Boolean(product.isVegetarian);
                 categorySelect.value = product.categoryId ?? '';
-                toggleDiscountField();
+                const types = Array.isArray(product.productTypes) ? product.productTypes : [];
+                setProductTypes(types);
             }
 
             function handleValidationErrors(problemDetails) {
@@ -1557,6 +2090,7 @@
 
                     const product = await response.json();
                     await loadCategories(false);
+                    resetForm();
                     ensureCategoryOption(product.categoryId, product.categoryName);
                     editingProductId = product.id;
                     productModalTitle.textContent = 'Chỉnh sửa sản phẩm';
@@ -1582,39 +2116,86 @@
                 productFormErrors.classList.add('d-none');
                 productFormErrors.innerHTML = '';
 
-                const payload = {
-                    name: nameInput.value.trim(),
-                    description: descriptionInput.value.trim(),
-                    price: Number(priceInput.value || 0),
-                    stock: Number(stockInput.value || 0),
-                    discountType: Number(discountTypeSelect.value || 0),
-                    discount: discountInput.value ? Number(discountInput.value) : null,
-                    isPublish: publishCheckbox.checked,
-                    productImageUrl: imageInput.value.trim(),
-                    preparationTime: Number(prepInput.value || 0),
-                    calories: Number(caloriesInput.value || 0),
-                    ingredients: ingredientsInput.value.trim(),
-                    isSpicy: spicyCheckbox.checked,
-                    isVegetarian: vegetarianCheckbox.checked,
-                    categoryId: Number(categorySelect.value || 0)
-                };
-
                 if (isUploadingImage) {
                     productFormErrors.innerHTML = '<ul class="mb-0"><li>Ảnh đại diện đang được tải lên. Vui lòng chờ hoàn tất trước khi lưu.</li></ul>';
                     productFormErrors.classList.remove('d-none');
                     return;
                 }
 
-                if (!payload.productImageUrl) {
+                const productImageUrl = imageInput.value.trim();
+                if (!productImageUrl) {
                     productFormErrors.innerHTML = '<ul class="mb-0"><li>Vui lòng tải lên ảnh đại diện cho sản phẩm.</li></ul>';
                     productFormErrors.classList.remove('d-none');
                     setProductImageFeedback('Vui lòng tải lên ảnh đại diện cho sản phẩm.', 'error');
                     return;
                 }
 
-                if (payload.discountType === 0) {
-                    payload.discount = null;
+                const { types: collectedTypes, errors: typeErrors } = collectProductTypes();
+                const validationErrors = [...typeErrors];
+
+                if (collectedTypes.length === 0) {
+                    validationErrors.push('Vui lòng thêm ít nhất một loại sản phẩm.');
                 }
+
+                if (validationErrors.length > 0) {
+                    productFormErrors.innerHTML = `<ul class="mb-0">${validationErrors.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
+                    productFormErrors.classList.remove('d-none');
+                    return;
+                }
+
+                const publishedTypes = collectedTypes.filter(type => type.isPublish);
+                const priceCandidates = publishedTypes.length > 0 ? publishedTypes : collectedTypes;
+                let representativeType = priceCandidates.reduce((best, current) => {
+                    if (!best) {
+                        return current;
+                    }
+                    return current.price < best.price ? current : best;
+                }, null);
+                if (!representativeType && collectedTypes.length > 0) {
+                    representativeType = collectedTypes[0];
+                }
+
+                const minPrice = priceCandidates.reduce((min, type) => Math.min(min, type.price ?? Number.POSITIVE_INFINITY), Number.POSITIVE_INFINITY);
+                const highestStock = collectedTypes.reduce((max, type) => Math.max(max, type.stock ?? 0), 0);
+                const minPreparationTime = collectedTypes.reduce((min, type) => Math.min(min, type.preparationTime ?? Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
+                const minCalories = collectedTypes.reduce((min, type) => Math.min(min, type.calories ?? Number.MAX_SAFE_INTEGER), Number.MAX_SAFE_INTEGER);
+                const combinedIngredients = Array.from(new Set(collectedTypes
+                    .map(type => (type.ingredients || '').trim())
+                    .filter(Boolean))).join(', ');
+
+                const payload = {
+                    name: nameInput.value.trim(),
+                    description: descriptionInput.value.trim(),
+                    price: Number.isFinite(minPrice) && minPrice !== Number.POSITIVE_INFINITY ? minPrice : 0,
+                    stock: highestStock,
+                    discountType: representativeType ? representativeType.discountType : DISCOUNT_NONE,
+                    discount: representativeType && representativeType.discountType !== DISCOUNT_NONE
+                        ? (representativeType.discount ?? null)
+                        : null,
+                    isPublish: collectedTypes.some(type => type.isPublish),
+                    productImageUrl,
+                    preparationTime: minPreparationTime === Number.MAX_SAFE_INTEGER ? 0 : minPreparationTime,
+                    calories: minCalories === Number.MAX_SAFE_INTEGER ? 0 : minCalories,
+                    ingredients: combinedIngredients,
+                    isSpicy: collectedTypes.some(type => type.isSpicy),
+                    isVegetarian: collectedTypes.some(type => type.isVegetarian),
+                    categoryId: Number(categorySelect.value || 0),
+                    productTypes: collectedTypes.map(type => ({
+                        id: type.id && Number.isFinite(type.id) && type.id > 0 ? type.id : null,
+                        name: type.name,
+                        productTypeImageUrl: type.productTypeImageUrl,
+                        price: type.price,
+                        stock: type.stock,
+                        discountType: type.discountType,
+                        discount: type.discount,
+                        preparationTime: type.preparationTime,
+                        calories: type.calories,
+                        ingredients: type.ingredients,
+                        isPublish: type.isPublish,
+                        isSpicy: type.isSpicy,
+                        isVegetarian: type.isVegetarian
+                    }))
+                };
 
                 const isEdit = Boolean(editingProductId);
                 const url = isEdit ? `${API_BASE_URL}/${editingProductId}` : API_BASE_URL;
@@ -1754,11 +2335,6 @@
                 });
             }
 
-            if (discountTypeSelect) {
-                discountTypeSelect.addEventListener('change', toggleDiscountField);
-                toggleDiscountField();
-            }
-
             if (productForm) {
                 productForm.addEventListener('submit', submitProduct);
             }
@@ -1831,6 +2407,86 @@
             if (productModalEl) {
                 productModalEl.addEventListener('hidden.bs.modal', () => {
                     resetForm();
+                });
+            }
+
+            if (addProductTypeBtn) {
+                addProductTypeBtn.addEventListener('click', () => {
+                    addProductType({ isPublish: true });
+                });
+            }
+
+            if (clearProductTypesBtn) {
+                clearProductTypesBtn.addEventListener('click', () => {
+                    setProductTypes([]);
+                    showAlert('Đã xóa toàn bộ loại sản phẩm trong biểu mẫu.', 'info');
+                });
+            }
+
+            if (importProductTypesBtn && productTypesImportInput) {
+                importProductTypesBtn.addEventListener('click', () => {
+                    productTypesImportInput.click();
+                });
+
+                productTypesImportInput.addEventListener('change', async (event) => {
+                    const file = event.target?.files ? event.target.files[0] : null;
+                    if (!file) {
+                        return;
+                    }
+
+                    try {
+                        if (importProductTypesBtn) {
+                            importProductTypesBtn.disabled = true;
+                            importProductTypesBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang nhập...';
+                        }
+
+                        const importResult = await importProductTypesFromFile(file);
+                        if (!importResult) {
+                            return;
+                        }
+
+                        const importedTypes = Array.isArray(importResult.productTypes) ? importResult.productTypes : [];
+                        const warnings = Array.isArray(importResult.warnings) ? importResult.warnings : [];
+
+                        if (importedTypes.length === 0) {
+                            setProductTypes([]);
+                            const warningMessage = warnings.length
+                                ? `File không chứa loại sản phẩm hợp lệ. Bỏ qua ${warnings.length} dòng không hợp lệ.`
+                                : 'File không chứa loại sản phẩm hợp lệ.';
+                            showAlert(warnings.length ? 'warning' : 'info', warningMessage);
+                            return;
+                        }
+
+                        setProductTypes(importedTypes.map(type => ({
+                            id: type.id,
+                            name: type.name,
+                            productTypeImageUrl: type.productTypeImageUrl,
+                            price: Number(type.price ?? 0),
+                            stock: Number(type.stock ?? 0),
+                            discountType: normalizeDiscountType(type.discountType),
+                            discount: type.discount !== null && type.discount !== undefined ? Number(type.discount) : null,
+                            preparationTime: Number(type.preparationTime ?? 0),
+                            calories: Number(type.calories ?? 0),
+                            ingredients: type.ingredients ?? '',
+                            isPublish: type.isPublish !== false,
+                            isSpicy: Boolean(type.isSpicy),
+                            isVegetarian: Boolean(type.isVegetarian)
+                        })));
+
+                        let successMessage = `Đã nhập ${importedTypes.length} loại sản phẩm.`;
+                        if (warnings.length) {
+                            successMessage += ` Bỏ qua ${warnings.length} dòng không hợp lệ.`;
+                        }
+                        showAlert('success', successMessage);
+                    } catch (error) {
+                        showAlert('Không thể nhập loại sản phẩm. Vui lòng thử lại sau.', 'danger');
+                    } finally {
+                        event.target.value = '';
+                        if (importProductTypesBtn) {
+                            importProductTypesBtn.disabled = false;
+                            importProductTypesBtn.innerHTML = importProductTypesBtnInitialHtml || '<i class="fas fa-file-import me-1"></i>Nhập từ file';
+                        }
+                    }
                 });
             }
 
