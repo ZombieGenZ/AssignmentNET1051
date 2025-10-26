@@ -246,9 +246,8 @@
                             <input type="text" class="form-control" id="comboName" maxlength="500" required />
                         </div>
                         <div class="col-md-6">
-                            <label for="comboImageFile" class="form-label">Ảnh đại diện (URL)<span class="text-danger">*</span></label>
+                            <label for="comboImageFile" class="form-label">Ảnh đại diện<span class="text-danger">*</span></label>
                             <input type="file" class="form-control" id="comboImageFile" accept="image/*" />
-                            <input type="hidden" id="comboImageUrl" required />
                             <div class="image-upload-preview mt-2" id="comboImagePreviewWrapper">
                                 <img src="" alt="Xem trước ảnh combo" id="comboImagePreview" class="d-none" />
                                 <div class="image-upload-placeholder" id="comboImagePlaceholder">
@@ -259,7 +258,12 @@
                                     <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
                                 </div>
                             </div>
-                            <div class="form-text text-muted" id="comboImageUploadFeedback">Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
+                            <div class="form-text text-muted" id="comboImageUploadFeedback">Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
+                            <div class="mt-3">
+                                <label for="comboImageUrl" class="form-label">Hoặc nhập URL ảnh</label>
+                                <input type="url" class="form-control" id="comboImageUrl" placeholder="https://example.com/hinh-anh.jpg" inputmode="url" />
+                                <div class="form-text text-muted">Dán liên kết ảnh trực tiếp nếu ảnh được lưu trữ bên ngoài.</div>
+                            </div>
                         </div>
                         <div class="col-12">
                             <label for="comboDescription" class="form-label">Mô tả<span class="text-danger">*</span></label>
@@ -689,7 +693,7 @@
 
                 showComboImagePlaceholder();
                 setComboImageLoading(false);
-                const message = defaultImageFeedback || 'Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+                const message = defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
                 setComboImageFeedback(message, 'muted');
             }
 
@@ -700,15 +704,73 @@
                     imageFileInput.value = '';
                 }
 
-                if (url) {
-                    showComboImage(url);
+                const normalizedUrl = (url ?? '').toString().trim();
+
+                if (imageUrlInput) {
+                    imageUrlInput.value = normalizedUrl;
+                }
+
+                if (normalizedUrl) {
+                    showComboImage(normalizedUrl);
                     setComboImageFeedback('Ảnh hiện tại sẽ được giữ nguyên nếu bạn không tải ảnh mới.', 'muted');
                 } else {
                     showComboImagePlaceholder();
-                    const message = defaultImageFeedback || 'Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+                    const message = defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
                     setComboImageFeedback(message, 'muted');
                 }
             }
+
+            function normalizeComboImageUrl() {
+                if (!imageUrlInput) {
+                    return '';
+                }
+
+                const trimmed = imageUrlInput.value.trim();
+                if (trimmed !== imageUrlInput.value) {
+                    imageUrlInput.value = trimmed;
+                }
+
+                return trimmed;
+            }
+
+            function isValidComboImageUrl(url) {
+                if (!url) {
+                    return false;
+                }
+
+                try {
+                    const parsed = new URL(url, window.location.origin);
+                    return ['http:', 'https:'].includes(parsed.protocol);
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            function evaluateComboImageUrl({ forceSuccess = false } = {}) {
+                if (!imageUrlInput) {
+                    return;
+                }
+
+                const value = normalizeComboImageUrl();
+
+                if (!value) {
+                    showComboImagePlaceholder();
+                    const message = defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+                    setComboImageFeedback(message, 'muted');
+                    return;
+                }
+
+                if (!isValidComboImageUrl(value)) {
+                    setComboImageFeedback('URL ảnh không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.', 'error');
+                    return;
+                }
+
+                revokeTemporaryComboImageUrl();
+                showComboImage(value);
+                setComboImageFeedback(forceSuccess ? 'URL ảnh đã được cập nhật.' : 'URL ảnh sẽ được sử dụng khi lưu.', forceSuccess ? 'success' : 'muted');
+            }
+
+            const evaluateComboImageUrlDebounced = debounce(() => evaluateComboImageUrl({ forceSuccess: false }), 500);
 
             function validateComboImageFile(file) {
                 if (!file) {
@@ -1269,7 +1331,7 @@
                 return {
                     name: nameInput.value.trim(),
                     description: descriptionInput.value.trim(),
-                    imageUrl: imageUrlInput.value.trim(),
+                    imageUrl: normalizeComboImageUrl(),
                     stock: Number(stockInput.value || 0),
                     index: Number(indexInput.value || 0),
                     isPublish: isPublishInput.checked,
@@ -1318,8 +1380,11 @@
                 }
 
                 if (!payload.imageUrl) {
-                    validationErrors.push('Ảnh đại diện không được để trống.');
-                    setComboImageFeedback('Vui lòng tải lên ảnh đại diện cho combo.', 'error');
+                    validationErrors.push('Ảnh đại diện không được để trống. Vui lòng tải lên ảnh hoặc nhập URL ảnh hợp lệ.');
+                    setComboImageFeedback('Vui lòng tải lên ảnh đại diện hoặc nhập URL ảnh hợp lệ cho combo.', 'error');
+                } else if (!isValidComboImageUrl(payload.imageUrl)) {
+                    validationErrors.push('URL ảnh combo không hợp lệ. Vui lòng kiểm tra lại.');
+                    setComboImageFeedback('URL ảnh combo không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.', 'error');
                 }
 
                 if (!payload.items || payload.items.length === 0) {
@@ -1752,6 +1817,12 @@
             });
 
             comboForm.addEventListener('submit', submitComboForm);
+            imageUrlInput?.addEventListener('input', () => {
+                evaluateComboImageUrlDebounced();
+            });
+            imageUrlInput?.addEventListener('blur', () => {
+                evaluateComboImageUrl({ forceSuccess: true });
+            });
             imageFileInput?.addEventListener('change', handleComboImageFileChange);
             confirmDeleteBtn.addEventListener('click', async () => {
                 if (deleteComboId) {
