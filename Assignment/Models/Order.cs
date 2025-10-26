@@ -72,6 +72,8 @@ namespace Assignment.Models
         [NotMapped]
         public string? SelectedCartItemIds { get; set; }
         [NotMapped]
+        public string? SelectedCartSelectionIds { get; set; }
+        [NotMapped]
         public List<long> AppliedVoucherIds { get; set; } = new();
     }
 }

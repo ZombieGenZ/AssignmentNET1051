@@ -11,7 +11,7 @@
     TempData.Keep("VoucherCode");
 }
 
-<div class="container my-5">
+<div class="container my-5 cart-page">
     <div class="row">
         <div class="col-12">
             <h2 class="mb-4">
@@ -110,6 +110,7 @@
                                                                value="@item.Id"
                                                                data-id="@item.Id"
                                                                data-total="@itemTotalInvariant"
+                                                               data-has-selections="@(hasProductSelections.ToString().ToLowerInvariant())"
                                                                checked />
                                                     </div>
                                                 </td>
@@ -169,7 +170,7 @@
                                                     }
                                                 </td>
                                                 <td class="text-end">
-                                                    <strong class="text-primary">@itemTotal.ToString("N0") đ</strong>
+                                                    <strong class="cart-item-total text-danger" data-item-id="@item.Id">@itemTotal.ToString("N0") đ</strong>
                                                 </td>
                                                 <td class="text-center">
                                                     <form asp-controller="Cart" asp-action="Remove" method="post" class="d-inline"
@@ -192,13 +193,24 @@
                                                             {
                                                                 var selectionName = selection.ProductType?.Name ?? "Loại sản phẩm";
                                                                 var selectionTotal = selection.UnitPrice * selection.Quantity;
-                                                                <li class="list-group-item px-0 py-2">
-                                                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
-                                                                        <div>
-                                                                            <div class="fw-semibold">@selectionName</div>
-                                                                            <div class="text-muted small">Đơn giá: @selection.UnitPrice.ToString("N0") đ</div>
+                                                                var selectionTotalInvariant = selectionTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                                                <li class="list-group-item px-0 py-2 cart-selection-item" data-selection-id="@selection.Id" data-parent-id="@item.Id">
+                                                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                                                        <div class="d-flex align-items-start gap-3">
+                                                                            <div class="form-check mt-1">
+                                                                                <input class="form-check-input cart-selection-checkbox"
+                                                                                       type="checkbox"
+                                                                                       value="@selection.Id"
+                                                                                       data-parent-id="@item.Id"
+                                                                                       data-total="@selectionTotalInvariant"
+                                                                                       checked />
+                                                                            </div>
+                                                                            <div>
+                                                                                <div class="fw-semibold">@selectionName</div>
+                                                                                <div class="text-muted small">Đơn giá: @selection.UnitPrice.ToString("N0") đ</div>
+                                                                            </div>
                                                                         </div>
-                                                                        <div class="d-flex align-items-center gap-2">
+                                                                        <div class="d-flex align-items-center gap-2 selection-actions">
                                                                             <form asp-controller="Cart" asp-action="UpdateProductTypeQuantity" method="post" class="d-flex align-items-center gap-2">
                                                                                 @Html.AntiForgeryToken()
                                                                                 <input type="hidden" name="selectionId" value="@selection.Id" />
@@ -223,7 +235,9 @@
                                                                                 </button>
                                                                             </form>
                                                                         </div>
-                                                                        <div class="fw-semibold text-primary">@selectionTotal.ToString("N0") đ</div>
+                                                                        <div class="fw-semibold text-danger selection-total" data-selection-total="@selectionTotalInvariant">
+                                                                            @selectionTotal.ToString("N0") đ
+                                                                        </div>
                                                                     </div>
                                                                 </li>
                                                             }
@@ -288,6 +302,7 @@
                                 <form asp-controller="Cart" asp-action="ProceedToCheckout" method="post" id="proceedCheckoutForm" class="d-grid">
                                     @Html.AntiForgeryToken()
                                     <div id="selected-items-container"></div>
+                                    <div id="selected-selections-container"></div>
                                     <button type="submit" class="btn btn-primary w-100 mb-2" id="proceedCheckoutBtn">
                                         <i class="fas fa-credit-card"></i> Tiến hành thanh toán
                                     </button>
@@ -327,6 +342,7 @@
             const totalItemCount = @itemCount;
 
             const checkboxes = $('.cart-item-checkbox');
+            const selectionCheckboxes = $('.cart-selection-checkbox');
             const selectAll = $('#select-all');
             const subtotalElement = $('#cart-subtotal');
             const vatElement = $('#cart-vat');
@@ -335,11 +351,81 @@
             const discountAmountElement = $('#cart-discount-amount');
             const proceedForm = $('#proceedCheckoutForm');
             const selectedItemsContainer = $('#selected-items-container');
+            const selectedSelectionsContainer = $('#selected-selections-container');
             const proceedButton = $('#proceedCheckoutBtn');
             const noSelectionWarning = $('#noSelectionWarning');
 
             function formatCurrency(value) {
-                return value.toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ';
+                return Number(value || 0).toLocaleString('vi-VN', { maximumFractionDigits: 0 }) + ' đ';
+            }
+
+            function getSelectionCheckboxes(itemId) {
+                return selectionCheckboxes.filter(function () {
+                    return String($(this).data('parentId')) === String(itemId);
+                });
+            }
+
+            function itemHasSelections(checkbox) {
+                const value = checkbox.data('hasSelections');
+                return value === true || value === 'true';
+            }
+
+            function updateSelectionVisualState(selectionCheckbox) {
+                const selectionItem = selectionCheckbox.closest('.cart-selection-item');
+                const isChecked = selectionCheckbox.is(':checked');
+                selectionItem.toggleClass('selection-disabled', !isChecked);
+                selectionItem.find('.selection-actions input, .selection-actions button').prop('disabled', !isChecked);
+            }
+
+            function syncItemCheckboxState(itemId) {
+                const itemCheckbox = checkboxes.filter(function () {
+                    return String($(this).data('id')) === String(itemId);
+                });
+
+                if (!itemCheckbox.length) {
+                    return;
+                }
+
+                const relatedSelections = getSelectionCheckboxes(itemId);
+                if (!relatedSelections.length) {
+                    return;
+                }
+
+                const checkedCount = relatedSelections.filter(':checked').length;
+                if (checkedCount === 0) {
+                    itemCheckbox.prop('checked', false).prop('indeterminate', false);
+                } else if (checkedCount === relatedSelections.length) {
+                    itemCheckbox.prop('checked', true).prop('indeterminate', false);
+                } else {
+                    itemCheckbox.prop('checked', true).prop('indeterminate', true);
+                }
+            }
+
+            function calculateSelectionSubtotal(itemId) {
+                let total = 0;
+                let checkedCount = 0;
+
+                getSelectionCheckboxes(itemId).each(function () {
+                    const checkbox = $(this);
+                    if (checkbox.is(':checked')) {
+                        total += parseFloat(checkbox.data('total')) || 0;
+                        checkedCount++;
+                    }
+                });
+
+                return {
+                    total,
+                    hasChecked: checkedCount > 0
+                };
+            }
+
+            function updateItemTotalDisplay(itemId, value) {
+                const element = $('.cart-item-total[data-item-id="' + itemId + '"]');
+                if (!element.length) {
+                    return;
+                }
+
+                element.text(formatCurrency(value));
             }
 
             function updateSummary() {
@@ -348,10 +434,30 @@
 
                 checkboxes.each(function () {
                     const checkbox = $(this);
-                    if (checkbox.is(':checked')) {
-                        subtotal += parseFloat(checkbox.data('total')) || 0;
-                        selectedCount++;
+                    const itemId = checkbox.data('id');
+                    const hasSelections = itemHasSelections(checkbox);
+
+                    if (!checkbox.is(':checked')) {
+                        updateItemTotalDisplay(itemId, 0);
+                        return;
                     }
+
+                    if (hasSelections) {
+                        const selectionSubtotal = calculateSelectionSubtotal(itemId);
+                        if (!selectionSubtotal.hasChecked) {
+                            updateItemTotalDisplay(itemId, 0);
+                            return;
+                        }
+
+                        subtotal += selectionSubtotal.total;
+                        updateItemTotalDisplay(itemId, selectionSubtotal.total);
+                    } else {
+                        const totalValue = parseFloat(checkbox.data('total')) || 0;
+                        subtotal += totalValue;
+                        updateItemTotalDisplay(itemId, totalValue);
+                    }
+
+                    selectedCount++;
                 });
 
                 const hasDiscount = baseDiscount > 0 && totalItemCount > 0 && selectedCount === totalItemCount;
@@ -387,24 +493,90 @@
             selectAll.on('change', function () {
                 const isChecked = $(this).is(':checked');
                 selectAll.prop('indeterminate', false);
-                checkboxes.prop('checked', isChecked);
-                updateSummary();
-            });
-
-            checkboxes.on('change', updateSummary);
-
-            proceedForm.on('submit', function (event) {
-                selectedItemsContainer.empty();
-                const selectedIds = [];
 
                 checkboxes.each(function () {
-                    const checkbox = $(this);
-                    if (checkbox.is(':checked')) {
-                        selectedIds.push(checkbox.data('id'));
+                    const itemCheckbox = $(this);
+                    const itemId = itemCheckbox.data('id');
+                    const hasSelections = itemHasSelections(itemCheckbox);
+
+                    itemCheckbox.prop('checked', isChecked);
+
+                    if (hasSelections) {
+                        const relatedSelections = getSelectionCheckboxes(itemId);
+                        relatedSelections.each(function () {
+                            const selectionCheckbox = $(this);
+                            selectionCheckbox.prop('checked', isChecked);
+                            updateSelectionVisualState(selectionCheckbox);
+                        });
+                        itemCheckbox.prop('indeterminate', false);
                     }
                 });
 
-                if (selectedIds.length === 0) {
+                updateSummary();
+            });
+
+            checkboxes.on('change', function () {
+                const checkbox = $(this);
+                const itemId = checkbox.data('id');
+                const hasSelections = itemHasSelections(checkbox);
+                const isChecked = checkbox.is(':checked');
+
+                if (hasSelections) {
+                    const relatedSelections = getSelectionCheckboxes(itemId);
+                    relatedSelections.each(function () {
+                        const selectionCheckbox = $(this);
+                        selectionCheckbox.prop('checked', isChecked);
+                        updateSelectionVisualState(selectionCheckbox);
+                    });
+                    checkbox.prop('indeterminate', false);
+                }
+
+                updateSummary();
+            });
+
+            selectionCheckboxes.on('change', function () {
+                const selectionCheckbox = $(this);
+                updateSelectionVisualState(selectionCheckbox);
+                syncItemCheckboxState(selectionCheckbox.data('parentId'));
+                updateSummary();
+            });
+
+            proceedForm.on('submit', function (event) {
+                selectedItemsContainer.empty();
+                selectedSelectionsContainer.empty();
+
+                const selectedIds = [];
+                const selectedSelectionIds = new Set();
+
+                checkboxes.each(function () {
+                    const checkbox = $(this);
+                    if (!checkbox.is(':checked')) {
+                        return;
+                    }
+
+                    const itemId = checkbox.data('id');
+                    const hasSelections = itemHasSelections(checkbox);
+
+                    if (hasSelections) {
+                        const checkedSelections = getSelectionCheckboxes(itemId).filter(':checked');
+                        if (!checkedSelections.length) {
+                            return;
+                        }
+
+                        selectedIds.push(itemId);
+
+                        checkedSelections.each(function () {
+                            const selectionId = $(this).val();
+                            if (selectionId) {
+                                selectedSelectionIds.add(selectionId);
+                            }
+                        });
+                    } else {
+                        selectedIds.push(itemId);
+                    }
+                });
+
+                if (!selectedIds.length) {
                     event.preventDefault();
                     updateSummary();
                     return;
@@ -417,6 +589,27 @@
                         value: id
                     }).appendTo(selectedItemsContainer);
                 });
+
+                Array.from(selectedSelectionIds).forEach(function (id) {
+                    $('<input>', {
+                        type: 'hidden',
+                        name: 'selectedSelectionIds',
+                        value: id
+                    }).appendTo(selectedSelectionsContainer);
+                });
+            });
+
+            selectionCheckboxes.each(function () {
+                updateSelectionVisualState($(this));
+            });
+
+            const processedItemIds = new Set();
+            selectionCheckboxes.each(function () {
+                const itemId = $(this).data('parentId');
+                if (!processedItemIds.has(itemId)) {
+                    processedItemIds.add(itemId);
+                    syncItemCheckboxState(itemId);
+                }
             });
 
             updateSummary();

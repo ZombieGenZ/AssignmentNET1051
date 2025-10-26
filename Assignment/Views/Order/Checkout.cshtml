@@ -49,6 +49,7 @@
         @Html.AntiForgeryToken()
         <div asp-validation-summary="ModelOnly" class="alert alert-danger"></div>
         @Html.HiddenFor(m => m.SelectedCartItemIds, new { id = "SelectedCartItemIds" })
+        @Html.HiddenFor(m => m.SelectedCartSelectionIds, new { id = "SelectedCartSelectionIds" })
         <div id="appliedVoucherInputs"></div>
 
         <div class="row">
@@ -333,6 +334,7 @@
             const appliedVouchersList = $('#applied-vouchers-list');
             const appliedVouchersWrapper = $('#applied-vouchers-wrapper');
             const selectedCartItemsInput = $('#SelectedCartItemIds');
+            const selectedCartSelectionsInput = $('#SelectedCartSelectionIds');
             const discountRow = $('#discount-row');
             const discountAmountEl = $('#discount-amount');
             const vatAmountEl = $('#vat-amount');
@@ -633,6 +635,7 @@
                     data: {
                         voucherCode: voucherCode,
                         selectedCartItemIds: selectedCartItemsInput.val(),
+                        selectedCartSelectionIds: selectedCartSelectionsInput.val(),
                         appliedVoucherIds: appliedVouchers.map(voucher => voucher.id)
                     },
                     headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
@@ -672,7 +675,8 @@
                     type: 'POST',
                     data: {
                         appliedVoucherIds: updated.map(voucher => voucher.id),
-                        selectedCartItemIds: selectedCartItemsInput.val()
+                        selectedCartItemIds: selectedCartItemsInput.val(),
+                        selectedCartSelectionIds: selectedCartSelectionsInput.val()
                     },
                     headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
                     traditional: true,
@@ -709,6 +713,7 @@
                     type: 'POST',
                     data: {
                         selectedCartItemIds: selectedCartItemsInput.val(),
+                        selectedCartSelectionIds: selectedCartSelectionsInput.val(),
                         appliedVoucherIds: appliedVouchers.map(voucher => voucher.id)
                     },
                     headers: { 'RequestVerificationToken': $('input[name="__RequestVerificationToken"]').val() },
