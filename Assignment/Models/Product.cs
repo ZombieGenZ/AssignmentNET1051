@@ -131,7 +131,8 @@ namespace Assignment.Models
 
         private static string FormatPrice(decimal price)
         {
-            return price.ToString("0.##", CultureInfo.InvariantCulture);
+            var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
+            return price.ToString("#,##0.##", vietnamCulture);
         }
     }
 }

@@ -76,7 +76,12 @@
     var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
 
     string FormatCurrencyValue(decimal value) => value.ToString("N0", vietnamCulture);
+    string FormatCurrencyValue(double value) => FormatCurrencyValue(Convert.ToDecimal(value));
     string FormatCurrencyWithSymbol(decimal value) => $"{FormatCurrencyValue(value)} ₫";
+    string FormatCurrencyWithSymbol(double value) => $"{FormatCurrencyValue(value)} ₫";
+    string FormatPercent(decimal value) => value.ToString("0.##", vietnamCulture);
+    string FormatPercent(long value) => FormatPercent(Convert.ToDecimal(value));
+    string FormatPercent(double value) => FormatPercent(Convert.ToDecimal(value));
 
     string FormatPriceRange(string? priceRange, decimal? fallbackPrice = null)
     {
@@ -105,7 +110,8 @@
         (string Text, bool IsNumeric, decimal? Value) FormatPart(string? part)
         {
             var trimmed = part?.Trim() ?? string.Empty;
-            if (decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var value))
+            if (decimal.TryParse(trimmed, NumberStyles.Number, vietnamCulture, out var value)
+                || decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out value))
             {
                 return (value.ToString("N0", vietnamCulture), true, value);
             }
@@ -306,7 +312,7 @@
                                              onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                         @if (hasPercentDiscount)
                                         {
-                                            <span class="badge-discount">-@combo.Discount%</span>
+                                            <span class="badge-discount">-@FormatPercent(combo.Discount.Value)%</span>
                                         }
                                         else if (hasAmountDiscount)
                                         {
@@ -469,7 +475,7 @@
                                                  onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                             @if (hasPercentDiscount)
                                             {
-                                                <span class="badge-discount">-@discountValue%</span>
+                                                <span class="badge-discount">-@FormatPercent(discountValue.Value)%</span>
                                             }
                                             else if (hasAmountDiscount)
                                             {
@@ -481,9 +487,9 @@
                                             }
                                             else if (hasOtherTypeDiscount && bestDiscountType != null)
                                             {
-                                                if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                                if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Percent && bestDiscountType.Discount.HasValue)
                                                 {
-                                                    <span class="badge-discount">-@bestDiscountType.Discount%</span>
+                                                    <span class="badge-discount">-@FormatPercent(bestDiscountType.Discount.Value)%</span>
                                                 }
                                                 else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Amount && bestDiscountType.Discount.HasValue)
                                                 {
@@ -633,7 +639,7 @@
                                                  onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                             @if (hasPercentDiscount)
                                             {
-                                                <span class="badge-discount">-@discountValue%</span>
+                                                <span class="badge-discount">-@FormatPercent(discountValue.Value)%</span>
                                             }
                                             else if (hasAmountDiscount)
                                             {
@@ -645,9 +651,9 @@
                                             }
                                             else if (hasOtherTypeDiscount && bestDiscountType != null)
                                             {
-                                                if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Percent)
+                                                if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Percent && bestDiscountType.Discount.HasValue)
                                                 {
-                                                    <span class="badge-discount">-@bestDiscountType.Discount%</span>
+                                                    <span class="badge-discount">-@FormatPercent(bestDiscountType.Discount.Value)%</span>
                                                 }
                                                 else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Amount && bestDiscountType.Discount.HasValue)
                                                 {

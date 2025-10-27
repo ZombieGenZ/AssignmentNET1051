@@ -658,10 +658,12 @@
 
                 if (!product || !Array.isArray(product.productTypes) || product.productTypes.length === 0) {
                     selectEl.disabled = true;
+                    selectEl.setAttribute('disabled', 'disabled');
                     return;
                 }
 
                 selectEl.disabled = false;
+                selectEl.removeAttribute('disabled');
 
                 product.productTypes.forEach(type => {
                     const option = document.createElement('option');
