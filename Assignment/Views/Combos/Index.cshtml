@@ -643,7 +643,7 @@
                 return productsCache.find(product => Number(product.id) === targetId) || null;
             }
 
-            function populateProductTypeSelect(selectEl, product, selectedTypeId) {
+            function populateProductTypeSelect(selectEl, product, selectedTypeId, fallbackType = null) {
                 if (!selectEl) {
                     return;
                 }
@@ -656,9 +656,32 @@
                 placeholder.selected = true;
                 selectEl.appendChild(placeholder);
 
+                const fallback = fallbackType && fallbackType.id ? fallbackType : null;
+
                 if (!product || !Array.isArray(product.productTypes) || product.productTypes.length === 0) {
-                    selectEl.disabled = true;
-                    selectEl.setAttribute('disabled', 'disabled');
+                    if (fallback) {
+                        selectEl.disabled = false;
+                        selectEl.removeAttribute('disabled');
+
+                        const fallbackOption = document.createElement('option');
+                        fallbackOption.value = fallback.id;
+                        const fallbackName = fallback.name
+                            || (Number.isFinite(Number(fallback.id)) ? `Loại #${fallback.id}` : 'Loại sản phẩm');
+                        const fallbackPriceNumber = Number(fallback.finalPrice);
+                        let fallbackLabel = fallbackName;
+                        if (Number.isFinite(fallbackPriceNumber) && fallbackPriceNumber > 0) {
+                            fallbackLabel += ` (${formatCurrency(fallbackPriceNumber)})`;
+                        }
+                        fallbackLabel += ' (không có trong danh sách)';
+                        fallbackOption.textContent = fallbackLabel;
+                        fallbackOption.selected = true;
+                        fallbackOption.dataset.fallback = 'true';
+                        placeholder.selected = false;
+                        selectEl.appendChild(fallbackOption);
+                    } else {
+                        selectEl.disabled = true;
+                        selectEl.setAttribute('disabled', 'disabled');
+                    }
                     return;
                 }
 
@@ -1045,7 +1068,11 @@
                         createItemRow({
                             productId: item.productId,
                             productTypeId: item.productTypeId,
-                            quantity: item.quantity
+                            quantity: item.quantity,
+                            productName: item.productName,
+                            productFinalPrice: item.productFinalPrice,
+                            productTypeName: item.productTypeName,
+                            productTypeFinalPrice: item.productTypeFinalPrice
                         });
                     });
                 } else {
@@ -1054,6 +1081,14 @@
             }
 
             function createItemRow(item = { productId: '', productTypeId: '', quantity: 1 }) {
+                const initialProductId = item?.productId ?? '';
+                const initialProductTypeId = item?.productTypeId ?? '';
+                const initialQuantity = item?.quantity ?? 1;
+                const initialProductName = item?.productName ?? '';
+                const initialProductFinalPrice = item?.productFinalPrice ?? null;
+                const initialProductTypeName = item?.productTypeName ?? '';
+                const initialProductTypeFinalPrice = item?.productTypeFinalPrice ?? null;
+
                 const row = document.createElement('div');
                 row.className = 'row g-3 align-items-end combo-item-row';
 
@@ -1067,16 +1102,37 @@
                 productSelect.required = true;
                 productSelect.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
 
+                let hasSelectedProduct = false;
+
                 if (Array.isArray(productsCache)) {
                     productsCache.forEach(product => {
                         const option = document.createElement('option');
                         option.value = product.id;
                         option.textContent = `${product.name} (${formatCurrency(product.finalPrice)})`;
-                        if (String(item.productId) === String(product.id)) {
+                        if (String(initialProductId) === String(product.id)) {
                             option.selected = true;
+                            hasSelectedProduct = true;
                         }
                         productSelect.appendChild(option);
                     });
+                }
+
+                if (initialProductId && !hasSelectedProduct) {
+                    const fallbackOption = document.createElement('option');
+                    fallbackOption.value = initialProductId;
+                    let fallbackLabel = initialProductName || (Number.isFinite(Number(initialProductId))
+                        ? `Sản phẩm #${initialProductId}`
+                        : 'Sản phẩm');
+                    const fallbackPrice = initialProductFinalPrice ?? initialProductTypeFinalPrice;
+                    const fallbackPriceNumber = Number(fallbackPrice);
+                    if (Number.isFinite(fallbackPriceNumber) && fallbackPriceNumber > 0) {
+                        fallbackLabel += ` (${formatCurrency(fallbackPriceNumber)})`;
+                    }
+                    fallbackLabel += ' (không có trong danh sách)';
+                    fallbackOption.textContent = fallbackLabel;
+                    fallbackOption.selected = true;
+                    fallbackOption.dataset.fallback = 'true';
+                    productSelect.appendChild(fallbackOption);
                 }
 
                 productCol.appendChild(productLabel);
@@ -1104,7 +1160,7 @@
                 quantityInput.className = 'form-control combo-quantity-input';
                 quantityInput.min = '1';
                 quantityInput.step = '1';
-                quantityInput.value = item.quantity ?? 1;
+                quantityInput.value = initialQuantity;
                 quantityInput.required = true;
                 quantityCol.appendChild(quantityLabel);
                 quantityCol.appendChild(quantityInput);
@@ -1125,8 +1181,12 @@
                 row.appendChild(quantityCol);
                 row.appendChild(actionCol);
 
-                const selectedProduct = getProductById(item.productId);
-                populateProductTypeSelect(typeSelect, selectedProduct, item.productTypeId);
+                const selectedProduct = getProductById(initialProductId);
+                populateProductTypeSelect(typeSelect, selectedProduct, initialProductTypeId, {
+                    id: initialProductTypeId,
+                    name: initialProductTypeName,
+                    finalPrice: initialProductTypeFinalPrice ?? initialProductFinalPrice
+                });
 
                 productSelect.addEventListener('change', () => {
                     const product = getProductById(productSelect.value);
@@ -1613,7 +1673,11 @@
                         ? combo.items.map(item => ({
                             productId: item.productId,
                             productTypeId: item.productTypeId,
-                            quantity: item.quantity
+                            quantity: item.quantity,
+                            productName: item.productName,
+                            productFinalPrice: item.productFinalPrice,
+                            productTypeName: item.productTypeName,
+                            productTypeFinalPrice: item.productTypeFinalPrice
                         }))
                         : [];
                     setComboItems(normalizedItems);

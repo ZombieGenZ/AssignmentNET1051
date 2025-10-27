@@ -754,8 +754,8 @@ namespace Assignment.Controllers.Api
             var userId = CurrentUserId;
 
             IQueryable<Product> query = _context.Products
-                .Where(p => !p.IsDeleted && p.IsPublish)
-                .Include(p => p.ProductTypes);
+                .Where(p => !p.IsDeleted)
+                .Include(p => p.ProductTypes.Where(pt => !pt.IsDeleted));
 
             if (!hasGetProductAll)
             {
