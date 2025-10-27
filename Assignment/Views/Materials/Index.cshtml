@@ -8,6 +8,33 @@
     var canView = ViewData["CanView"] as bool? ?? false;
 }
 
+@section Styles {
+    <style>
+        #materialModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - var(--bs-modal-margin) * 2);
+        }
+
+        #materialModal form {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        #materialModal .modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        #materialModal .modal-footer {
+            flex-shrink: 0;
+        }
+    </style>
+}
+
 <div class="container-fluid pt-4 px-4">
     <div class="card shadow-sm" id="material-app"
          data-can-create="@(canCreate ? "true" : "false")"
@@ -96,7 +123,7 @@
 </form>
 
 <div class="modal fade" id="materialModal" tabindex="-1" aria-labelledby="materialModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="materialModalLabel">Thêm nguyên vật liệu</h5>
