@@ -121,6 +121,15 @@
                     </a>
                 </li>
             }
+            @if (User.HasAnyPermission("GetProductExtraAll", "GetProductExtra"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="ProductExtras" class="sidebar-menu-link">
+                        <i class="fa-solid fa-plus"></i>
+                        <span>Sản phẩm bổ sung</span>
+                    </a>
+                </li>
+            }
             @if (User.HasAnyPermission("GetComboAll", "GetCombo"))
             {
                 <li class="sidebar-menu-item">

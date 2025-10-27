@@ -1,0 +1,1154 @@
+@using System.Collections.Generic
+@using System.Linq
+@using Assignment.Enums
+@{
+    ViewData["Title"] = "Quản lý sản phẩm bổ sung";
+    Layout = "_AdminLayout";
+
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
+    var canBulkManage = canUpdate || canDelete;
+
+    var discountLabels = new Dictionary<DiscountType, string>
+    {
+        [DiscountType.None] = "Không áp dụng",
+        [DiscountType.Percent] = "Giảm theo %",
+        [DiscountType.FixedAmount] = "Giảm giá cố định",
+        [DiscountType.Amount] = "Giảm theo tiền"
+    };
+}
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm" id="product-extra-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
+        <div class="card-header bg-light">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h4 class="mb-1 text-primary">
+                        <i class="fas fa-plus-circle me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                @if (canCreate)
+                {
+                    <button type="button" class="btn btn-primary" id="createProductExtraBtn">
+                        <i class="fas fa-plus me-2"></i>Thêm sản phẩm bổ sung
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="alertPlaceholder"></div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu sản phẩm bổ sung..." : "Bạn không có quyền xem danh sách sản phẩm bổ sung.")</div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductExtrasBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
+                    @if (canBulkManage)
+                    {
+                        <div class="d-none d-flex flex-wrap gap-2" id="bulkActions">
+                            @if (canDelete)
+                            {
+                                <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn">
+                                    <i class="fas fa-trash-alt me-1"></i>Xóa đã chọn
+                                </button>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+            <div class="filter-toolbar mb-4" id="productExtraFilters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-xl-5">
+                        <label class="form-label filter-label" for="productExtraSearchInput">Tìm kiếm</label>
+                        <div class="filter-input-icon">
+                            <i class="fas fa-search filter-icon"></i>
+                            <input type="search" class="form-control" id="productExtraSearchInput" placeholder="Tên hoặc thành phần" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-3">
+                        <label class="form-label filter-label" for="productExtraStatusFilter">Trạng thái</label>
+                        <select id="productExtraStatusFilter" class="form-select">
+                            <option value="">Tất cả</option>
+                            <option value="published">Đã xuất bản</option>
+                            <option value="draft">Bản nháp</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-xl-2 ms-xl-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="productExtraResetFilters">
+                            <i class="fas fa-eraser me-1"></i>Xóa lọc
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            @if (canBulkManage)
+                            {
+                                <th style="width: 50px;" class="text-center">
+                                    <input type="checkbox" id="selectAllProductExtras" class="form-check-input" />
+                                </th>
+                            }
+                            <th style="width: 80px;" class="text-center">Ảnh</th>
+                            <th>Tên</th>
+                            <th>Giá bán</th>
+                            <th>Giảm giá</th>
+                            <th>Tồn kho</th>
+                            <th>Calories</th>
+                            <th>Trạng thái</th>
+                            <th>Áp dụng</th>
+                            <th style="width: 140px;" class="text-center">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="productExtrasTableBody">
+                        <tr>
+                            <td colspan="@(canBulkManage ? 10 : 9)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="antiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="productExtraModal" tabindex="-1" aria-labelledby="productExtraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productExtraModalLabel">Thêm sản phẩm bổ sung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="productExtraForm" novalidate>
+                <div class="modal-body">
+                    <div id="productExtraFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="productExtraName" class="form-label">Tên sản phẩm bổ sung<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="productExtraName" maxlength="200" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="productExtraImageUrl" class="form-label">URL ảnh</label>
+                            <input type="url" class="form-control" id="productExtraImageUrl" maxlength="1000" placeholder="https://example.com/extra.jpg" inputmode="url" />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productExtraPrice" class="form-label">Giá bán<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="productExtraPrice" min="0" step="0.01" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productExtraStock" class="form-label">Tồn kho<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="productExtraStock" min="0" step="1" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productExtraCalories" class="form-label">Calories<span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="productExtraCalories" min="0" step="1" required />
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productExtraDiscountType" class="form-label">Loại giảm giá<span class="text-danger">*</span></label>
+                            <select id="productExtraDiscountType" class="form-select" required>
+                                <option value="@((int)DiscountType.None)">Không áp dụng</option>
+                                <option value="@((int)DiscountType.Percent)">Giảm theo %</option>
+                                <option value="@((int)DiscountType.FixedAmount)">Giảm giá cố định</option>
+                                <option value="@((int)DiscountType.Amount)">Giảm theo tiền</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="productExtraDiscount" class="form-label">Giá trị giảm</label>
+                            <input type="number" class="form-control" id="productExtraDiscount" min="0" step="0.01" />
+                            <div class="form-text">Nếu giảm theo %, giá trị phải nằm trong khoảng 0 - 100.</div>
+                        </div>
+                        <div class="col-md-4 d-flex align-items-end">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productExtraIsPublish" />
+                                <label class="form-check-label" for="productExtraIsPublish">Xuất bản</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productExtraIsSpicy" />
+                                <label class="form-check-label" for="productExtraIsSpicy">Món cay</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="productExtraIsVegetarian" />
+                                <label class="form-check-label" for="productExtraIsVegetarian">Món chay</label>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <label for="productExtraIngredients" class="form-label">Thành phần<span class="text-danger">*</span></label>
+                            <textarea id="productExtraIngredients" class="form-control" rows="3" maxlength="2000" required></textarea>
+                        </div>
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label for="productExtraProducts" class="form-label mb-0">Sản phẩm áp dụng</label>
+                                <div class="d-flex gap-2">
+                                    <input type="text" class="form-control form-control-sm" id="productOptionSearch" placeholder="Tìm sản phẩm..." />
+                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductOptionsBtn">
+                                        <i class="fas fa-rotate-right"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <select id="productExtraProducts" class="form-select" multiple size="6"></select>
+                            <div class="form-text">Giữ Ctrl (Windows) hoặc Command (macOS) để chọn nhiều sản phẩm áp dụng.</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="productExtraSubmitBtn">Thêm mới</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="deleteProductExtraModal" tabindex="-1" aria-labelledby="deleteProductExtraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteProductExtraModalLabel">Xóa sản phẩm bổ sung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa sản phẩm bổ sung <strong id="deleteProductExtraName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteProductExtraBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bulkDeleteProductExtraModal" tabindex="-1" aria-labelledby="bulkDeleteProductExtraModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bulkDeleteProductExtraModalLabel">Xóa nhiều sản phẩm bổ sung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa <strong id="bulkDeleteProductExtraCount"></strong> sản phẩm bổ sung đã chọn? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmBulkDeleteProductExtraBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="productExtraDetailModal" tabindex="-1" aria-labelledby="productExtraDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="productExtraDetailModalLabel">Chi tiết sản phẩm bổ sung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="productExtraDetailBody" class="d-flex flex-column gap-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('product-extra-app');
+            if (!app) {
+                return;
+            }
+
+            const canCreate = app.dataset.canCreate === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+            const canView = app.dataset.canView === 'true';
+            const canBulkManage = canDelete || canUpdate;
+            const API_BASE_URL = '/api/product-extras';
+            const PRODUCT_OPTIONS_URL = `${API_BASE_URL}/product-options`;
+            const columnCount = @(canBulkManage ? 10 : 9);
+
+            const tableBody = document.getElementById('productExtrasTableBody');
+            const tableStatus = document.getElementById('tableStatus');
+            const alertPlaceholder = document.getElementById('alertPlaceholder');
+            const refreshBtn = document.getElementById('refreshProductExtrasBtn');
+            const createBtn = document.getElementById('createProductExtraBtn');
+            const searchInput = document.getElementById('productExtraSearchInput');
+            const statusFilterSelect = document.getElementById('productExtraStatusFilter');
+            const resetFiltersBtn = document.getElementById('productExtraResetFilters');
+            const bulkActions = document.getElementById('bulkActions');
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const selectAllCheckbox = document.getElementById('selectAllProductExtras');
+            const antiForgeryTokenInput = document.querySelector('#antiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryTokenInput ? antiForgeryTokenInput.value : '';
+
+            const productExtraModalEl = document.getElementById('productExtraModal');
+            const productExtraModal = new bootstrap.Modal(productExtraModalEl);
+            const productExtraForm = document.getElementById('productExtraForm');
+            const productExtraModalTitle = document.getElementById('productExtraModalLabel');
+            const productExtraFormErrors = document.getElementById('productExtraFormErrors');
+            const submitButton = document.getElementById('productExtraSubmitBtn');
+
+            const deleteModalEl = document.getElementById('deleteProductExtraModal');
+            const deleteModal = new bootstrap.Modal(deleteModalEl);
+            const deleteConfirmBtn = document.getElementById('confirmDeleteProductExtraBtn');
+            const deleteName = document.getElementById('deleteProductExtraName');
+
+            const bulkDeleteModalEl = document.getElementById('bulkDeleteProductExtraModal');
+            const bulkDeleteModal = bulkDeleteModalEl ? new bootstrap.Modal(bulkDeleteModalEl) : null;
+            const confirmBulkDeleteBtn = document.getElementById('confirmBulkDeleteProductExtraBtn');
+            const bulkDeleteCount = document.getElementById('bulkDeleteProductExtraCount');
+
+            const detailModalEl = document.getElementById('productExtraDetailModal');
+            const detailModal = new bootstrap.Modal(detailModalEl);
+            const detailBody = document.getElementById('productExtraDetailBody');
+
+            const nameInput = document.getElementById('productExtraName');
+            const imageUrlInput = document.getElementById('productExtraImageUrl');
+            const priceInput = document.getElementById('productExtraPrice');
+            const stockInput = document.getElementById('productExtraStock');
+            const caloriesInput = document.getElementById('productExtraCalories');
+            const discountTypeSelect = document.getElementById('productExtraDiscountType');
+            const discountInput = document.getElementById('productExtraDiscount');
+            const ingredientsInput = document.getElementById('productExtraIngredients');
+            const isPublishInput = document.getElementById('productExtraIsPublish');
+            const isSpicyInput = document.getElementById('productExtraIsSpicy');
+            const isVegetarianInput = document.getElementById('productExtraIsVegetarian');
+            const productsSelect = document.getElementById('productExtraProducts');
+            const productSearchInput = document.getElementById('productOptionSearch');
+            const productRefreshBtn = document.getElementById('refreshProductOptionsBtn');
+
+            let editingId = null;
+            let deleteId = null;
+            let allProductExtras = [];
+            let filteredProductExtras = [];
+            let productOptions = [];
+            const selectedIds = new Set();
+
+            const discountLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(discountLabels.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value)));
+
+            function escapeHtml(value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+            }
+
+            function formatPrice(value) {
+                const number = Number(value ?? 0);
+                if (!Number.isFinite(number)) {
+                    return '—';
+                }
+                return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(number);
+            }
+
+            function formatDiscount(extra) {
+                if (!extra) {
+                    return 'Không áp dụng';
+                }
+
+                const label = discountLabels[extra.discountType] ?? 'Không áp dụng';
+                if (extra.discountType === @((int)DiscountType.None)) {
+                    return label;
+                }
+
+                const value = Number(extra.discount ?? 0);
+                if (extra.discountType === @((int)DiscountType.Percent)) {
+                    return `${label} (${value}%)`;
+                }
+
+                return `${label} (${formatPrice(value)})`;
+            }
+
+            function formatBoolean(value) {
+                return value ? '<span class="badge bg-success">Có</span>' : '<span class="badge bg-secondary">Không</span>';
+            }
+
+            function showAlert(message, type = 'success') {
+                if (!alertPlaceholder || !message) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    <div>${escapeHtml(message)}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+
+                alertPlaceholder.appendChild(wrapper);
+                setTimeout(() => {
+                    const alert = bootstrap.Alert.getOrCreateInstance(wrapper);
+                    alert.close();
+                }, 5000);
+            }
+
+            function setTableStatus(message) {
+                if (tableStatus) {
+                    tableStatus.textContent = message;
+                }
+            }
+
+            function setTableLoading(message = 'Đang tải dữ liệu...') {
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="${columnCount}" class="text-center py-4 text-muted">${escapeHtml(message)}</td>
+                    </tr>`;
+            }
+
+            function calculateFinalPrice(extra) {
+                const basePrice = Number(extra?.price ?? 0);
+                const discountType = Number(extra?.discountType ?? @((int)DiscountType.None));
+                const discount = Number(extra?.discount ?? 0);
+
+                if (discountType === @((int)DiscountType.Percent)) {
+                    return Math.max(0, basePrice - (basePrice * discount / 100));
+                }
+
+                if (discountType === @((int)DiscountType.FixedAmount)) {
+                    return Math.max(0, discount);
+                }
+
+                if (discountType === @((int)DiscountType.Amount)) {
+                    return Math.max(0, basePrice - discount);
+                }
+
+                return basePrice;
+            }
+
+            function renderProductExtras(items) {
+                if (!Array.isArray(items) || items.length === 0) {
+                    setTableLoading('Không có sản phẩm bổ sung nào để hiển thị.');
+                    return;
+                }
+
+                const rows = items.map(extra => {
+                    const selected = canBulkManage && selectedIds.has(extra.id);
+                    const applicableCount = Array.isArray(extra.applicableProducts) ? extra.applicableProducts.length : 0;
+                    const firstProduct = applicableCount > 0 ? extra.applicableProducts[0] : null;
+                    const remainingCount = applicableCount > 1 ? applicableCount - 1 : 0;
+                    const statusBadge = extra.isPublish
+                        ? '<span class="badge bg-success">Xuất bản</span>'
+                        : '<span class="badge bg-secondary">Bản nháp</span>';
+                    const finalPrice = calculateFinalPrice(extra);
+
+                    return `
+                        <tr data-id="${extra.id}">
+                            ${canBulkManage ? `
+                                <td class="text-center">
+                                    <input type="checkbox" class="form-check-input product-extra-select" data-id="${extra.id}" ${selected ? 'checked' : ''} />
+                                </td>` : ''}
+                            <td class="text-center">
+                                ${extra.imageUrl ? `<img src="${escapeHtml(extra.imageUrl)}" alt="${escapeHtml(extra.name)}" class="rounded" style="width: 56px; height: 56px; object-fit: cover;" />` : '<span class="text-muted">—</span>'}
+                            </td>
+                            <td>
+                                <div class="fw-semibold">${escapeHtml(extra.name)}</div>
+                                <div class="text-muted small">Giá cuối: ${formatPrice(finalPrice)}</div>
+                            </td>
+                            <td>${formatPrice(extra.price)}</td>
+                            <td>${escapeHtml(formatDiscount(extra))}</td>
+                            <td>${escapeHtml(extra.stock)}</td>
+                            <td>${escapeHtml(extra.calories)}</td>
+                            <td>${statusBadge}</td>
+                            <td>
+                                ${applicableCount === 0 ? '<span class="text-muted">Chưa áp dụng</span>' : `
+                                    <div>${escapeHtml(firstProduct?.name ?? '')}</div>
+                                    ${remainingCount > 0 ? `<div class="text-muted small">+${remainingCount} sản phẩm khác</div>` : ''}`}
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary" data-action="detail" data-id="${extra.id}">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    ${canUpdate ? `<button type="button" class="btn btn-outline-secondary" data-action="edit" data-id="${extra.id}">
+                                        <i class="fas fa-edit"></i>
+                                    </button>` : ''}
+                                    ${canDelete ? `<button type="button" class="btn btn-outline-danger" data-action="delete" data-id="${extra.id}" data-name="${escapeHtml(extra.name)}">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>` : ''}
+                                </div>
+                            </td>
+                        </tr>`;
+                });
+
+                tableBody.innerHTML = rows.join('');
+            }
+
+            function updateTableStatus(count) {
+                if (!canView) {
+                    setTableStatus('Bạn không có quyền xem danh sách sản phẩm bổ sung.');
+                    return;
+                }
+
+                const total = allProductExtras.length;
+                if (total === 0) {
+                    setTableStatus('Không có sản phẩm bổ sung nào.');
+                    return;
+                }
+
+                if (count === total) {
+                    setTableStatus(`Đang hiển thị ${count} sản phẩm bổ sung.`);
+                } else {
+                    setTableStatus(`Tìm thấy ${count}/${total} sản phẩm bổ sung.`);
+                }
+            }
+
+            function applyFilters() {
+                if (!Array.isArray(allProductExtras)) {
+                    filteredProductExtras = [];
+                    renderProductExtras(filteredProductExtras);
+                    updateTableStatus(0);
+                    return;
+                }
+
+                const searchTerm = searchInput?.value?.trim().toLowerCase() ?? '';
+                const statusFilter = statusFilterSelect?.value ?? '';
+
+                filteredProductExtras = allProductExtras.filter(extra => {
+                    const matchesSearch = !searchTerm
+                        || extra.name?.toLowerCase().includes(searchTerm)
+                        || extra.ingredients?.toLowerCase().includes(searchTerm);
+
+                    const matchesStatus = !statusFilter
+                        || (statusFilter === 'published' && extra.isPublish)
+                        || (statusFilter === 'draft' && !extra.isPublish);
+
+                    return matchesSearch && matchesStatus;
+                });
+
+                renderProductExtras(filteredProductExtras);
+                updateTableStatus(filteredProductExtras.length);
+                syncSelectAllState();
+            }
+
+            function handleValidationErrors(problemDetails) {
+                if (!productExtraFormErrors) {
+                    return;
+                }
+
+                const errors = [];
+                if (problemDetails?.errors) {
+                    Object.values(problemDetails.errors).forEach(messages => {
+                        if (Array.isArray(messages)) {
+                            messages.forEach(message => errors.push(message));
+                        }
+                    });
+                } else if (problemDetails?.title) {
+                    errors.push(problemDetails.title);
+                }
+
+                if (errors.length === 0) {
+                    errors.push('Vui lòng kiểm tra lại thông tin đã nhập.');
+                }
+
+                productExtraFormErrors.innerHTML = `<ul class="mb-0">${errors.map(message => `<li>${escapeHtml(message)}</li>`).join('')}</ul>`;
+                productExtraFormErrors.classList.remove('d-none');
+            }
+
+            function clearValidationErrors() {
+                if (!productExtraFormErrors) {
+                    return;
+                }
+
+                productExtraFormErrors.classList.add('d-none');
+                productExtraFormErrors.innerHTML = '';
+            }
+
+            function resetForm() {
+                editingId = null;
+                productExtraForm.classList.remove('was-validated');
+                productExtraForm.reset();
+                clearValidationErrors();
+                submitButton.disabled = false;
+                submitButton.textContent = 'Thêm mới';
+                discountInput.disabled = discountTypeSelect.value === String(@((int)DiscountType.None));
+                Array.from(productsSelect.options).forEach(option => option.selected = false);
+            }
+
+            function fillForm(extra) {
+                nameInput.value = extra.name ?? '';
+                imageUrlInput.value = extra.imageUrl ?? '';
+                priceInput.value = Number(extra.price ?? 0);
+                stockInput.value = Number(extra.stock ?? 0);
+                caloriesInput.value = Number(extra.calories ?? 0);
+                discountTypeSelect.value = String(extra.discountType ?? @((int)DiscountType.None));
+                discountInput.value = extra.discount ?? '';
+                discountInput.disabled = discountTypeSelect.value === String(@((int)DiscountType.None));
+                ingredientsInput.value = extra.ingredients ?? '';
+                isPublishInput.checked = Boolean(extra.isPublish);
+                isSpicyInput.checked = Boolean(extra.isSpicy);
+                isVegetarianInput.checked = Boolean(extra.isVegetarian);
+
+                const productIds = Array.isArray(extra.applicableProducts)
+                    ? extra.applicableProducts.map(product => product.id)
+                    : [];
+
+                Array.from(productsSelect.options).forEach(option => {
+                    option.selected = productIds.includes(Number(option.value));
+                });
+            }
+
+            function syncSelectAllState() {
+                if (!canBulkManage || !selectAllCheckbox) {
+                    return;
+                }
+
+                const allIds = filteredProductExtras.map(extra => extra.id);
+                const selectedInFiltered = allIds.filter(id => selectedIds.has(id));
+
+                if (selectedInFiltered.length === 0) {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = false;
+                } else if (selectedInFiltered.length === allIds.length && allIds.length > 0) {
+                    selectAllCheckbox.checked = true;
+                    selectAllCheckbox.indeterminate = false;
+                } else {
+                    selectAllCheckbox.checked = false;
+                    selectAllCheckbox.indeterminate = true;
+                }
+
+                updateBulkActionsVisibility();
+            }
+
+            function updateBulkActionsVisibility() {
+                if (!canBulkManage || !bulkActions) {
+                    return;
+                }
+
+                const count = selectedIds.size;
+                bulkActions.classList.toggle('d-none', count === 0);
+                if (bulkDeleteCount) {
+                    bulkDeleteCount.textContent = count.toString();
+                }
+            }
+
+            function handleSelectAllChange() {
+                if (!canBulkManage || !selectAllCheckbox) {
+                    return;
+                }
+
+                const checked = selectAllCheckbox.checked;
+                filteredProductExtras.forEach(extra => {
+                    if (checked) {
+                        selectedIds.add(extra.id);
+                    } else {
+                        selectedIds.delete(extra.id);
+                    }
+                });
+
+                renderProductExtras(filteredProductExtras);
+                updateBulkActionsVisibility();
+                syncSelectAllState();
+            }
+
+            function onTableClick(event) {
+                const target = event.target;
+                if (!target) {
+                    return;
+                }
+
+                const actionButton = target.closest('[data-action]');
+                const checkbox = target.closest('.product-extra-select');
+
+                if (checkbox) {
+                    const id = Number(checkbox.dataset.id);
+                    if (checkbox.checked) {
+                        selectedIds.add(id);
+                    } else {
+                        selectedIds.delete(id);
+                    }
+                    syncSelectAllState();
+                    return;
+                }
+
+                if (!actionButton) {
+                    return;
+                }
+
+                const action = actionButton.dataset.action;
+                const id = Number(actionButton.dataset.id);
+
+                if (action === 'detail') {
+                    openDetailModal(id);
+                } else if (action === 'edit') {
+                    openEditModal(id);
+                } else if (action === 'delete') {
+                    openDeleteModal(id, actionButton.dataset.name ?? '');
+                }
+            }
+
+            async function loadProductExtras(showError = true) {
+                if (!canView) {
+                    setTableStatus('Bạn không có quyền xem danh sách sản phẩm bổ sung.');
+                    setTableLoading('Không có dữ liệu để hiển thị.');
+                    allProductExtras = [];
+                    filteredProductExtras = [];
+                    selectedIds.clear();
+                    updateBulkActionsVisibility();
+                    syncSelectAllState();
+                    return;
+                }
+
+                setTableLoading();
+
+                try {
+                    const response = await fetch(API_BASE_URL);
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            setTableStatus('Bạn không có quyền xem danh sách sản phẩm bổ sung.');
+                            setTableLoading('Bạn không có quyền xem danh sách sản phẩm bổ sung.');
+                            allProductExtras = [];
+                            filteredProductExtras = [];
+                            selectedIds.clear();
+                            updateBulkActionsVisibility();
+                            syncSelectAllState();
+                            return;
+                        }
+                        throw new Error('Failed to load product extras');
+                    }
+
+                    const extras = await response.json();
+                    allProductExtras = Array.isArray(extras) ? extras : [];
+
+                    const validIds = new Set(allProductExtras.map(extra => extra.id));
+                    Array.from(selectedIds).forEach(id => {
+                        if (!validIds.has(id)) {
+                            selectedIds.delete(id);
+                        }
+                    });
+
+                    applyFilters();
+                } catch (error) {
+                    setTableStatus('Không thể tải danh sách sản phẩm bổ sung.');
+                    setTableLoading('Có lỗi xảy ra khi tải dữ liệu.');
+                    allProductExtras = [];
+                    filteredProductExtras = [];
+                    selectedIds.clear();
+                    syncSelectAllState();
+                    updateBulkActionsVisibility();
+                    if (showError) {
+                        showAlert('Không thể tải danh sách sản phẩm bổ sung. Vui lòng thử lại sau.', 'danger');
+                    }
+                }
+            }
+
+            async function loadProductOptions(searchTerm = '') {
+                if (!productsSelect) {
+                    return;
+                }
+
+                productsSelect.innerHTML = '<option value="" disabled>Đang tải...</option>';
+
+                try {
+                    const url = new URL(PRODUCT_OPTIONS_URL, window.location.origin);
+                    if (searchTerm) {
+                        url.searchParams.set('search', searchTerm);
+                    }
+
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            productsSelect.innerHTML = '<option value="" disabled>Bạn không có quyền xem danh sách sản phẩm.</option>';
+                            return;
+                        }
+                        throw new Error('Failed to load product options');
+                    }
+
+                    const options = await response.json();
+                    productOptions = Array.isArray(options) ? options : [];
+
+                    if (productOptions.length === 0) {
+                        productsSelect.innerHTML = '<option value="" disabled>Không có sản phẩm khả dụng.</option>';
+                        return;
+                    }
+
+                    productsSelect.innerHTML = productOptions.map(option => {
+                        const category = option.categoryName ? `(${option.categoryName})` : '';
+                        const status = option.isPublish ? '' : ' - Nháp';
+                        return `<option value="${option.id}">${escapeHtml(option.name)} ${escapeHtml(category)}${status}</option>`;
+                    }).join('');
+                } catch (error) {
+                    productsSelect.innerHTML = '<option value="" disabled>Không thể tải danh sách sản phẩm.</option>';
+                }
+            }
+
+            function openCreateModal() {
+                resetForm();
+                productExtraModalTitle.textContent = 'Thêm sản phẩm bổ sung';
+                submitButton.textContent = 'Thêm mới';
+                productExtraModal.show();
+            }
+
+            async function openEditModal(id) {
+                resetForm();
+                editingId = id;
+                productExtraModalTitle.textContent = 'Chỉnh sửa sản phẩm bổ sung';
+                submitButton.textContent = 'Lưu thay đổi';
+                submitButton.disabled = true;
+                submitButton.textContent = 'Đang tải...';
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`);
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            showAlert('Sản phẩm bổ sung không tồn tại hoặc đã bị xóa.', 'warning');
+                        } else if (response.status === 403) {
+                            showAlert('Bạn không có quyền chỉnh sửa sản phẩm bổ sung này.', 'warning');
+                        } else {
+                            throw new Error('Failed to load product extra detail');
+                        }
+                        submitButton.disabled = false;
+                        submitButton.textContent = 'Lưu thay đổi';
+                        editingId = null;
+                        return;
+                    }
+
+                    const extra = await response.json();
+                    await loadProductOptions();
+                    fillForm(extra);
+                    productExtraModal.show();
+                } catch (error) {
+                    showAlert('Không thể tải thông tin sản phẩm bổ sung.', 'danger');
+                    editingId = null;
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = editingId ? 'Lưu thay đổi' : 'Thêm mới';
+                }
+            }
+
+            function openDeleteModal(id, name) {
+                deleteId = id;
+                if (deleteName) {
+                    deleteName.textContent = name;
+                }
+                deleteModal.show();
+            }
+
+            async function openDetailModal(id) {
+                detailBody.innerHTML = `
+                    <div class="py-4 text-center text-muted">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>`;
+                detailModal.show();
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`);
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Sản phẩm bổ sung không tồn tại hoặc đã bị xóa.</div>';
+                        } else if (response.status === 403) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Bạn không có quyền xem sản phẩm bổ sung này.</div>';
+                        } else {
+                            throw new Error('Failed to load product extra detail');
+                        }
+                        return;
+                    }
+
+                    const extra = await response.json();
+                    const finalPrice = calculateFinalPrice(extra);
+                    const productList = Array.isArray(extra.applicableProducts) && extra.applicableProducts.length > 0
+                        ? extra.applicableProducts.map(product => `<li>${escapeHtml(product.name)}${product.categoryName ? ` <span class="text-muted">(${escapeHtml(product.categoryName)})</span>` : ''}</li>`).join('')
+                        : '<li class="text-muted">Chưa có sản phẩm áp dụng</li>';
+
+                    detailBody.innerHTML = `
+                        <div class="row g-3">
+                            <div class="col-md-4 text-center">
+                                ${extra.imageUrl ? `<img src="${escapeHtml(extra.imageUrl)}" alt="${escapeHtml(extra.name)}" class="img-fluid rounded" />` : '<div class="text-muted">Không có ảnh</div>'}
+                                <div class="mt-3">
+                                    <span class="badge bg-primary me-2">Giá gốc: ${formatPrice(extra.price)}</span>
+                                    <span class="badge bg-success">Giá cuối: ${formatPrice(finalPrice)}</span>
+                                </div>
+                            </div>
+                            <div class="col-md-8">
+                                <h5 class="text-primary">${escapeHtml(extra.name)}</h5>
+                                <dl class="row mb-0">
+                                    <dt class="col-sm-4">Trạng thái</dt>
+                                    <dd class="col-sm-8">${extra.isPublish ? '<span class="badge bg-success">Xuất bản</span>' : '<span class="badge bg-secondary">Bản nháp</span>'}</dd>
+                                    <dt class="col-sm-4">Loại giảm giá</dt>
+                                    <dd class="col-sm-8">${escapeHtml(formatDiscount(extra))}</dd>
+                                    <dt class="col-sm-4">Tồn kho</dt>
+                                    <dd class="col-sm-8">${escapeHtml(extra.stock)}</dd>
+                                    <dt class="col-sm-4">Calories</dt>
+                                    <dd class="col-sm-8">${escapeHtml(extra.calories)}</dd>
+                                    <dt class="col-sm-4">Món cay</dt>
+                                    <dd class="col-sm-8">${formatBoolean(extra.isSpicy)}</dd>
+                                    <dt class="col-sm-4">Món chay</dt>
+                                    <dd class="col-sm-8">${formatBoolean(extra.isVegetarian)}</dd>
+                                    <dt class="col-sm-4">Thành phần</dt>
+                                    <dd class="col-sm-8">${escapeHtml(extra.ingredients)}</dd>
+                                    <dt class="col-sm-4">Ngày tạo</dt>
+                                    <dd class="col-sm-8">${extra.createdAt ? new Date(extra.createdAt).toLocaleString('vi-VN') : '—'}</dd>
+                                    <dt class="col-sm-4">Cập nhật lần cuối</dt>
+                                    <dd class="col-sm-8">${extra.updatedAt ? new Date(extra.updatedAt).toLocaleString('vi-VN') : '—'}</dd>
+                                </dl>
+                                <div class="mt-3">
+                                    <h6 class="fw-semibold">Sản phẩm áp dụng</h6>
+                                    <ul class="mb-0 ps-3">${productList}</ul>
+                                </div>
+                            </div>
+                        </div>`;
+                } catch (error) {
+                    detailBody.innerHTML = '<div class="alert alert-danger mb-0">Không thể tải chi tiết sản phẩm bổ sung.</div>';
+                }
+            }
+
+            async function submitForm(event) {
+                event.preventDefault();
+                if (!productExtraForm.checkValidity()) {
+                    productExtraForm.classList.add('was-validated');
+                    return;
+                }
+
+                clearValidationErrors();
+
+                const selectedProductIds = Array.from(productsSelect.options)
+                    .filter(option => option.selected)
+                    .map(option => Number(option.value))
+                    .filter(id => Number.isFinite(id) && id > 0);
+
+                const payload = {
+                    name: nameInput.value.trim(),
+                    imageUrl: imageUrlInput.value.trim() || null,
+                    price: Number(priceInput.value ?? 0),
+                    stock: Number(stockInput.value ?? 0),
+                    calories: Number(caloriesInput.value ?? 0),
+                    discountType: Number(discountTypeSelect.value ?? @((int)DiscountType.None)),
+                    discount: discountInput.disabled || discountInput.value === '' ? null : Number(discountInput.value),
+                    ingredients: ingredientsInput.value.trim(),
+                    isPublish: Boolean(isPublishInput.checked),
+                    isSpicy: Boolean(isSpicyInput.checked),
+                    isVegetarian: Boolean(isVegetarianInput.checked),
+                    applicableProductIds: selectedProductIds
+                };
+
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status"></span>Đang xử lý...';
+
+                const method = editingId ? 'PUT' : 'POST';
+                const url = editingId ? `${API_BASE_URL}/${editingId}` : API_BASE_URL;
+
+                try {
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 400 || response.status === 422) {
+                        const problem = await response.json().catch(() => null);
+                        handleValidationErrors(problem);
+                        return;
+                    }
+
+                    if (response.status === 403) {
+                        showAlert(editingId ? 'Bạn không có quyền cập nhật sản phẩm bổ sung này.' : 'Bạn không có quyền tạo sản phẩm bổ sung.', 'warning');
+                        return;
+                    }
+
+                    if (response.status === 404) {
+                        showAlert('Sản phẩm bổ sung không tồn tại hoặc đã bị xóa.', 'warning');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Failed to submit form');
+                    }
+
+                    await response.json().catch(() => null);
+                    productExtraModal.hide();
+                    showAlert(editingId ? 'Đã cập nhật sản phẩm bổ sung.' : 'Đã tạo sản phẩm bổ sung.', 'success');
+                    await loadProductExtras(false);
+                } catch (error) {
+                    showAlert('Không thể lưu sản phẩm bổ sung. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    submitButton.disabled = false;
+                    submitButton.textContent = editingId ? 'Lưu thay đổi' : 'Thêm mới';
+                }
+            }
+
+            async function deleteProductExtra(id) {
+                if (!canDelete || !id) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        }
+                    });
+
+                    if (response.status === 403) {
+                        showAlert('Bạn không có quyền xóa sản phẩm bổ sung này.', 'warning');
+                        return;
+                    }
+
+                    if (response.status === 404) {
+                        showAlert('Sản phẩm bổ sung không tồn tại hoặc đã bị xóa.', 'warning');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Failed to delete product extra');
+                    }
+
+                    showAlert('Đã xóa sản phẩm bổ sung.', 'success');
+                    selectedIds.delete(id);
+                    await loadProductExtras(false);
+                } catch (error) {
+                    showAlert('Không thể xóa sản phẩm bổ sung. Vui lòng thử lại sau.', 'danger');
+                }
+            }
+
+            async function bulkDeleteSelected(ids = Array.from(selectedIds)) {
+                if (!canDelete || ids.length === 0) {
+                    return;
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/bulk-delete`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: JSON.stringify({ ids })
+                    });
+
+                    if (response.status === 400) {
+                        const result = await response.json().catch(() => null);
+                        showAlert(result?.message ?? 'Không thể xóa sản phẩm bổ sung đã chọn.', 'warning');
+                        return;
+                    }
+
+                    if (response.status === 403) {
+                        showAlert('Bạn không có quyền xóa các sản phẩm bổ sung đã chọn.', 'warning');
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Failed to bulk delete product extras');
+                    }
+
+                    const result = await response.json().catch(() => ({}));
+                    const deleted = Number(result.deleted ?? 0);
+                    const unauthorized = Number(result.unauthorized ?? 0);
+
+                    if (deleted > 0) {
+                        showAlert(`Đã xóa ${deleted} sản phẩm bổ sung.`, 'success');
+                    }
+                    if (unauthorized > 0) {
+                        showAlert(`${unauthorized} sản phẩm bổ sung không đủ quyền xóa.`, 'warning');
+                    }
+                    if (deleted === 0 && unauthorized === 0) {
+                        showAlert('Không có sản phẩm bổ sung nào được xóa.', 'info');
+                    }
+
+                    selectedIds.clear();
+                    if (selectAllCheckbox) {
+                        selectAllCheckbox.checked = false;
+                        selectAllCheckbox.indeterminate = false;
+                    }
+
+                    await loadProductExtras(false);
+                } catch (error) {
+                    showAlert('Không thể xóa các sản phẩm bổ sung đã chọn. Vui lòng thử lại sau.', 'danger');
+                }
+            }
+
+            discountTypeSelect?.addEventListener('change', () => {
+                const type = Number(discountTypeSelect.value);
+                if (type === @((int)DiscountType.None)) {
+                    discountInput.value = '';
+                    discountInput.disabled = true;
+                } else {
+                    discountInput.disabled = false;
+                }
+            });
+
+            searchInput?.addEventListener('input', () => applyFilters());
+            statusFilterSelect?.addEventListener('change', () => applyFilters());
+            resetFiltersBtn?.addEventListener('click', () => {
+                if (searchInput) {
+                    searchInput.value = '';
+                }
+                if (statusFilterSelect) {
+                    statusFilterSelect.value = '';
+                }
+                applyFilters();
+            });
+
+            tableBody?.addEventListener('click', onTableClick);
+            refreshBtn?.addEventListener('click', () => loadProductExtras());
+            createBtn?.addEventListener('click', () => {
+                openCreateModal();
+                loadProductOptions();
+            });
+            productExtraForm?.addEventListener('submit', submitForm);
+            deleteConfirmBtn?.addEventListener('click', async () => {
+                if (!deleteId) {
+                    return;
+                }
+                deleteModal.hide();
+                await deleteProductExtra(deleteId);
+                deleteId = null;
+            });
+
+            if (bulkDeleteBtn && bulkDeleteModal) {
+                bulkDeleteBtn.addEventListener('click', () => {
+                    if (selectedIds.size === 0) {
+                        showAlert('Vui lòng chọn ít nhất một sản phẩm bổ sung để xóa.', 'info');
+                        return;
+                    }
+                    if (bulkDeleteCount) {
+                        bulkDeleteCount.textContent = selectedIds.size.toString();
+                    }
+                    bulkDeleteModal.show();
+                });
+                confirmBulkDeleteBtn?.addEventListener('click', async () => {
+                    const ids = Array.from(selectedIds);
+                    bulkDeleteModal.hide();
+                    await bulkDeleteSelected(ids);
+                });
+            }
+
+            selectAllCheckbox?.addEventListener('change', handleSelectAllChange);
+
+            productSearchInput?.addEventListener('input', () => {
+                const term = productSearchInput.value.trim();
+                loadProductOptions(term);
+            });
+            productRefreshBtn?.addEventListener('click', () => loadProductOptions(productSearchInput?.value?.trim() ?? ''));
+
+            loadProductExtras();
+            loadProductOptions();
+        })();
+    </script>
+}

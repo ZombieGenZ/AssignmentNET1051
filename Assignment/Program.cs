@@ -134,6 +134,37 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
+    options.AddPolicy("GetProductExtraPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetProductExtraAll") ||
+            (ctx.User.HasPermission("GetProductExtra") &&
+             ctx.Resource is ProductExtra extra &&
+             extra.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateProductExtraPolicy", policy =>
+        policy.RequireClaim("CreateProductExtra")
+    );
+
+    options.AddPolicy("UpdateProductExtraPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("UpdateProductExtraAll") ||
+            (ctx.User.HasPermission("UpdateProductExtra") &&
+             ctx.Resource is ProductExtra extra &&
+             extra.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteProductExtraPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("DeleteProductExtraAll") ||
+            (ctx.User.HasPermission("DeleteProductExtra") &&
+             ctx.Resource is ProductExtra extra &&
+             extra.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
     options.AddPolicy("GetComboPolicy", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasPermission("GetComboAll") ||
