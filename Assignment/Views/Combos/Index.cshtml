@@ -1035,8 +1035,8 @@
                 }
             }
 
-            async function fetchProductsIfNeeded() {
-                if (productsCache) {
+            async function fetchProductsIfNeeded(forceReload = false) {
+                if (!forceReload && productsCache) {
                     return productsCache;
                 }
 
@@ -1209,8 +1209,22 @@
                     finalPrice: initialProductTypeFinalPrice ?? initialProductFinalPrice
                 });
 
-                productSelect.addEventListener('change', () => {
-                    const product = getProductById(productSelect.value);
+                productSelect.addEventListener('change', async () => {
+                    const selectedValue = productSelect.value;
+                    let product = getProductById(selectedValue);
+
+                    if (!product || (Array.isArray(product.productTypes) && product.productTypes.length > 0)) {
+                        populateProductTypeSelect(typeSelect, product, null);
+                        return;
+                    }
+
+                    try {
+                        await fetchProductsIfNeeded(true);
+                    } catch (error) {
+                        showAlert('danger', error.message || 'Không thể tải danh sách sản phẩm.');
+                    }
+
+                    product = getProductById(selectedValue);
                     populateProductTypeSelect(typeSelect, product, null);
                 });
 
@@ -1767,6 +1781,7 @@
                                                     <div class="fw-semibold">${item.productName}</div>
                                                     ${item.productTypeName ? `<div class="text-muted small">Loại: ${item.productTypeName}</div>` : ''}
                                                     <div class="text-muted small">Giá: ${formatCurrency(item.productFinalPrice ?? item.productTypeFinalPrice ?? 0)}</div>
+                                                    <div class="text-muted small">Còn lại: ${Number.isFinite(Number(item.remainingStock)) ? Number(item.remainingStock) : 0}</div>
                                                 </div>
                                             </div>
                                             <span class="badge bg-primary">Số lượng: ${item.quantity}</span>
