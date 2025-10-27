@@ -72,12 +72,8 @@
                         <label class="form-label filter-label" for="materialSearchInput">Tìm kiếm</label>
                         <div class="filter-input-icon">
                             <i class="fas fa-search filter-icon"></i>
-                            <input type="search" class="form-control" id="materialSearchInput" placeholder="Tên hoặc mã nguyên vật liệu" />
+                            <input type="search" class="form-control" id="materialSearchInput" placeholder="Tên, mã hoặc mô tả nguyên vật liệu" />
                         </div>
-                    </div>
-                    <div class="col-12 col-sm-6 col-lg-3">
-                        <label class="form-label filter-label" for="materialCodeInput">Mã nguyên vật liệu</label>
-                        <input type="text" class="form-control" id="materialCodeInput" placeholder="Nhập mã chính xác" />
                     </div>
                     <div class="col-12 col-sm-6 col-lg-3">
                         <label class="form-label filter-label" for="materialUnitFilter">Đơn vị</label>
@@ -98,6 +94,7 @@
                         <tr>
                             <th style="width: 140px;">Mã</th>
                             <th>Tên nguyên vật liệu</th>
+                            <th style="width: 220px;">Mô tả</th>
                             <th style="width: 160px;">Đơn vị</th>
                             <th style="width: 160px;" class="text-end">Tồn kho tối thiểu</th>
                             <th style="width: 160px;" class="text-end">Giá trung bình</th>
@@ -109,7 +106,7 @@
                     </thead>
                     <tbody id="materialsTableBody">
                         <tr>
-                            <td colspan="@(canUpdate || canDelete ? 6 : 5)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="@(canUpdate || canDelete ? 7 : 6)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -133,12 +130,17 @@
                 <div class="modal-body">
                     <div id="materialFormErrors" class="alert alert-danger d-none" role="alert"></div>
                     <div class="mb-3">
-                        <label for="materialCode" class="form-label">Mã nguyên vật liệu<span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="materialCode" maxlength="100" required />
+                        <label for="materialCode" class="form-label">Mã nguyên vật liệu</label>
+                        <input type="text" class="form-control" id="materialCode" maxlength="100" readonly placeholder="Sẽ được tạo tự động sau khi lưu" />
+                        <div class="form-text">Mã sẽ được tạo tự động sau khi lưu nguyên vật liệu.</div>
                     </div>
                     <div class="mb-3">
                         <label for="materialName" class="form-label">Tên nguyên vật liệu<span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="materialName" maxlength="200" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialDescription" class="form-label">Mô tả</label>
+                        <textarea class="form-control" id="materialDescription" rows="2" maxlength="500" placeholder="Ghi chú thêm (không bắt buộc)"></textarea>
                     </div>
                     <div class="mb-3">
                         <label for="materialUnit" class="form-label">Đơn vị<span class="text-danger">*</span></label>
@@ -203,7 +205,6 @@
             const refreshBtn = document.getElementById('refreshMaterialsBtn');
             const createBtn = document.getElementById('createMaterialBtn');
             const searchInput = document.getElementById('materialSearchInput');
-            const codeInput = document.getElementById('materialCodeInput');
             const unitFilter = document.getElementById('materialUnitFilter');
             const resetFiltersBtn = document.getElementById('materialResetFilters');
             const antiForgeryInput = document.querySelector('#materialAntiForgeryForm input[name="__RequestVerificationToken"]');
@@ -216,6 +217,7 @@
             const materialFormErrors = document.getElementById('materialFormErrors');
             const materialCodeInput = document.getElementById('materialCode');
             const materialNameInput = document.getElementById('materialName');
+            const materialDescriptionInput = document.getElementById('materialDescription');
             const materialUnitSelect = document.getElementById('materialUnit');
             const materialMinStockInput = document.getElementById('materialMinStock');
             const materialPriceInput = document.getElementById('materialPrice');
@@ -322,7 +324,7 @@
                 if (!canView) {
                     const row = document.createElement('tr');
                     const cell = document.createElement('td');
-                    cell.colSpan = canUpdate || canDelete ? 6 : 5;
+                    cell.colSpan = canUpdate || canDelete ? 7 : 6;
                     cell.className = 'text-center py-4 text-muted';
                     cell.textContent = 'Bạn không có quyền xem danh sách nguyên vật liệu.';
                     row.appendChild(cell);
@@ -333,7 +335,7 @@
                 if (!Array.isArray(filteredMaterials) || filteredMaterials.length === 0) {
                     const row = document.createElement('tr');
                     const cell = document.createElement('td');
-                    cell.colSpan = canUpdate || canDelete ? 6 : 5;
+                    cell.colSpan = canUpdate || canDelete ? 7 : 6;
                     cell.className = 'text-center py-4 text-muted';
                     cell.textContent = 'Không có nguyên vật liệu nào phù hợp.';
                     row.appendChild(cell);
@@ -355,6 +357,10 @@
                     const nameCell = document.createElement('td');
                     nameCell.textContent = material.name || '';
                     row.appendChild(nameCell);
+
+                    const descriptionCell = document.createElement('td');
+                    descriptionCell.textContent = material.description || '—';
+                    row.appendChild(descriptionCell);
 
                     const unitCell = document.createElement('td');
                     unitCell.textContent = material.unitName || '—';
@@ -410,14 +416,15 @@
                 }
 
                 const searchTerm = (searchInput?.value || '').trim().toLowerCase();
-                const codeTerm = (codeInput?.value || '').trim().toLowerCase();
                 const unitId = unitFilter?.value || '';
 
                 filteredMaterials = allMaterials.filter(material => {
-                    const matchesSearch = !searchTerm || (material.name || '').toLowerCase().includes(searchTerm) || (material.code || '').toLowerCase().includes(searchTerm);
-                    const matchesCode = !codeTerm || (material.code || '').toLowerCase() === codeTerm;
+                    const name = (material.name || '').toLowerCase();
+                    const code = (material.code || '').toLowerCase();
+                    const description = (material.description || '').toLowerCase();
+                    const matchesSearch = !searchTerm || name.includes(searchTerm) || code.includes(searchTerm) || description.includes(searchTerm);
                     const matchesUnit = !unitId || String(material.unitId ?? '') === unitId;
-                    return matchesSearch && matchesCode && matchesUnit;
+                    return matchesSearch && matchesUnit;
                 });
 
                 renderMaterials();
@@ -427,6 +434,12 @@
                 materialForm.reset();
                 materialFormErrors?.classList.add('d-none');
                 materialFormErrors && (materialFormErrors.innerHTML = '');
+                if (materialCodeInput) {
+                    materialCodeInput.value = '';
+                }
+                if (materialDescriptionInput) {
+                    materialDescriptionInput.value = '';
+                }
                 if (materialUnitSelect && unitLookup.length > 0) {
                     materialUnitSelect.value = unitLookup[0]?.id ? String(unitLookup[0].id) : '';
                 }
@@ -446,8 +459,13 @@
                 materialSubmitBtn.textContent = 'Cập nhật';
                 resetForm();
 
-                materialCodeInput.value = material.code || '';
+                if (materialCodeInput) {
+                    materialCodeInput.value = material.code || '';
+                }
                 materialNameInput.value = material.name || '';
+                if (materialDescriptionInput) {
+                    materialDescriptionInput.value = material.description || '';
+                }
                 if (materialUnitSelect) {
                     materialUnitSelect.value = material.unitId ? String(material.unitId) : '';
                 }
@@ -498,14 +516,10 @@
 
                 const params = new URLSearchParams();
                 const searchTerm = (searchInput?.value || '').trim();
-                const codeTerm = (codeInput?.value || '').trim();
                 const unitId = unitFilter?.value || '';
 
                 if (searchTerm) {
                     params.append('search', searchTerm);
-                }
-                if (codeTerm) {
-                    params.append('code', codeTerm);
                 }
                 if (unitId) {
                     params.append('unitId', unitId);
@@ -542,9 +556,11 @@
                     return;
                 }
 
+                const descriptionValue = materialDescriptionInput?.value?.trim() || '';
+
                 const payload = {
-                    code: materialCodeInput.value.trim(),
                     name: materialNameInput.value.trim(),
+                    description: descriptionValue || null,
                     unitId: materialUnitSelect.value ? Number(materialUnitSelect.value) : null,
                     minStockLevel: materialMinStockInput.value ? Number(materialMinStockInput.value) : 0,
                     price: materialPriceInput.value ? Number(materialPriceInput.value) : 0
@@ -642,14 +658,10 @@
                 }
 
                 searchInput?.addEventListener('input', debounce(() => fetchMaterials(false)));
-                codeInput?.addEventListener('input', debounce(() => fetchMaterials(false)));
                 unitFilter?.addEventListener('change', () => fetchMaterials(false));
                 resetFiltersBtn?.addEventListener('click', () => {
                     if (searchInput) {
                         searchInput.value = '';
-                    }
-                    if (codeInput) {
-                        codeInput.value = '';
                     }
                     if (unitFilter) {
                         unitFilter.value = '';

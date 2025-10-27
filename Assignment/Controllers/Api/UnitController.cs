@@ -352,13 +352,16 @@ namespace Assignment.Controllers.Api
                 .Where(c => c.FromUnitId == unit.Id)
                 .ToListAsync();
 
-            var conversionMap = conversions
+            var validRequests = conversions
                 .Where(c => c.TargetUnitId.HasValue && c.TargetUnitId.Value != unit.Id && c.ConversionRate.HasValue && c.ConversionRate.Value > 0)
                 .ToDictionary(c => c.TargetUnitId!.Value, c => c);
 
+            var activeConversions = new List<ConversionUnit>();
+            var removedTargetIds = new List<long>();
+
             foreach (var conversion in existingConversions)
             {
-                if (!conversionMap.TryGetValue(conversion.ToUnitId, out var requestConversion))
+                if (!validRequests.TryGetValue(conversion.ToUnitId, out var requestConversion))
                 {
                     if (!conversion.IsDeleted)
                     {
@@ -367,6 +370,7 @@ namespace Assignment.Controllers.Api
                         conversion.UpdatedAt = DateTime.Now;
                     }
 
+                    removedTargetIds.Add(conversion.ToUnitId);
                     continue;
                 }
 
@@ -378,10 +382,11 @@ namespace Assignment.Controllers.Api
                 conversion.DeletedAt = null;
                 conversion.IsDeleted = false;
 
-                conversionMap.Remove(conversion.ToUnitId);
+                activeConversions.Add(conversion);
+                validRequests.Remove(conversion.ToUnitId);
             }
 
-            foreach (var remaining in conversionMap.Values)
+            foreach (var remaining in validRequests.Values)
             {
                 var conversion = new ConversionUnit
                 {
@@ -399,6 +404,70 @@ namespace Assignment.Controllers.Api
                 };
 
                 _context.ConversionUnits.Add(conversion);
+                activeConversions.Add(conversion);
+            }
+
+            var activeTargetIds = activeConversions
+                .Select(c => c.ToUnitId)
+                .ToHashSet();
+
+            if (removedTargetIds.Count > 0)
+            {
+                var reciprocalsToRemove = await _context.ConversionUnits
+                    .Where(c => removedTargetIds.Contains(c.FromUnitId) && c.ToUnitId == unit.Id)
+                    .ToListAsync();
+
+                foreach (var reciprocal in reciprocalsToRemove)
+                {
+                    if (!reciprocal.IsDeleted)
+                    {
+                        reciprocal.IsDeleted = true;
+                        reciprocal.DeletedAt = DateTime.Now;
+                        reciprocal.UpdatedAt = DateTime.Now;
+                    }
+                }
+            }
+
+            if (activeTargetIds.Count > 0)
+            {
+                var reciprocals = await _context.ConversionUnits
+                    .Where(c => activeTargetIds.Contains(c.FromUnitId) && c.ToUnitId == unit.Id)
+                    .ToListAsync();
+
+                foreach (var conversion in activeConversions)
+                {
+                    var reciprocalRate = conversion.ConversionRate == 0
+                        ? 0
+                        : decimal.One / conversion.ConversionRate;
+
+                    var reciprocal = reciprocals.FirstOrDefault(r => r.FromUnitId == conversion.ToUnitId);
+                    if (reciprocal == null)
+                    {
+                        reciprocal = new ConversionUnit
+                        {
+                            FromUnitId = conversion.ToUnitId,
+                            ToUnitId = unit.Id,
+                            ConversionRate = reciprocalRate,
+                            Description = conversion.Description,
+                            CreateBy = CurrentUserId,
+                            CreatedAt = DateTime.Now,
+                            UpdatedAt = null,
+                            DeletedAt = null,
+                            IsDeleted = false
+                        };
+
+                        _context.ConversionUnits.Add(reciprocal);
+                        reciprocals.Add(reciprocal);
+                    }
+                    else
+                    {
+                        reciprocal.ConversionRate = reciprocalRate;
+                        reciprocal.Description = conversion.Description;
+                        reciprocal.UpdatedAt = DateTime.Now;
+                        reciprocal.DeletedAt = null;
+                        reciprocal.IsDeleted = false;
+                    }
+                }
             }
         }
 

@@ -342,18 +342,28 @@
                             item.className = 'conversion-summary';
 
                             const mainLine = document.createElement('div');
+                            const rateValueRaw = Number(conversion.conversionRate ?? 0);
+                            const rateValue = Number.isFinite(rateValueRaw) && rateValueRaw > 0 ? rateValueRaw : 0;
+                            let baseAmountValue = 1;
+                            let targetAmountValue = rateValue;
+
+                            if (rateValue > 0 && rateValue < 1) {
+                                baseAmountValue = 1 / rateValue;
+                                targetAmountValue = 1;
+                            }
+
                             const fromStrong = document.createElement('strong');
-                            fromStrong.textContent = `1 ${unit.name ?? ''}`;
+                            fromStrong.textContent = `${numberFormatter.format(baseAmountValue)} ${unit.name ?? ''}`;
                             const equalSpan = document.createElement('span');
                             equalSpan.textContent = ' = ';
-                            const rateStrong = document.createElement('strong');
-                            rateStrong.textContent = numberFormatter.format(Number(conversion.conversionRate ?? 0));
+                            const targetStrong = document.createElement('strong');
+                            targetStrong.textContent = numberFormatter.format(targetAmountValue);
                             const targetSpan = document.createElement('span');
                             targetSpan.textContent = ` ${conversion.targetUnitName ?? ''}`;
 
                             mainLine.appendChild(fromStrong);
                             mainLine.appendChild(equalSpan);
-                            mainLine.appendChild(rateStrong);
+                            mainLine.appendChild(targetStrong);
                             mainLine.appendChild(targetSpan);
                             item.appendChild(mainLine);
 

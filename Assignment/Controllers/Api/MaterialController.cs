@@ -58,12 +58,6 @@ namespace Assignment.Controllers.Api
                     m.Code.ToLower().Contains(search));
             }
 
-            if (!string.IsNullOrWhiteSpace(query.Code))
-            {
-                var code = query.Code.Trim().ToLowerInvariant();
-                materialsQuery = materialsQuery.Where(m => m.Code.ToLower() == code);
-            }
-
             if (query.UnitId.HasValue)
             {
                 materialsQuery = materialsQuery.Where(m => m.UnitId == query.UnitId.Value);
@@ -111,10 +105,15 @@ namespace Assignment.Controllers.Api
                 return ValidationProblem(ModelState);
             }
 
+            var normalizedDescription = string.IsNullOrWhiteSpace(request.Description)
+                ? null
+                : request.Description!.Trim();
+
             var material = new Material
             {
-                Code = request.Code!.Trim(),
+                Code = string.Empty,
                 Name = request.Name!.Trim(),
+                Description = normalizedDescription,
                 UnitId = request.UnitId!.Value,
                 MinStockLevel = request.MinStockLevel ?? 0,
                 Price = request.Price ?? 0,
@@ -126,6 +125,10 @@ namespace Assignment.Controllers.Api
             };
 
             _context.Materials.Add(material);
+            await _context.SaveChangesAsync();
+
+            material.Code = material.Id.ToString();
+            _context.Entry(material).Property(m => m.Code).IsModified = true;
             await _context.SaveChangesAsync();
 
             await _context.Entry(material)
@@ -161,8 +164,10 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            material.Code = request.Code!.Trim();
             material.Name = request.Name!.Trim();
+            material.Description = string.IsNullOrWhiteSpace(request.Description)
+                ? null
+                : request.Description!.Trim();
             material.UnitId = request.UnitId!.Value;
             material.MinStockLevel = request.MinStockLevel ?? 0;
             material.Price = request.Price ?? 0;
@@ -213,11 +218,6 @@ namespace Assignment.Controllers.Api
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(request.Code))
-            {
-                ModelState.AddModelError(nameof(request.Code), "Mã nguyên vật liệu không được để trống.");
-            }
-
             if (string.IsNullOrWhiteSpace(request.Name))
             {
                 ModelState.AddModelError(nameof(request.Name), "Tên nguyên vật liệu không được để trống.");
@@ -241,17 +241,6 @@ namespace Assignment.Controllers.Api
             if (!ModelState.IsValid)
             {
                 return;
-            }
-
-            var normalizedCode = request.Code!.Trim();
-            var codeExists = await _context.Materials
-                .AsNoTracking()
-                .Where(m => !m.IsDeleted)
-                .AnyAsync(m => m.Code == normalizedCode && (!materialId.HasValue || m.Id != materialId.Value));
-
-            if (codeExists)
-            {
-                ModelState.AddModelError(nameof(request.Code), "Mã nguyên vật liệu đã tồn tại.");
             }
 
             var normalizedName = request.Name!.Trim();
@@ -282,6 +271,7 @@ namespace Assignment.Controllers.Api
                 Id = material.Id,
                 Code = material.Code,
                 Name = material.Name,
+                Description = material.Description,
                 UnitId = material.UnitId,
                 UnitName = material.Unit?.Name,
                 MinStockLevel = material.MinStockLevel,
@@ -293,8 +283,8 @@ namespace Assignment.Controllers.Api
 
         public class MaterialRequest
         {
-            public string? Code { get; set; }
             public string? Name { get; set; }
+            public string? Description { get; set; }
             public long? UnitId { get; set; }
             public decimal? MinStockLevel { get; set; }
             public decimal? Price { get; set; }
@@ -303,7 +293,6 @@ namespace Assignment.Controllers.Api
         public class MaterialQuery
         {
             public string? Search { get; set; }
-            public string? Code { get; set; }
             public long? UnitId { get; set; }
         }
 
@@ -312,6 +301,7 @@ namespace Assignment.Controllers.Api
             public long Id { get; set; }
             public string Code { get; set; } = string.Empty;
             public string Name { get; set; } = string.Empty;
+            public string? Description { get; set; }
             public long UnitId { get; set; }
             public string? UnitName { get; set; }
             public decimal MinStockLevel { get; set; }
