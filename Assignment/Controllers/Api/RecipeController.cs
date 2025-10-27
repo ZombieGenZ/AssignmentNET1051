@@ -49,6 +49,7 @@ namespace Assignment.Controllers.Api
                         .ThenInclude(m => m.Unit)
                 .Include(r => r.Details)
                     .ThenInclude(d => d.Unit)
+                .Include(r => r.Steps)
                 .Where(r => !r.IsDeleted);
 
             if (!canGetAll)
@@ -89,6 +90,7 @@ namespace Assignment.Controllers.Api
                         .ThenInclude(m => m.Unit)
                 .Include(r => r.Details)
                     .ThenInclude(d => d.Unit)
+                .Include(r => r.Steps)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (recipe == null)
@@ -147,6 +149,26 @@ namespace Assignment.Controllers.Api
                 recipe.Details.Add(recipeDetail);
             }
 
+            var orderedSteps = validation.Steps
+                .OrderBy(step => step.StepOrder)
+                .ToList();
+
+            foreach (var step in orderedSteps)
+            {
+                var recipeStep = new RecipeStep
+                {
+                    StepOrder = step.StepOrder,
+                    Description = step.Description,
+                    CreateBy = CurrentUserId,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = null,
+                    DeletedAt = null,
+                    IsDeleted = false
+                };
+
+                recipe.Steps.Add(recipeStep);
+            }
+
             _context.Recipes.Add(recipe);
             await _context.SaveChangesAsync();
 
@@ -162,6 +184,7 @@ namespace Assignment.Controllers.Api
         {
             var recipe = await _context.Recipes
                 .Include(r => r.Details)
+                .Include(r => r.Steps)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (recipe == null)
@@ -188,6 +211,7 @@ namespace Assignment.Controllers.Api
             recipe.UpdatedAt = DateTime.Now;
 
             SyncRecipeDetails(recipe, validation.Details);
+            SyncRecipeSteps(recipe, validation.Steps);
 
             await _context.SaveChangesAsync();
 
@@ -202,6 +226,7 @@ namespace Assignment.Controllers.Api
         {
             var recipe = await _context.Recipes
                 .Include(r => r.Details)
+                .Include(r => r.Steps)
                 .FirstOrDefaultAsync(r => r.Id == id && !r.IsDeleted);
 
             if (recipe == null)
@@ -224,6 +249,13 @@ namespace Assignment.Controllers.Api
                 detail.IsDeleted = true;
                 detail.DeletedAt = DateTime.Now;
                 detail.UpdatedAt = DateTime.Now;
+            }
+
+            foreach (var step in recipe.Steps.Where(s => !s.IsDeleted))
+            {
+                step.IsDeleted = true;
+                step.DeletedAt = DateTime.Now;
+                step.UpdatedAt = DateTime.Now;
             }
 
             await _context.SaveChangesAsync();
@@ -321,6 +353,18 @@ namespace Assignment.Controllers.Api
                     totalCost += detailResponse.Cost;
                 }
 
+                var stepResponses = recipe.Steps
+                    .Where(s => !s.IsDeleted)
+                    .OrderBy(s => s.StepOrder)
+                    .ThenBy(s => s.Id)
+                    .Select(s => new RecipeStepResponse
+                    {
+                        Id = s.Id,
+                        Order = s.StepOrder,
+                        Description = s.Description ?? string.Empty
+                    })
+                    .ToList();
+
                 responseList.Add(new RecipeResponse
                 {
                     Id = recipe.Id,
@@ -335,7 +379,8 @@ namespace Assignment.Controllers.Api
                     Details = details
                         .OrderBy(d => d.MaterialName)
                         .ThenBy(d => d.Id)
-                        .ToList()
+                        .ToList(),
+                    Steps = stepResponses
                 });
             }
 
@@ -380,6 +425,13 @@ namespace Assignment.Controllers.Api
                 .Include(d => d.Material)
                     .ThenInclude(m => m.Unit)
                 .Include(d => d.Unit)
+                .LoadAsync();
+
+            await _context.Entry(recipe)
+                .Collection(r => r.Steps)
+                .Query()
+                .OrderBy(s => s.StepOrder)
+                .ThenBy(s => s.Id)
                 .LoadAsync();
         }
 
@@ -433,6 +485,59 @@ namespace Assignment.Controllers.Api
             }
         }
 
+        private void SyncRecipeSteps(Recipe recipe, IReadOnlyCollection<ValidatedRecipeStep> validatedSteps)
+        {
+            var existingSteps = recipe.Steps
+                .Where(s => !s.IsDeleted)
+                .ToDictionary(s => s.Id);
+
+            var processedExistingIds = new HashSet<long>();
+            var orderedSteps = validatedSteps
+                .OrderBy(step => step.StepOrder)
+                .ToList();
+
+            var order = 1;
+
+            foreach (var step in orderedSteps)
+            {
+                if (step.ExistingStep != null)
+                {
+                    var existing = step.ExistingStep;
+                    existing.Description = step.Description;
+                    existing.StepOrder = order++;
+                    existing.UpdatedAt = DateTime.Now;
+                    existing.DeletedAt = null;
+                    existing.IsDeleted = false;
+                    processedExistingIds.Add(existing.Id);
+                    continue;
+                }
+
+                var newStep = new RecipeStep
+                {
+                    RecipeId = recipe.Id,
+                    Description = step.Description,
+                    StepOrder = order++,
+                    CreateBy = CurrentUserId,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = null,
+                    DeletedAt = null,
+                    IsDeleted = false
+                };
+
+                recipe.Steps.Add(newStep);
+            }
+
+            foreach (var existing in existingSteps.Values)
+            {
+                if (!processedExistingIds.Contains(existing.Id))
+                {
+                    existing.IsDeleted = true;
+                    existing.DeletedAt = DateTime.Now;
+                    existing.UpdatedAt = DateTime.Now;
+                }
+            }
+        }
+
         private async Task<ValidatedRecipeRequest?> ValidateRecipeRequestAsync(
             RecipeRequest? request,
             Recipe? existingRecipe = null,
@@ -444,6 +549,10 @@ namespace Assignment.Controllers.Api
             var existingDetailsById = existingRecipe?.Details
                 .Where(d => !d.IsDeleted)
                 .ToDictionary(d => d.Id) ?? new Dictionary<long, RecipeDetail>();
+
+            var existingStepsById = existingRecipe?.Steps
+                .Where(s => !s.IsDeleted)
+                .ToDictionary(s => s.Id) ?? new Dictionary<long, RecipeStep>();
 
             if (!skipMetadataValidation)
             {
@@ -555,6 +664,59 @@ namespace Assignment.Controllers.Api
                 }
 
                 normalizedDetailRequests.Add((detail, existingDetail));
+            }
+
+            var stepRequests = request.Steps ?? new List<RecipeStepRequest>();
+            var normalizedStepRequests = new List<(RecipeStepRequest Request, RecipeStep? Existing, int Index)>();
+
+            for (var i = 0; i < stepRequests.Count; i++)
+            {
+                var step = stepRequests[i] ?? new RecipeStepRequest();
+                RecipeStep? existingStep = null;
+
+                if (step.Id.HasValue)
+                {
+                    if (existingRecipe == null)
+                    {
+                        ModelState.AddModelError($"{nameof(RecipeRequest.Steps)}[{i}].Id", "Không thể cập nhật bước chế biến khi công thức chưa tồn tại.");
+                    }
+                    else if (!existingStepsById.TryGetValue(step.Id.Value, out existingStep))
+                    {
+                        ModelState.AddModelError($"{nameof(RecipeRequest.Steps)}[{i}].Id", "Bước chế biến không tồn tại hoặc đã bị xóa.");
+                    }
+                }
+
+                normalizedStepRequests.Add((step, existingStep, i));
+            }
+
+            var stepOrder = 1;
+            foreach (var (requestStep, existingStep, index) in normalizedStepRequests)
+            {
+                var description = requestStep.Description?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(description))
+                {
+                    ModelState.AddModelError($"{nameof(RecipeRequest.Steps)}[{index}].Description", "Mô tả bước chế biến là bắt buộc.");
+                    continue;
+                }
+
+                if (description.Length > 2000)
+                {
+                    ModelState.AddModelError($"{nameof(RecipeRequest.Steps)}[{index}].Description", "Mô tả bước chế biến không được vượt quá 2000 ký tự.");
+                    continue;
+                }
+
+                validation.Steps.Add(new ValidatedRecipeStep
+                {
+                    ExistingStep = existingStep,
+                    Description = description,
+                    StepOrder = stepOrder++
+                });
+            }
+
+            if (!skipMetadataValidation && validation.Steps.Count == 0)
+            {
+                ModelState.AddModelError(nameof(RecipeRequest.Steps), "Cần ít nhất một bước chế biến.");
             }
 
             if (request.OutputUnitId.HasValue)
@@ -728,6 +890,7 @@ namespace Assignment.Controllers.Api
             public long? OutputUnitId { get; set; }
             public int? PreparationTime { get; set; }
             public List<RecipeDetailRequest> Details { get; set; } = new();
+            public List<RecipeStepRequest> Steps { get; set; } = new();
         }
 
         public class RecipeDetailRequest
@@ -736,6 +899,12 @@ namespace Assignment.Controllers.Api
             public long? MaterialId { get; set; }
             public decimal? Quantity { get; set; }
             public long? UnitId { get; set; }
+        }
+
+        public class RecipeStepRequest
+        {
+            public long? Id { get; set; }
+            public string? Description { get; set; }
         }
 
         public class RecipeQuery
@@ -756,6 +925,7 @@ namespace Assignment.Controllers.Api
             public DateTime CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
             public List<RecipeDetailResponse> Details { get; set; } = new();
+            public List<RecipeStepResponse> Steps { get; set; } = new();
         }
 
         private sealed class RecipeDetailResponse
@@ -775,6 +945,13 @@ namespace Assignment.Controllers.Api
             public decimal Cost { get; set; }
         }
 
+        private sealed class RecipeStepResponse
+        {
+            public long Id { get; set; }
+            public int Order { get; set; }
+            public string Description { get; set; } = string.Empty;
+        }
+
         private sealed class RecipeCostPreviewResponse
         {
             public decimal TotalCost { get; set; }
@@ -788,6 +965,7 @@ namespace Assignment.Controllers.Api
             public long? OutputUnitId { get; set; }
             public int PreparationTime { get; set; }
             public List<ValidatedRecipeDetail> Details { get; } = new();
+            public List<ValidatedRecipeStep> Steps { get; } = new();
         }
 
         private sealed class ValidatedRecipeDetail
@@ -797,6 +975,13 @@ namespace Assignment.Controllers.Api
             public Unit Unit { get; set; } = null!;
             public decimal Quantity { get; set; }
             public decimal ConversionRate { get; set; }
+        }
+
+        private sealed class ValidatedRecipeStep
+        {
+            public RecipeStep? ExistingStep { get; set; }
+            public string Description { get; set; } = string.Empty;
+            public int StepOrder { get; set; }
         }
     }
 }

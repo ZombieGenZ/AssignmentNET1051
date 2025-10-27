@@ -53,6 +53,26 @@
             min-width: 42px;
         }
 
+        .recipe-step-row {
+            border: 1px dashed var(--bs-border-color);
+            border-radius: 0.75rem;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            background-color: var(--bs-body-bg);
+        }
+
+        .recipe-step-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .recipe-step-row textarea {
+            min-height: 90px;
+        }
+
+        .recipe-step-actions .btn {
+            min-width: 36px;
+        }
+
         .recipe-cost-preview {
             background-color: var(--bs-light);
             border-radius: 0.75rem;
@@ -68,6 +88,10 @@
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+        }
+
+        .recipe-step-list li + li {
+            margin-top: 0.5rem;
         }
     </style>
 }
@@ -135,12 +159,13 @@
                             <th style="width: 160px;" class="text-center">Thời gian chuẩn bị</th>
                             <th style="width: 180px;" class="text-end">Tổng chi phí (VNĐ)</th>
                             <th style="width: 160px;" class="text-center">Nguyên vật liệu</th>
+                            <th style="width: 160px;" class="text-center">Bước chế biến</th>
                             <th style="width: 160px;" class="text-center">Hành động</th>
                         </tr>
                     </thead>
                     <tbody id="recipesTableBody">
                         <tr>
-                            <td colspan="7" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="8" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -220,6 +245,13 @@
                             </table>
                         </div>
                     </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0 text-primary">Các bước chế biến<span class="text-danger">*</span></h6>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="addRecipeStepBtn">
+                            <i class="fas fa-plus me-1"></i>Thêm bước
+                        </button>
+                    </div>
+                    <div id="recipeStepList" class="mb-4"></div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -273,6 +305,11 @@
                             </tr>
                         </tbody>
                     </table>
+                </div>
+                <div class="mt-4" id="detailRecipeStepsContainer">
+                    <h6 class="text-primary mb-3">Các bước chế biến</h6>
+                    <ol id="detailRecipeSteps" class="recipe-step-list ps-3 mb-0"></ol>
+                    <p id="detailRecipeStepsEmpty" class="text-muted mb-0 d-none">(Không có bước chế biến)</p>
                 </div>
             </div>
             <div class="modal-footer">
@@ -338,6 +375,8 @@
             const recipePreparationInput = document.getElementById('recipePreparationTime');
             const recipeDetailList = document.getElementById('recipeDetailList');
             const addRecipeDetailBtn = document.getElementById('addRecipeDetailBtn');
+            const recipeStepList = document.getElementById('recipeStepList');
+            const addRecipeStepBtn = document.getElementById('addRecipeStepBtn');
             const calculateCostBtn = document.getElementById('calculateRecipeCostBtn');
             const costPreviewContainer = document.getElementById('recipeCostPreview');
             const costPreviewBody = document.getElementById('recipeCostPreviewBody');
@@ -350,6 +389,8 @@
             const detailRecipePreparation = document.getElementById('detailRecipePreparation');
             const detailRecipeTotalCost = document.getElementById('detailRecipeTotalCost');
             const detailRecipeBody = document.getElementById('detailRecipeBody');
+            const detailRecipeSteps = document.getElementById('detailRecipeSteps');
+            const detailRecipeStepsEmpty = document.getElementById('detailRecipeStepsEmpty');
 
             const deleteModal = new bootstrap.Modal(document.getElementById('recipeDeleteModal'));
             const deleteRecipeName = document.getElementById('deleteRecipeName');
@@ -371,6 +412,13 @@
             const currencyFormatter = new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' });
 
             const formatCurrency = (value) => currencyFormatter.format(Number(value || 0));
+
+            const escapeHtml = (value) => String(value ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
 
             const showAlert = (type, message) => {
                 const wrapper = document.createElement('div');
@@ -396,7 +444,7 @@
                 }
                 if (loading) {
                     tableStatus.textContent = 'Đang tải dữ liệu công thức...';
-                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Đang tải dữ liệu...</td></tr>';
                 }
             };
 
@@ -506,7 +554,7 @@
                     renderRecipeTable();
                 }
                 catch (error) {
-                    tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">${error.message}</td></tr>`;
+                    tableBody.innerHTML = `<tr><td colspan="8" class="text-center py-4 text-danger">${error.message}</td></tr>`;
                 }
                 finally {
                     state.isLoading = false;
@@ -515,13 +563,13 @@
 
             const renderRecipeTable = () => {
                 if (!canView) {
-                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Bạn không có quyền xem công thức.</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Bạn không có quyền xem công thức.</td></tr>';
                     return;
                 }
 
                 if (state.recipes.length === 0) {
                     tableStatus.textContent = 'Không có công thức nào phù hợp điều kiện lọc hiện tại.';
-                    tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-4 text-muted">Không có dữ liệu.</td></tr>';
+                    tableBody.innerHTML = '<tr><td colspan="8" class="text-center py-4 text-muted">Không có dữ liệu.</td></tr>';
                     return;
                 }
 
@@ -529,6 +577,7 @@
 
                 const rows = state.recipes.map(recipe => {
                     const materialCount = recipe.details ? recipe.details.length : 0;
+                    const stepCount = recipe.steps ? recipe.steps.length : 0;
                     const actionButtons = [
                         `<button type="button" class="btn btn-outline-secondary btn-sm me-2" data-recipe-action="view" data-recipe-id="${recipe.id}"><i class="fas fa-eye"></i></button>`
                     ];
@@ -552,6 +601,7 @@
                             <td class="text-center">${recipe.preparationTime || 0} phút</td>
                             <td class="text-end text-success">${formatCurrency(recipe.totalCost || 0)}</td>
                             <td class="text-center">${materialCount}</td>
+                            <td class="text-center">${stepCount}</td>
                             <td class="text-center">${actionButtons.join('')}</td>
                         </tr>`;
                 });
@@ -571,12 +621,16 @@
                 clearFormErrors();
                 resetCostPreview();
                 recipeDetailList.innerHTML = '';
+                if (recipeStepList) {
+                    recipeStepList.innerHTML = '';
+                }
 
                 if (mode === 'create') {
                     recipeModalLabel.textContent = 'Thêm công thức';
                     recipeSubmitBtn.textContent = 'Thêm mới';
                     recipeIdInput.value = '';
                     addRecipeDetailRow();
+                    addRecipeStepRow();
                 } else if (recipe) {
                     recipeModalLabel.textContent = 'Cập nhật công thức';
                     recipeSubmitBtn.textContent = 'Cập nhật';
@@ -589,6 +643,16 @@
                         addRecipeDetailRow();
                     } else {
                         recipe.details.forEach(detail => addRecipeDetailRow(detail));
+                    }
+
+                    const sortedSteps = !recipe.steps || recipe.steps.length === 0
+                        ? []
+                        : recipe.steps.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+                    if (sortedSteps.length === 0) {
+                        addRecipeStepRow();
+                    } else {
+                        sortedSteps.forEach(step => addRecipeStepRow(step));
                     }
                 }
 
@@ -697,7 +761,102 @@
                 }
             };
 
-            const collectFormData = (includeDetailIds) => {
+            const updateStepIndices = () => {
+                if (!recipeStepList) {
+                    return;
+                }
+
+                const rows = Array.from(recipeStepList.querySelectorAll('.recipe-step-row'));
+                rows.forEach((row, index) => {
+                    const indexLabel = row.querySelector('.recipe-step-index');
+                    if (indexLabel) {
+                        indexLabel.textContent = index + 1;
+                    }
+
+                    const moveUpBtn = row.querySelector('.recipe-step-move-up');
+                    const moveDownBtn = row.querySelector('.recipe-step-move-down');
+
+                    if (moveUpBtn) {
+                        moveUpBtn.disabled = index === 0;
+                    }
+
+                    if (moveDownBtn) {
+                        moveDownBtn.disabled = index === rows.length - 1;
+                    }
+                });
+            };
+
+            const addRecipeStepRow = (step = null) => {
+                if (!recipeStepList) {
+                    return;
+                }
+
+                const row = document.createElement('div');
+                row.className = 'recipe-step-row';
+                row.innerHTML = `
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <div class="fw-semibold text-primary">Bước <span class="recipe-step-index"></span></div>
+                        <div class="d-flex gap-2 recipe-step-actions">
+                            <button type="button" class="btn btn-outline-secondary btn-sm recipe-step-move-up" title="Di chuyển lên">
+                                <i class="fas fa-arrow-up"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary btn-sm recipe-step-move-down" title="Di chuyển xuống">
+                                <i class="fas fa-arrow-down"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm recipe-step-remove" title="Xóa bước">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div>
+                        <textarea class="form-control recipe-step-description" rows="3" maxlength="2000" required></textarea>
+                        <input type="hidden" class="recipe-step-id" />
+                    </div>`;
+
+                recipeStepList.appendChild(row);
+
+                const descriptionInput = row.querySelector('.recipe-step-description');
+                const idInput = row.querySelector('.recipe-step-id');
+                const moveUpBtn = row.querySelector('.recipe-step-move-up');
+                const moveDownBtn = row.querySelector('.recipe-step-move-down');
+                const removeBtn = row.querySelector('.recipe-step-remove');
+
+                if (step) {
+                    descriptionInput.value = step.description || '';
+                    if (step.id) {
+                        idInput.value = step.id;
+                    }
+                }
+
+                moveUpBtn.addEventListener('click', () => {
+                    const previous = row.previousElementSibling;
+                    if (previous) {
+                        recipeStepList.insertBefore(row, previous);
+                        updateStepIndices();
+                    }
+                });
+
+                moveDownBtn.addEventListener('click', () => {
+                    const next = row.nextElementSibling;
+                    if (next) {
+                        recipeStepList.insertBefore(row, next.nextElementSibling);
+                        updateStepIndices();
+                    }
+                });
+
+                removeBtn.addEventListener('click', () => {
+                    if (recipeStepList.children.length <= 1) {
+                        showAlert('warning', 'Công thức cần có ít nhất một bước chế biến.');
+                        return;
+                    }
+                    row.remove();
+                    updateStepIndices();
+                });
+
+                updateStepIndices();
+            };
+
+            const collectFormData = (includeExistingIds) => {
                 const details = [];
                 recipeDetailList.querySelectorAll('.recipe-detail-row').forEach(row => {
                     const materialId = Number(row.querySelector('.recipe-detail-material').value);
@@ -716,19 +875,39 @@
                         quantity
                     };
 
-                    if (includeDetailIds && idValue) {
+                    if (includeExistingIds && idValue) {
                         detail.id = Number(idValue);
                     }
 
                     details.push(detail);
                 });
 
+                const steps = [];
+                if (recipeStepList) {
+                    recipeStepList.querySelectorAll('.recipe-step-row').forEach(row => {
+                        const description = row.querySelector('.recipe-step-description').value.trim();
+                        if (!description) {
+                            return;
+                        }
+
+                        const step = { description };
+                        const idValue = row.querySelector('.recipe-step-id').value;
+
+                        if (includeExistingIds && idValue) {
+                            step.id = Number(idValue);
+                        }
+
+                        steps.push(step);
+                    });
+                }
+
                 return {
                     name: recipeNameInput.value,
                     description: recipeDescriptionInput.value,
                     outputUnitId: recipeOutputUnitSelect.value ? Number(recipeOutputUnitSelect.value) : null,
                     preparationTime: recipePreparationInput.value ? Number(recipePreparationInput.value) : null,
-                    details
+                    details,
+                    steps
                 };
             };
 
@@ -740,6 +919,11 @@
 
                 if (!payload.details || payload.details.length === 0) {
                     showFormErrors({ Details: ['Cần ít nhất một nguyên vật liệu hợp lệ.'] });
+                    return;
+                }
+
+                if (!payload.steps || payload.steps.length === 0) {
+                    showFormErrors({ Steps: ['Cần ít nhất một bước chế biến hợp lệ.'] });
                     return;
                 }
 
@@ -893,6 +1077,31 @@
                     detailRecipeBody.innerHTML = rows.join('');
                 }
 
+                if (!recipe.steps || recipe.steps.length === 0) {
+                    if (detailRecipeSteps) {
+                        detailRecipeSteps.innerHTML = '';
+                        detailRecipeSteps.classList.add('d-none');
+                    }
+                    if (detailRecipeStepsEmpty) {
+                        detailRecipeStepsEmpty.classList.remove('d-none');
+                    }
+                } else {
+                    const sortedSteps = recipe.steps
+                        .slice()
+                        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+                    if (detailRecipeSteps) {
+                        detailRecipeSteps.innerHTML = sortedSteps
+                            .map(step => `<li>${escapeHtml(step.description || '').replace(/\n/g, '<br/>')}</li>`)
+                            .join('');
+                        detailRecipeSteps.classList.remove('d-none');
+                    }
+
+                    if (detailRecipeStepsEmpty) {
+                        detailRecipeStepsEmpty.classList.add('d-none');
+                    }
+                }
+
                 detailModal.show();
             };
 
@@ -980,6 +1189,9 @@
             });
 
             addRecipeDetailBtn.addEventListener('click', () => addRecipeDetailRow());
+            if (addRecipeStepBtn) {
+                addRecipeStepBtn.addEventListener('click', () => addRecipeStepRow());
+            }
             calculateCostBtn.addEventListener('click', () => calculateRecipeCost());
             confirmDeleteBtn.addEventListener('click', () => confirmDeleteRecipe());
 
@@ -1002,6 +1214,10 @@
             recipeModalElement.addEventListener('hidden.bs.modal', () => {
                 recipeForm.reset();
                 recipeDetailList.innerHTML = '';
+                if (recipeStepList) {
+                    recipeStepList.innerHTML = '';
+                    updateStepIndices();
+                }
                 clearFormErrors();
                 resetCostPreview();
             });

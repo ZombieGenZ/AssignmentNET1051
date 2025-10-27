@@ -1701,6 +1701,47 @@ namespace Assignment.Migrations
                     b.ToTable("RecipeDetails");
                 });
 
+            modelBuilder.Entity("Assignment.Models.RecipeStep", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreateBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("RecipeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("StepOrder")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RecipeId");
+
+                    b.ToTable("RecipeSteps");
+                });
+
             modelBuilder.Entity("Assignment.Models.Unit", b =>
                 {
                     b.Property<long>("Id")
@@ -2108,6 +2149,17 @@ namespace Assignment.Migrations
                     b.Navigation("Unit");
                 });
 
+            modelBuilder.Entity("Assignment.Models.RecipeStep", b =>
+                {
+                    b.HasOne("Assignment.Models.Recipe", "Recipe")
+                        .WithMany("Steps")
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Recipe");
+                });
+
             modelBuilder.Entity("Assignment.Models.Rating", b =>
                 {
                     b.HasOne("Assignment.Models.Combo", "Combo")
@@ -2260,6 +2312,8 @@ namespace Assignment.Migrations
             modelBuilder.Entity("Assignment.Models.Recipe", b =>
                 {
                     b.Navigation("Details");
+
+                    b.Navigation("Steps");
                 });
 
             modelBuilder.Entity("Assignment.Models.Reward", b =>

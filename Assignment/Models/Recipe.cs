@@ -22,5 +22,7 @@ namespace Assignment.Models
         public int PreparationTime { get; set; }
 
         public virtual ICollection<RecipeDetail> Details { get; set; } = new List<RecipeDetail>();
+
+        public virtual ICollection<RecipeStep> Steps { get; set; } = new List<RecipeStep>();
     }
 }
