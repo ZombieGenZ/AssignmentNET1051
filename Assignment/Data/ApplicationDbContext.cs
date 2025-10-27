@@ -45,5 +45,23 @@ namespace Assignment.Data
         public DbSet<Unit> Units { get; set; }
         public DbSet<ConversionUnit> ConversionUnits { get; set; }
         public DbSet<Material> Materials { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder builder)
+        {
+            base.OnModelCreating(builder);
+
+            builder.Entity<ConversionUnit>(entity =>
+            {
+                entity.HasOne(conversion => conversion.FromUnit)
+                      .WithMany(unit => unit.Conversions)
+                      .HasForeignKey(conversion => conversion.FromUnitId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(conversion => conversion.ToUnit)
+                      .WithMany(unit => unit.ConvertedFrom)
+                      .HasForeignKey(conversion => conversion.ToUnitId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+        }
     }
 }
