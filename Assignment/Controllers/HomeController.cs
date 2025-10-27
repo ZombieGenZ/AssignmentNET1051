@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Security.Claims;
@@ -185,7 +186,23 @@ namespace Assignment.Controllers
             if (product == null)
                 return NotFound();
 
+            var wasPublished = product.IsPublish;
             product.RefreshDerivedFields();
+
+            var hasAvailableTypes = product.ProductTypes?
+                .Any(pt => !pt.IsDeleted && pt.IsPublish) ?? false;
+
+            if (!hasAvailableTypes)
+            {
+                if (wasPublished)
+                {
+                    product.IsPublish = false;
+                    product.UpdatedAt = DateTime.Now;
+                    await _context.SaveChangesAsync();
+                }
+
+                return NotFound();
+            }
 
             var viewModel = new ProductDetailViewModel
             {
@@ -289,7 +306,50 @@ namespace Assignment.Controllers
             if (combo == null)
                 return NotFound();
 
+            var productPublishSnapshot = new Dictionary<long, bool>();
+            if (combo.ComboItems != null)
+            {
+                foreach (var item in combo.ComboItems)
+                {
+                    if (item?.Product == null)
+                    {
+                        continue;
+                    }
+
+                    if (!productPublishSnapshot.ContainsKey(item.Product.Id))
+                    {
+                        productPublishSnapshot[item.Product.Id] = item.Product.IsPublish;
+                    }
+                }
+            }
+
             combo.RefreshDerivedFields();
+
+            var publishStateChanged = false;
+
+            foreach (var item in combo.ComboItems ?? Enumerable.Empty<ComboItem>())
+            {
+                if (item?.Product == null)
+                {
+                    continue;
+                }
+
+                var product = item.Product;
+                var hasAvailableTypes = product.ProductTypes?
+                    .Any(pt => !pt.IsDeleted && pt.IsPublish) ?? false;
+
+                if (!hasAvailableTypes && productPublishSnapshot.TryGetValue(product.Id, out var wasPublished) && wasPublished)
+                {
+                    product.IsPublish = false;
+                    product.UpdatedAt = DateTime.Now;
+                    publishStateChanged = true;
+                }
+            }
+
+            if (publishStateChanged)
+            {
+                await _context.SaveChangesAsync();
+            }
 
             var viewModel = new ComboDetailViewModel
             {

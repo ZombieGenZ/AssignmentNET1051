@@ -391,6 +391,34 @@
         font-size: 0.85rem;
     }
 
+    .combo-item-card-unavailable {
+        pointer-events: none;
+        cursor: default;
+        background: #f8fafc;
+        border: 1px dashed #cbd5f5;
+        box-shadow: none;
+        transform: none !important;
+    }
+
+    .combo-item-card-unavailable:hover {
+        box-shadow: none;
+        border-color: #cbd5f5;
+    }
+
+    .combo-item-card-unavailable strong {
+        color: #475569;
+    }
+
+    .combo-item-card-unavailable span {
+        color: #94a3b8;
+    }
+
+    .combo-item-card-unavailable .combo-item-status {
+        color: #ef4444;
+        font-weight: 600;
+        display: block;
+    }
+
     @@media (max-width: 991.98px) {
         .detail-container {
             padding: 2rem;
@@ -1281,15 +1309,33 @@
                                         var itemImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl)
                                             ? defaultImageUrl
                                             : product.ProductImageUrl;
-                                        <a class="combo-item-card" asp-controller="Home" asp-action="ProductDetail" asp-route-id="@product.Id">
-                                            <img src="@itemImageUrl"
-                                                 alt="@product.Name"
-                                                 onerror="this.onerror=null;this.src='@defaultImageUrl';" />
-                                            <div>
-                                                <strong>@product.Name</strong>
-                                                <span>x@item.Quantity</span>
+                                        var hasPublishedTypes = product.ProductTypes?.Any(pt => !pt.IsDeleted && pt.IsPublish) ?? false;
+                                        var canNavigateToProduct = product.IsPublish && hasPublishedTypes;
+                                        if (canNavigateToProduct)
+                                        {
+                                            <a class="combo-item-card" asp-controller="Home" asp-action="ProductDetail" asp-route-id="@product.Id">
+                                                <img src="@itemImageUrl"
+                                                     alt="@product.Name"
+                                                     onerror="this.onerror=null;this.src='@defaultImageUrl';" />
+                                                <div>
+                                                    <strong>@product.Name</strong>
+                                                    <span>x@item.Quantity</span>
+                                                </div>
+                                            </a>
+                                        }
+                                        else
+                                        {
+                                            <div class="combo-item-card combo-item-card-unavailable" aria-disabled="true">
+                                                <img src="@itemImageUrl"
+                                                     alt="@product.Name"
+                                                     onerror="this.onerror=null;this.src='@defaultImageUrl';" />
+                                                <div>
+                                                    <strong>@product.Name</strong>
+                                                    <span class="combo-item-status">Hiện không bán riêng</span>
+                                                    <span>x@item.Quantity</span>
+                                                </div>
                                             </div>
-                                        </a>
+                                        }
                                     }
                                     else
                                     {
