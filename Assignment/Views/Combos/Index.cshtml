@@ -1055,6 +1055,32 @@
                 return productsCache;
             }
 
+            async function fetchProductByIdFromApi(productId) {
+                const numericId = Number(productId);
+                if (!Number.isFinite(numericId) || numericId <= 0) {
+                    return null;
+                }
+
+                try {
+                    const response = await fetch(`/api/products/${numericId}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        return null;
+                    }
+
+                    const rawProduct = await response.json();
+                    mergeProductsIntoCache([rawProduct]);
+                    return getProductById(numericId);
+                } catch (error) {
+                    console.error('Failed to fetch product by id', error);
+                    return null;
+                }
+            }
+
             function mergeProductsIntoCache(products) {
                 const normalized = ensureProductsCache(products);
 
@@ -1210,8 +1236,20 @@
                 });
 
                 productSelect.addEventListener('change', async () => {
-                    const selectedValue = productSelect.value;
-                    let product = getProductById(selectedValue);
+                    const selectedValue = productSelect.value ? productSelect.value.trim() : '';
+
+                    if (!selectedValue) {
+                        populateProductTypeSelect(typeSelect, null, null);
+                        return;
+                    }
+
+                    const numericId = Number(selectedValue);
+                    if (!Number.isFinite(numericId) || numericId <= 0) {
+                        populateProductTypeSelect(typeSelect, null, null);
+                        return;
+                    }
+
+                    let product = getProductById(numericId);
 
                     if (!product || (Array.isArray(product.productTypes) && product.productTypes.length > 0)) {
                         populateProductTypeSelect(typeSelect, product, null);
@@ -1224,7 +1262,15 @@
                         showAlert('danger', error.message || 'Không thể tải danh sách sản phẩm.');
                     }
 
-                    product = getProductById(selectedValue);
+                    product = getProductById(numericId);
+
+                    if (!product || !Array.isArray(product.productTypes) || product.productTypes.length === 0) {
+                        const fetchedProduct = await fetchProductByIdFromApi(numericId);
+                        if (fetchedProduct) {
+                            product = fetchedProduct;
+                        }
+                    }
+
                     populateProductTypeSelect(typeSelect, product, null);
                 });
 

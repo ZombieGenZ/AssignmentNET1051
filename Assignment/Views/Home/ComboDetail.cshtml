@@ -1319,7 +1319,7 @@
                                                      onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                                 <div>
                                                     <strong>@product.Name</strong>
-                                                    <span>x@item.Quantity</span>
+                                                    <span>@($"x{item.Quantity}")</span>
                                                 </div>
                                             </a>
                                         }
@@ -1332,7 +1332,7 @@
                                                 <div>
                                                     <strong>@product.Name</strong>
                                                     <span class="combo-item-status">Hiện không bán riêng</span>
-                                                    <span>x@item.Quantity</span>
+                                                    <span>@($"x{item.Quantity}")</span>
                                                 </div>
                                             </div>
                                         }
@@ -1343,7 +1343,7 @@
                                             <img src="@defaultImageUrl" alt="Sản phẩm" />
                                             <div>
                                                 <strong>Sản phẩm</strong>
-                                                <span>x@item.Quantity</span>
+                                                <span>@($"x{item.Quantity}")</span>
                                             </div>
                                         </div>
                                     }
