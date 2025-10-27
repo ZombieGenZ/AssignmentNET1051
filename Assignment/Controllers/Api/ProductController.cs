@@ -47,6 +47,7 @@ namespace Assignment.Controllers.Api
             IQueryable<Product> query = _context.Products
                 .AsNoTracking()
                 .Include(p => p.Category)
+                .Include(p => p.ProductTypes.Where(pt => !pt.IsDeleted))
                 .Where(p => !p.IsDeleted);
 
             if (!canGetAll)
@@ -59,24 +60,6 @@ namespace Assignment.Controllers.Api
                 .ThenBy(p => p.Name)
                 .ToListAsync();
 
-            var productIds = products
-                .Select(p => p.Id)
-                .ToList();
-
-            var productTypeLookup = await GetActiveProductTypesByProductIds(productIds);
-
-            foreach (var product in products)
-            {
-                if (productTypeLookup.TryGetValue(product.Id, out var types))
-                {
-                    product.ProductTypes = types;
-                }
-                else
-                {
-                    product.ProductTypes = new List<ProductType>();
-                }
-            }
-
             var responses = products
                 .Select(MapToResponse)
                 .ToList();
@@ -88,7 +71,9 @@ namespace Assignment.Controllers.Api
         public async Task<IActionResult> GetProduct(long id)
         {
             var product = await _context.Products
+                .AsNoTracking()
                 .Include(p => p.Category)
+                .Include(p => p.ProductTypes.Where(pt => !pt.IsDeleted))
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
             if (product == null)
@@ -102,34 +87,7 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            var productTypeLookup = await GetActiveProductTypesByProductIds(new List<long> { product.Id });
-
-            if (productTypeLookup.TryGetValue(product.Id, out var types))
-            {
-                product.ProductTypes = types;
-            }
-            else
-            {
-                product.ProductTypes = new List<ProductType>();
-            }
-
             return Ok(MapToResponse(product));
-        }
-
-        private async Task<Dictionary<long, List<ProductType>>> GetActiveProductTypesByProductIds(List<long> productIds)
-        {
-            if (productIds == null || productIds.Count == 0)
-            {
-                return new Dictionary<long, List<ProductType>>();
-            }
-
-            return await _context.ProductTypes
-                .AsNoTracking()
-                .Where(pt => productIds.Contains(pt.ProductId) && !pt.IsDeleted)
-                .OrderBy(pt => pt.Name)
-                .ThenBy(pt => pt.Id)
-                .GroupBy(pt => pt.ProductId)
-                .ToDictionaryAsync(group => group.Key, group => group.ToList());
         }
 
         [HttpPost]
