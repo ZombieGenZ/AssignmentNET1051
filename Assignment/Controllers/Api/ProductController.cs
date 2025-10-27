@@ -60,12 +60,40 @@ namespace Assignment.Controllers.Api
                 .ThenBy(p => p.Name)
                 .ToListAsync();
 
-            foreach (var product in products)
+            var productIds = products
+                .Select(p => p.Id)
+                .ToList();
+
+            Dictionary<long, List<ProductType>> productTypeLookup = new();
+
+            if (productIds.Count > 0)
             {
-                product.RefreshDerivedFields();
+                productTypeLookup = await _context.ProductTypes
+                    .AsNoTracking()
+                    .Where(pt => productIds.Contains(pt.ProductId) && !pt.IsDeleted)
+                    .OrderBy(pt => pt.Name)
+                    .ThenBy(pt => pt.Id)
+                    .GroupBy(pt => pt.ProductId)
+                    .ToDictionaryAsync(group => group.Key, group => group.ToList());
             }
 
-            return Ok(products.Select(MapToResponse));
+            foreach (var product in products)
+            {
+                if (productTypeLookup.TryGetValue(product.Id, out var types))
+                {
+                    product.ProductTypes = types;
+                }
+                else
+                {
+                    product.ProductTypes = new List<ProductType>();
+                }
+            }
+
+            var responses = products
+                .Select(MapToResponse)
+                .ToList();
+
+            return Ok(responses);
         }
 
         [HttpGet("{id:long}")]
@@ -87,7 +115,11 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            product.RefreshDerivedFields();
+            product.ProductTypes = product.ProductTypes?
+                .Where(pt => !pt.IsDeleted)
+                .OrderBy(pt => pt.Name)
+                .ThenBy(pt => pt.Id)
+                .ToList() ?? new List<ProductType>();
 
             return Ok(MapToResponse(product));
         }
@@ -1005,8 +1037,14 @@ namespace Assignment.Controllers.Api
         {
             product.RefreshDerivedFields();
 
+            var activeTypes = (product.ProductTypes ?? Enumerable.Empty<ProductType>())
+                .Where(pt => !pt.IsDeleted)
+                .OrderBy(pt => pt.Name)
+                .ThenBy(pt => pt.Id)
+                .ToList();
+
             var defaultType = product.PrimaryProductType
-                ?? product.ProductTypes?.FirstOrDefault(pt => !pt.IsDeleted);
+                ?? activeTypes.FirstOrDefault();
 
             var discountValue = defaultType?.Discount.HasValue == true
                 ? (long?)Math.Round(defaultType.Discount.Value)
@@ -1040,8 +1078,7 @@ namespace Assignment.Controllers.Api
                 TotalSold = product.TotalSold,
                 MinPreparationTime = product.MinPreparationTime,
                 MinCalories = product.MinCalories,
-                ProductTypes = product.ProductTypes?
-                    .Where(pt => !pt.IsDeleted)
+                ProductTypes = activeTypes
                     .Select(pt => new ProductTypeResponse
                     {
                         Id = pt.Id,
