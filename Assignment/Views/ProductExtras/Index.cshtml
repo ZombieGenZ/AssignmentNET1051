@@ -74,6 +74,48 @@
         .product-extra-product-row .btn {
             min-width: 40px;
         }
+
+        .image-upload-preview {
+            position: relative;
+            border: 1px dashed var(--bs-border-color);
+            border-radius: 0.5rem;
+            min-height: 180px;
+            background-color: var(--bs-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        .image-upload-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-upload-preview.uploading {
+            border-color: var(--bs-primary);
+        }
+
+        .image-upload-placeholder {
+            text-align: center;
+            color: var(--bs-secondary-color);
+            padding: 1.5rem 1rem;
+        }
+
+        .image-upload-placeholder i {
+            display: block;
+            margin-bottom: 0.5rem;
+        }
+
+        .image-upload-spinner {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(255, 255, 255, 0.7);
+        }
     </style>
 }
 
@@ -195,8 +237,24 @@
                             <input type="text" class="form-control" id="productExtraName" maxlength="200" required />
                         </div>
                         <div class="col-md-6">
-                            <label for="productExtraImageUrl" class="form-label">URL ảnh</label>
-                            <input type="url" class="form-control" id="productExtraImageUrl" maxlength="1000" placeholder="https://example.com/extra.jpg" inputmode="url" />
+                            <label for="productExtraImageFile" class="form-label">Ảnh sản phẩm bổ sung</label>
+                            <input type="file" class="form-control" id="productExtraImageFile" accept="image/*" />
+                            <div class="image-upload-preview mt-2" id="productExtraImagePreviewWrapper">
+                                <img src="" alt="Xem trước ảnh sản phẩm bổ sung" id="productExtraImagePreview" class="d-none" />
+                                <div class="image-upload-placeholder" id="productExtraImagePlaceholder">
+                                    <i class="fas fa-image fa-2x"></i>
+                                    <div>Chưa có ảnh</div>
+                                </div>
+                                <div class="image-upload-spinner d-none" id="productExtraImageUploading">
+                                    <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
+                                </div>
+                            </div>
+                            <div class="form-text text-muted" id="productExtraImageUploadFeedback">Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
+                            <div class="mt-3">
+                                <label for="productExtraImageUrl" class="form-label">Hoặc nhập URL ảnh</label>
+                                <input type="url" class="form-control" id="productExtraImageUrl" maxlength="1000" placeholder="https://example.com/extra.jpg" inputmode="url" />
+                                <div class="form-text text-muted">Dán liên kết ảnh trực tiếp nếu ảnh được lưu trữ bên ngoài.</div>
+                            </div>
                         </div>
                         <div class="col-md-4">
                             <label for="productExtraPrice" class="form-label">Giá bán<span class="text-danger">*</span></label>
@@ -351,6 +409,8 @@
             const canBulkManage = canDelete || canUpdate;
             const API_BASE_URL = '/api/product-extras';
             const PRODUCT_OPTIONS_URL = `${API_BASE_URL}/product-options`;
+            const IMAGE_UPLOAD_URL = '/api/uploads/images';
+            const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
             const columnCount = @(canBulkManage ? 10 : 9);
 
             const tableBody = document.getElementById('productExtrasTableBody');
@@ -390,6 +450,13 @@
 
             const nameInput = document.getElementById('productExtraName');
             const imageUrlInput = document.getElementById('productExtraImageUrl');
+            const imageFileInput = document.getElementById('productExtraImageFile');
+            const imagePreviewWrapper = document.getElementById('productExtraImagePreviewWrapper');
+            const imagePreview = document.getElementById('productExtraImagePreview');
+            const imagePlaceholder = document.getElementById('productExtraImagePlaceholder');
+            const imageUploadingIndicator = document.getElementById('productExtraImageUploading');
+            const imageFeedback = document.getElementById('productExtraImageUploadFeedback');
+            const defaultImageFeedback = imageFeedback ? imageFeedback.textContent.trim() : '';
             const priceInput = document.getElementById('productExtraPrice');
             const stockInput = document.getElementById('productExtraStock');
             const caloriesInput = document.getElementById('productExtraCalories');
@@ -408,12 +475,24 @@
             const clearProductBtn = document.getElementById('clearProductOptionsBtn');
             const importProductBtnInitialHtml = importProductBtn ? importProductBtn.innerHTML : '';
 
+            if (productExtraModalEl) {
+                productExtraModalEl.addEventListener('hidden.bs.modal', () => {
+                    revokeTemporaryImageUrl();
+                    setImageUploadLoading(false);
+                    if (imageFileInput) {
+                        imageFileInput.value = '';
+                    }
+                });
+            }
+
             let editingId = null;
             let deleteId = null;
             let allProductExtras = [];
             let filteredProductExtras = [];
             let productOptions = [];
             const selectedIds = new Set();
+            let isUploadingImage = false;
+            let temporaryImageObjectUrl = null;
 
             const discountLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(discountLabels.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value)));
 
@@ -457,6 +536,286 @@
 
             function formatBoolean(value) {
                 return value ? '<span class="badge bg-success">Có</span>' : '<span class="badge bg-secondary">Không</span>';
+            }
+
+            function setImageUploadFeedback(message, tone = 'muted') {
+                if (!imageFeedback) {
+                    return;
+                }
+
+                const text = message && message.trim().length > 0
+                    ? message.trim()
+                    : (defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).');
+
+                imageFeedback.textContent = text;
+                imageFeedback.classList.remove('text-danger', 'text-success', 'text-muted');
+
+                if (tone === 'error') {
+                    imageFeedback.classList.add('text-danger');
+                } else if (tone === 'success') {
+                    imageFeedback.classList.add('text-success');
+                } else {
+                    imageFeedback.classList.add('text-muted');
+                }
+            }
+
+            function setImageUploadLoading(isLoading) {
+                isUploadingImage = Boolean(isLoading);
+                if (imagePreviewWrapper) {
+                    imagePreviewWrapper.classList.toggle('uploading', isLoading);
+                }
+                if (imageUploadingIndicator) {
+                    imageUploadingIndicator.classList.toggle('d-none', !isLoading);
+                }
+            }
+
+            function showProductExtraImagePlaceholder() {
+                if (imagePreview) {
+                    imagePreview.src = '';
+                    imagePreview.classList.add('d-none');
+                }
+                if (imagePlaceholder) {
+                    imagePlaceholder.classList.remove('d-none');
+                }
+            }
+
+            function showProductExtraImage(url) {
+                if (!url) {
+                    showProductExtraImagePlaceholder();
+                    return;
+                }
+
+                if (imagePreview) {
+                    imagePreview.src = url;
+                    imagePreview.classList.remove('d-none');
+                }
+                if (imagePlaceholder) {
+                    imagePlaceholder.classList.add('d-none');
+                }
+            }
+
+            function revokeTemporaryImageUrl() {
+                if (temporaryImageObjectUrl) {
+                    URL.revokeObjectURL(temporaryImageObjectUrl);
+                    temporaryImageObjectUrl = null;
+                }
+            }
+
+            function normalizeImageUrlValue(value) {
+                if (!value) {
+                    return '';
+                }
+                return value.trim();
+            }
+
+            function isValidImageUrl(url) {
+                if (!url) {
+                    return false;
+                }
+
+                try {
+                    const parsed = new URL(url, window.location.origin);
+                    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+                } catch (error) {
+                    return false;
+                }
+            }
+
+            function applyImageUrl(url, mode = 'default') {
+                const normalized = normalizeImageUrlValue(url);
+                if (imageUrlInput) {
+                    imageUrlInput.value = normalized;
+                }
+
+                if (!normalized) {
+                    showProductExtraImagePlaceholder();
+                    setImageUploadFeedback(defaultImageFeedback, 'muted');
+                    return;
+                }
+
+                if (!isValidImageUrl(normalized)) {
+                    showProductExtraImagePlaceholder();
+                    setImageUploadFeedback('URL ảnh không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.', 'error');
+                    return;
+                }
+
+                showProductExtraImage(normalized);
+
+                let message = defaultImageFeedback || 'Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).';
+                let tone = 'muted';
+
+                switch (mode) {
+                    case 'existing':
+                        message = 'Ảnh hiện tại sẽ được giữ nguyên nếu bạn không tải ảnh mới.';
+                        break;
+                    case 'upload-success':
+                        message = 'Ảnh đã được tải lên thành công.';
+                        tone = 'success';
+                        break;
+                    case 'manual-pending':
+                        message = 'Ảnh sẽ được sử dụng khi lưu.';
+                        break;
+                    case 'manual-confirmed':
+                        message = 'URL ảnh đã được cập nhật.';
+                        tone = 'success';
+                        break;
+                    default:
+                        break;
+                }
+
+                setImageUploadFeedback(message, tone);
+            }
+
+            function resetImageUploadState() {
+                revokeTemporaryImageUrl();
+                setImageUploadLoading(false);
+                if (imageFileInput) {
+                    imageFileInput.value = '';
+                }
+                applyImageUrl('', 'default');
+            }
+
+            function validateImageFile(file) {
+                if (!file) {
+                    return 'Vui lòng chọn một file ảnh hợp lệ.';
+                }
+
+                if (file.size > MAX_IMAGE_SIZE) {
+                    return 'Ảnh vượt quá dung lượng cho phép (tối đa 5MB).';
+                }
+
+                const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+                const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+                const fileType = (file.type || '').toLowerCase();
+                const dotIndex = file.name.lastIndexOf('.');
+                const extension = dotIndex >= 0 ? file.name.substring(dotIndex).toLowerCase() : '';
+                const isTypeValid = allowedTypes.includes(fileType);
+                const isExtensionValid = allowedExtensions.includes(extension);
+
+                if (!isTypeValid && !isExtensionValid) {
+                    return 'Vui lòng chọn file ảnh định dạng JPG, PNG, GIF hoặc WEBP.';
+                }
+
+                return '';
+            }
+
+            async function handleImageFileChange(event) {
+                const file = event?.target?.files ? event.target.files[0] : null;
+
+                if (!file) {
+                    if (imageUrlInput && imageUrlInput.value) {
+                        applyImageUrl(imageUrlInput.value, 'existing');
+                    } else {
+                        applyImageUrl('', 'default');
+                    }
+                    return;
+                }
+
+                const validationMessage = validateImageFile(file);
+                if (validationMessage) {
+                    setImageUploadFeedback(validationMessage, 'error');
+                    if (imageFileInput) {
+                        imageFileInput.value = '';
+                    }
+                    if (imageUrlInput && imageUrlInput.value) {
+                        applyImageUrl(imageUrlInput.value, 'existing');
+                    } else {
+                        showProductExtraImagePlaceholder();
+                    }
+                    return;
+                }
+
+                revokeTemporaryImageUrl();
+                temporaryImageObjectUrl = URL.createObjectURL(file);
+                showProductExtraImage(temporaryImageObjectUrl);
+                setImageUploadFeedback('Đang tải ảnh lên...', 'muted');
+                setImageUploadLoading(true);
+
+                const previousUrl = imageUrlInput ? imageUrlInput.value : '';
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch(IMAGE_UPLOAD_URL, {
+                        method: 'POST',
+                        headers: {
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const errorResponse = await response.json().catch(() => null);
+                        const message = errorResponse?.message || 'Không thể tải ảnh lên. Vui lòng thử lại sau.';
+                        throw new Error(message);
+                    }
+
+                    const result = await response.json();
+                    if (!result || !result.url) {
+                        throw new Error('Máy chủ không trả về đường dẫn ảnh.');
+                    }
+
+                    revokeTemporaryImageUrl();
+                    applyImageUrl(result.url, 'upload-success');
+                } catch (error) {
+                    revokeTemporaryImageUrl();
+                    const previous = normalizeImageUrlValue(previousUrl);
+                    if (previous && isValidImageUrl(previous)) {
+                        showProductExtraImage(previous);
+                        if (imageUrlInput) {
+                            imageUrlInput.value = previous;
+                        }
+                    } else {
+                        applyImageUrl('', 'default');
+                    }
+
+                    const message = error instanceof Error
+                        ? error.message
+                        : 'Không thể tải ảnh lên. Vui lòng thử lại sau.';
+                    setImageUploadFeedback(message, 'error');
+                } finally {
+                    setImageUploadLoading(false);
+                    if (imageFileInput) {
+                        imageFileInput.value = '';
+                    }
+                }
+            }
+
+            function handleManualImageUrl({ forceConfirm = false } = {}) {
+                if (!imageUrlInput) {
+                    return;
+                }
+
+                const value = normalizeImageUrlValue(imageUrlInput.value);
+                if (imageUrlInput.value !== value) {
+                    imageUrlInput.value = value;
+                }
+
+                if (!value) {
+                    applyImageUrl('', 'default');
+                    return;
+                }
+
+                if (!isValidImageUrl(value)) {
+                    showProductExtraImagePlaceholder();
+                    const message = forceConfirm
+                        ? 'URL ảnh không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.'
+                        : 'Nhập URL ảnh đầy đủ để xem trước.';
+                    setImageUploadFeedback(message, forceConfirm ? 'error' : 'muted');
+                    return;
+                }
+
+                applyImageUrl(value, forceConfirm ? 'manual-confirmed' : 'manual-pending');
+            }
+
+            if (imageFileInput) {
+                imageFileInput.addEventListener('change', handleImageFileChange);
+            }
+
+            if (imageUrlInput) {
+                imageUrlInput.addEventListener('input', () => handleManualImageUrl({ forceConfirm: false }));
+                imageUrlInput.addEventListener('blur', () => handleManualImageUrl({ forceConfirm: true }));
             }
 
             function showAlert(message, type = 'success') {
@@ -980,6 +1339,7 @@
                 productExtraForm.classList.remove('was-validated');
                 productExtraForm.reset();
                 clearValidationErrors();
+                resetImageUploadState();
                 submitButton.disabled = false;
                 submitButton.textContent = 'Thêm mới';
                 discountInput.disabled = discountTypeSelect.value === String(@((int)DiscountType.None));
@@ -992,7 +1352,7 @@
 
             function fillForm(extra) {
                 nameInput.value = extra.name ?? '';
-                imageUrlInput.value = extra.imageUrl ?? '';
+                applyImageUrl(extra.imageUrl ?? '', extra.imageUrl ? 'existing' : 'default');
                 priceInput.value = Number(extra.price ?? 0);
                 stockInput.value = Number(extra.stock ?? 0);
                 caloriesInput.value = Number(extra.calories ?? 0);
@@ -1342,13 +1702,30 @@
                     return;
                 }
 
+                if (isUploadingImage) {
+                    setImageUploadFeedback('Vui lòng đợi ảnh tải lên hoàn tất trước khi lưu.', 'error');
+                    return;
+                }
+
+                if (imageUrlInput) {
+                    handleManualImageUrl({ forceConfirm: true });
+                }
+
+                const normalizedImageUrl = normalizeImageUrlValue(imageUrlInput ? imageUrlInput.value : '');
+                if (normalizedImageUrl && !isValidImageUrl(normalizedImageUrl)) {
+                    if (imageUrlInput) {
+                        imageUrlInput.focus();
+                    }
+                    return;
+                }
+
                 clearValidationErrors();
 
                 const selectedProductIds = getSelectedProductIds();
 
                 const payload = {
                     name: nameInput.value.trim(),
-                    imageUrl: imageUrlInput.value.trim() || null,
+                    imageUrl: normalizedImageUrl || null,
                     price: Number(priceInput.value ?? 0),
                     stock: Number(stockInput.value ?? 0),
                     calories: Number(caloriesInput.value ?? 0),
