@@ -308,6 +308,7 @@ using (var scope = app.Services.CreateScope())
     await EnsureRoleMetadataColumnsAsync(dbContext);
     await EnsureVoucherMinimumRankColumnAsync(dbContext);
     await EnsureProductTypeSelectionTablesAsync(dbContext);
+    await EnsureProductExtraTablesAsync(dbContext);
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var usersWithoutSecurityStamp = await userManager.Users
@@ -475,6 +476,66 @@ BEGIN
             FOREIGN KEY([ProductTypeId]) REFERENCES [dbo].[ProductTypes]([Id]);
     END;
 END;";
+
+    await context.Database.ExecuteSqlRawAsync(ensureSql);
+}
+
+static async Task EnsureProductExtraTablesAsync(ApplicationDbContext context)
+{
+    const string ensureSql = @"
+IF OBJECT_ID(N'dbo.ProductExtras', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ProductExtras]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [Name] NVARCHAR(200) NOT NULL,
+        [ImageUrl] NVARCHAR(1000) NULL,
+        [Price] DECIMAL(18,2) NOT NULL,
+        [Stock] INT NOT NULL,
+        [DiscountType] INT NOT NULL,
+        [Discount] DECIMAL(18,2) NULL,
+        [Calories] INT NOT NULL,
+        [Ingredients] NVARCHAR(2000) NOT NULL,
+        [IsSpicy] BIT NOT NULL,
+        [IsVegetarian] BIT NOT NULL,
+        [IsPublish] BIT NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_ProductExtras] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+END;
+
+IF OBJECT_ID(N'dbo.ProductExtraProducts', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ProductExtraProducts]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [ProductExtraId] BIGINT NOT NULL,
+        [ProductId] BIGINT NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_ProductExtraProducts] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_ProductExtraProducts_ProductExtraId] ON [dbo].[ProductExtraProducts]([ProductExtraId]);
+    CREATE INDEX [IX_ProductExtraProducts_ProductId] ON [dbo].[ProductExtraProducts]([ProductId]);
+    CREATE UNIQUE INDEX [IX_ProductExtraProducts_ProductExtraId_ProductId] ON [dbo].[ProductExtraProducts]([ProductExtraId], [ProductId]);
+
+    ALTER TABLE [dbo].[ProductExtraProducts] WITH CHECK
+        ADD CONSTRAINT [FK_ProductExtraProducts_ProductExtras_ProductExtraId]
+        FOREIGN KEY([ProductExtraId]) REFERENCES [dbo].[ProductExtras]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[ProductExtraProducts] WITH CHECK
+        ADD CONSTRAINT [FK_ProductExtraProducts_Products_ProductId]
+        FOREIGN KEY([ProductId]) REFERENCES [dbo].[Products]([Id]) ON DELETE CASCADE;
+END;
+";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
 }
