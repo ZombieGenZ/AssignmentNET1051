@@ -47,6 +47,7 @@ namespace Assignment.Data
         public DbSet<Material> Materials { get; set; }
         public DbSet<Recipe> Recipes { get; set; }
         public DbSet<RecipeDetail> RecipeDetails { get; set; }
+        public DbSet<RecipeStep> RecipeSteps { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -89,6 +90,14 @@ namespace Assignment.Data
                       .WithMany()
                       .HasForeignKey(detail => detail.UnitId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<RecipeStep>(entity =>
+            {
+                entity.HasOne(step => step.Recipe)
+                      .WithMany(recipe => recipe.Steps)
+                      .HasForeignKey(step => step.RecipeId)
+                      .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }

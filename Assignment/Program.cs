@@ -788,7 +788,32 @@ BEGIN
     ALTER TABLE [dbo].[RecipeDetails] WITH CHECK
         ADD CONSTRAINT [FK_RecipeDetails_Units_UnitId]
         FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]);
-END;";
+END;
+
+IF OBJECT_ID(N'dbo.RecipeSteps', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[RecipeSteps]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [RecipeId] BIGINT NOT NULL,
+        [StepOrder] INT NOT NULL,
+        [Description] NVARCHAR(2000) NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_RecipeSteps] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_RecipeSteps_RecipeId] ON [dbo].[RecipeSteps]([RecipeId]);
+    CREATE INDEX [IX_RecipeSteps_StepOrder] ON [dbo].[RecipeSteps]([StepOrder]);
+
+    ALTER TABLE [dbo].[RecipeSteps] WITH CHECK
+        ADD CONSTRAINT [FK_RecipeSteps_Recipes_RecipeId]
+        FOREIGN KEY([RecipeId]) REFERENCES [dbo].[Recipes]([Id]) ON DELETE CASCADE;
+END;
+";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
 }
