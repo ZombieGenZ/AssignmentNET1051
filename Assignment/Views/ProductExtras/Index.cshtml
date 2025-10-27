@@ -248,12 +248,8 @@
                         </div>
                         <div class="col-12">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label for="productOptionSearch" class="form-label mb-0">Sản phẩm áp dụng</label>
+                                <label class="form-label mb-0">Sản phẩm áp dụng</label>
                                 <div class="d-flex flex-wrap gap-2">
-                                    <div class="input-group input-group-sm">
-                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
-                                        <input type="search" class="form-control" id="productOptionSearch" placeholder="Tìm sản phẩm..." />
-                                    </div>
                                     <a class="btn btn-outline-secondary btn-sm" id="downloadProductOptionsTemplateLink" href="/api/product-extras/template">
                                         <i class="fas fa-file-download me-1"></i>Tải file mẫu
                                     </a>
@@ -263,9 +259,6 @@
                                     </button>
                                     <button type="button" class="btn btn-outline-danger btn-sm" id="clearProductOptionsBtn">
                                         <i class="fas fa-trash-can me-1"></i>Xóa tất cả
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductOptionsBtn">
-                                        <i class="fas fa-rotate-right"></i>
                                     </button>
                                     <button type="button" class="btn btn-outline-success btn-sm" id="addProductOptionBtn">
                                         <i class="fas fa-plus me-1"></i>Thêm sản phẩm
@@ -410,8 +403,6 @@
             const productsEmptyState = document.getElementById('productExtraProductsEmpty');
             const productOptionsStatus = document.getElementById('productOptionsStatus');
             const addProductBtn = document.getElementById('addProductOptionBtn');
-            const productSearchInput = document.getElementById('productOptionSearch');
-            const productRefreshBtn = document.getElementById('refreshProductOptionsBtn');
             const importProductBtn = document.getElementById('importProductOptionsBtn');
             const importProductInput = document.getElementById('productOptionsImportInput');
             const clearProductBtn = document.getElementById('clearProductOptionsBtn');
@@ -425,19 +416,6 @@
             const selectedIds = new Set();
 
             const discountLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(discountLabels.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value)));
-
-            const debounce = (fn, delay = 300) => {
-                let timeoutId;
-                return (...args) => {
-                    if (timeoutId) {
-                        clearTimeout(timeoutId);
-                    }
-
-                    timeoutId = window.setTimeout(() => {
-                        fn(...args);
-                    }, delay);
-                };
-            };
 
             function escapeHtml(value) {
                 if (value === null || value === undefined) {
@@ -1005,9 +983,6 @@
                 submitButton.disabled = false;
                 submitButton.textContent = 'Thêm mới';
                 discountInput.disabled = discountTypeSelect.value === String(@((int)DiscountType.None));
-                if (productSearchInput) {
-                    productSearchInput.value = '';
-                }
                 if (productsContainer) {
                     productsContainer.innerHTML = '';
                 }
@@ -1177,7 +1152,7 @@
                 }
             }
 
-            async function loadProductOptions(searchTerm = '') {
+            async function loadProductOptions() {
                 if (productOptionsStatus) {
                     productOptionsStatus.textContent = 'Đang tải danh sách sản phẩm...';
                     productOptionsStatus.classList.remove('text-danger');
@@ -1189,9 +1164,6 @@
 
                 try {
                     const url = new URL(PRODUCT_OPTIONS_URL, window.location.origin);
-                    if (searchTerm) {
-                        url.searchParams.set('search', searchTerm);
-                    }
 
                     const response = await fetch(url);
                     if (!response.ok) {
@@ -1228,7 +1200,7 @@
 
                     if (productOptionsStatus) {
                         productOptionsStatus.textContent = productOptions.length === 0
-                            ? 'Không tìm thấy sản phẩm phù hợp.'
+                            ? 'Không có sản phẩm nào.'
                             : '';
                         productOptionsStatus.classList.remove('text-danger');
                     }
@@ -1275,7 +1247,7 @@
                     }
 
                     const extra = await response.json();
-                    await loadProductOptions(productSearchInput?.value?.trim() ?? '');
+                    await loadProductOptions();
                     fillForm(extra);
                     productExtraModal.show();
                 } catch (error) {
@@ -1557,7 +1529,7 @@
             refreshBtn?.addEventListener('click', () => loadProductExtras());
             createBtn?.addEventListener('click', () => {
                 openCreateModal();
-                loadProductOptions(productSearchInput?.value?.trim() ?? '');
+                loadProductOptions();
             });
             productExtraForm?.addEventListener('submit', submitForm);
             deleteConfirmBtn?.addEventListener('click', async () => {
@@ -1589,20 +1561,6 @@
 
             selectAllCheckbox?.addEventListener('change', handleSelectAllChange);
 
-            const debouncedProductSearch = debounce(term => loadProductOptions(term));
-
-            productSearchInput?.addEventListener('input', () => {
-                const term = productSearchInput.value.trim();
-                debouncedProductSearch(term);
-            });
-
-            productSearchInput?.addEventListener('keydown', event => {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                }
-            });
-
-            productRefreshBtn?.addEventListener('click', () => loadProductOptions(productSearchInput?.value?.trim() ?? ''));
             importProductBtn?.addEventListener('click', () => {
                 importProductInput?.click();
             });
