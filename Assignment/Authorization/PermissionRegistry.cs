@@ -55,6 +55,16 @@ namespace Assignment.Authorization
                 new PermissionDefinition("DeleteProductAll", "Xóa bất kỳ sản phẩm"),
                 new PermissionDefinition("DeleteProduct", "Xóa sản phẩm của bản thân"),
             }),
+            new PermissionGroupDefinition("Product Extras", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("GetProductExtraAll", "Xem tất cả sản phẩm bổ sung"),
+                new PermissionDefinition("GetProductExtra", "Xem sản phẩm bổ sung của bản thân"),
+                new PermissionDefinition("CreateProductExtra", "Tạo sản phẩm bổ sung"),
+                new PermissionDefinition("UpdateProductExtraAll", "Sửa bất kỳ sản phẩm bổ sung"),
+                new PermissionDefinition("UpdateProductExtra", "Sửa sản phẩm bổ sung của bản thân"),
+                new PermissionDefinition("DeleteProductExtraAll", "Xóa bất kỳ sản phẩm bổ sung"),
+                new PermissionDefinition("DeleteProductExtra", "Xóa sản phẩm bổ sung của bản thân"),
+            }),
             new PermissionGroupDefinition("Combos", new List<PermissionDefinition>
             {
                 new PermissionDefinition("GetComboAll", "Xem tất cả combo"),

@@ -662,6 +662,113 @@ namespace Assignment.Migrations
                     b.ToTable("Products");
                 });
 
+            modelBuilder.Entity("Assignment.Models.ProductExtra", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Calories")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreateBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal?>("Discount")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("DiscountType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("Ingredients")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsPublish")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSpicy")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsVegetarian")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int>("Stock")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ProductExtras");
+                });
+
+            modelBuilder.Entity("Assignment.Models.ProductExtraProduct", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("CreateBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<long>("ProductExtraId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("ProductId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductExtraId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductExtraId", "ProductId")
+                        .IsUnique();
+
+                    b.ToTable("ProductExtraProducts");
+                });
+
             modelBuilder.Entity("Assignment.Models.ProductType", b =>
                 {
                     b.Property<long>("Id")
@@ -1697,6 +1804,25 @@ namespace Assignment.Migrations
                     b.Navigation("Reward");
                 });
 
+            modelBuilder.Entity("Assignment.Models.ProductExtraProduct", b =>
+                {
+                    b.HasOne("Assignment.Models.ProductExtra", "ProductExtra")
+                        .WithMany("ProductExtraProducts")
+                        .HasForeignKey("ProductExtraId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Assignment.Models.Product", "Product")
+                        .WithMany()
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+
+                    b.Navigation("ProductExtra");
+                });
+
             modelBuilder.Entity("Assignment.Models.Rating", b =>
                 {
                     b.HasOne("Assignment.Models.Combo", "Combo")
@@ -1809,6 +1935,11 @@ namespace Assignment.Migrations
             modelBuilder.Entity("Assignment.Models.OrderItem", b =>
                 {
                     b.Navigation("ProductTypeSelections");
+                });
+
+            modelBuilder.Entity("Assignment.Models.ProductExtra", b =>
+                {
+                    b.Navigation("ProductExtraProducts");
                 });
 
             modelBuilder.Entity("Assignment.Models.Reward", b =>

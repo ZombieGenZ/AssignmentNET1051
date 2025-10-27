@@ -40,5 +40,7 @@ namespace Assignment.Data
         public DbSet<RewardRedemption> RewardRedemptions { get; set; }
         public DbSet<RewardProduct> RewardProducts { get; set; }
         public DbSet<RewardCombo> RewardCombos { get; set; }
+        public DbSet<ProductExtra> ProductExtras { get; set; }
+        public DbSet<ProductExtraProduct> ProductExtraProducts { get; set; }
     }
 }
