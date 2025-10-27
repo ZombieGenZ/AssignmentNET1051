@@ -662,6 +662,7 @@ BEGIN
         [UnitId] BIGINT NOT NULL,
         [MinStockLevel] DECIMAL(18,4) NOT NULL,
         [Price] DECIMAL(18,2) NOT NULL,
+        [Description] NVARCHAR(500) NULL,
         [CreateBy] NVARCHAR(MAX) NULL,
         [CreatedAt] DATETIME2 NOT NULL,
         [UpdatedAt] DATETIME2 NULL,
@@ -680,6 +681,15 @@ BEGIN
 END;";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
+
+    const string ensureMaterialDescriptionColumnSql = @"
+IF COL_LENGTH(N'dbo.Materials', N'Description') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Materials]
+        ADD [Description] NVARCHAR(500) NULL;
+END;";
+
+    await context.Database.ExecuteSqlRawAsync(ensureMaterialDescriptionColumnSql);
 }
 
 static async Task EnsureRoleMetadataColumnsAsync(ApplicationDbContext context)
