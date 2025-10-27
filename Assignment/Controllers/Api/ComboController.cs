@@ -774,7 +774,7 @@ namespace Assignment.Controllers.Api
 
         private static ComboResponse MapToResponse(Combo combo)
         {
-            var items = combo.ComboItems?
+                var items = combo.ComboItems?
                 .Where(ci => !ci.IsDeleted)
                 .Select(ci =>
                 {
@@ -784,6 +784,18 @@ namespace Assignment.Controllers.Api
                     if (productType == null && ci.ProductTypeId.HasValue)
                     {
                         productType = ci.Product?.ProductTypes?.FirstOrDefault(pt => pt.Id == ci.ProductTypeId.Value);
+                    }
+
+                    var remainingStock = 0;
+                    if (productType != null)
+                    {
+                        var available = productType.Stock - productType.Sold;
+                        remainingStock = available > 0 ? available : 0;
+                    }
+                    else if (ci.Product != null)
+                    {
+                        var available = ci.Product.TotalStock - ci.Product.TotalSold;
+                        remainingStock = available > 0 ? available : 0;
                     }
 
                     var finalPrice = productType != null
@@ -802,7 +814,8 @@ namespace Assignment.Controllers.Api
                         ProductTypeName = productType?.Name,
                         ProductTypeFinalPrice = finalPrice,
                         Quantity = ci.Quantity,
-                        ProductFinalPrice = finalPrice
+                        ProductFinalPrice = finalPrice,
+                        RemainingStock = remainingStock
                     };
                 })
                 .OrderBy(ci => ci.ProductName)
@@ -951,6 +964,7 @@ namespace Assignment.Controllers.Api
             public double ProductTypeFinalPrice { get; set; }
             public long Quantity { get; set; }
             public double ProductFinalPrice { get; set; }
+            public int RemainingStock { get; set; }
         }
 
         public class BulkDeleteRequest
