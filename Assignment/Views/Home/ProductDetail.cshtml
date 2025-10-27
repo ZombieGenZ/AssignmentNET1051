@@ -1,5 +1,6 @@
 @model Assignment.ViewModels.Products.ProductDetailViewModel
 @using Assignment.Services
+@using System.Globalization
 @using System.Linq
 
 @{
@@ -16,8 +17,86 @@
         .ToList()
         ?? new List<Assignment.Models.ProductType>();
     var hasAvailableTypes = availableTypes.Any();
+    var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
+
+    string FormatCurrency(decimal value) => value.ToString("N0", vietnamCulture);
+    string FormatCurrency(double value) => FormatCurrency(Convert.ToDecimal(value));
+    string FormatCurrencyWithSymbol(decimal value) => $"{FormatCurrency(value)} ₫";
+    string FormatCurrencyWithSymbol(double value) => $"{FormatCurrency(value)} ₫";
+    string FormatPercent(decimal value) => value.ToString("0.##", vietnamCulture);
+    string FormatPercent(double value) => FormatPercent(Convert.ToDecimal(value));
+    string FormatPriceRange(string? priceRange, decimal? fallbackPrice = null)
+    {
+        if (string.IsNullOrWhiteSpace(priceRange))
+        {
+            if (fallbackPrice.HasValue && fallbackPrice.Value > 0)
+            {
+                return FormatCurrencyWithSymbol(fallbackPrice.Value);
+            }
+
+            return "Liên hệ";
+        }
+
+        var parts = priceRange.Split('-', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (parts.Length == 0)
+        {
+            if (fallbackPrice.HasValue && fallbackPrice.Value > 0)
+            {
+                return FormatCurrencyWithSymbol(fallbackPrice.Value);
+            }
+
+            return "Liên hệ";
+        }
+
+        (string Text, bool IsNumeric, decimal? Value) FormatPart(string? part)
+        {
+            var trimmed = part?.Trim() ?? string.Empty;
+
+            if (decimal.TryParse(trimmed, NumberStyles.Number, vietnamCulture, out var vietnamValue))
+            {
+                return (FormatCurrency(vietnamValue), true, vietnamValue);
+            }
+
+            if (decimal.TryParse(trimmed, NumberStyles.Number, CultureInfo.InvariantCulture, out var invariantValue))
+            {
+                return (FormatCurrency(invariantValue), true, invariantValue);
+            }
+
+            return (trimmed, false, null);
+        }
+
+        string AppendCurrency(string text, bool isNumeric)
+        {
+            return isNumeric ? $"{text} ₫" : text;
+        }
+
+        if (parts.Length == 1)
+        {
+            var single = FormatPart(parts[0]);
+            return AppendCurrency(single.Text, single.IsNumeric);
+        }
+
+        var firstPart = FormatPart(parts[0]);
+        var lastPart = FormatPart(parts[^1]);
+
+        if (firstPart.Value.HasValue && lastPart.Value.HasValue && firstPart.Value.Value == lastPart.Value.Value)
+        {
+            return AppendCurrency(firstPart.Text, firstPart.IsNumeric);
+        }
+
+        var minText = AppendCurrency(firstPart.Text, firstPart.IsNumeric);
+        var maxText = AppendCurrency(lastPart.Text, lastPart.IsNumeric);
+
+        return $"{minText} - {maxText}";
+    }
+
     var defaultImageUrl = Url.Content("~/images/default-product.svg");
     var productImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl) ? defaultImageUrl : product.ProductImageUrl;
+    var originalPrice = defaultType?.Price ?? 0m;
+    var finalPriceValue = Convert.ToDecimal(PriceCalculator.GetProductFinalPrice(product));
+    var savingsValue = Math.Max(originalPrice - finalPriceValue, 0m);
+    var priceDisplayText = FormatPriceRange(product.PriceRange, originalPrice);
 }
 
 <style>
@@ -1102,7 +1181,7 @@
                              onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                         @if (discountType == Assignment.Enums.DiscountType.Percent && discountValue.HasValue)
                         {
-                            <span class="discount-chip">-@discountValue%</span>
+                            <span class="discount-chip">-@FormatPercent(discountValue.Value)%</span>
                         }
                     </div>
                 </div>
@@ -1150,31 +1229,28 @@
                             var hasFixedDiscount = discountType == Assignment.Enums.DiscountType.FixedAmount && discountValue.HasValue;
                             var hasAmountDiscount = discountType == Assignment.Enums.DiscountType.Amount && discountValue.HasValue;
                             var hasDiscount = discountType != Assignment.Enums.DiscountType.None && discountValue.HasValue;
-                            var finalPrice = PriceCalculator.GetProductFinalPrice(product);
-                            var originalPrice = defaultType?.Price ?? 0m;
-                            var savings = Math.Max((double)originalPrice - finalPrice, 0);
-                            var priceDisplay = string.IsNullOrWhiteSpace(product.PriceRange)
-                                ? originalPrice.ToString("N0")
-                                : product.PriceRange;
+                            var formattedOriginalPrice = FormatCurrencyWithSymbol(originalPrice);
+                            var formattedFinalPrice = FormatCurrencyWithSymbol(finalPriceValue);
+                            var formattedSavings = savingsValue > 0 ? FormatCurrencyWithSymbol(savingsValue) : string.Empty;
                         }
 
                         <div class="price-section">
                             @if (!hasDiscount)
                             {
-                                <div class="final-price">@priceDisplay ₫</div>
+                                <div class="final-price">@priceDisplayText</div>
                             }
                             else if (hasPercentDiscount)
                             {
                                 <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge-large">-@discountValue%</span>
+                                    <span class="badge-large">-@FormatPercent(discountValue.Value)%</span>
                                     <span class="text-muted small">Ưu đãi theo %</span>
                                 </div>
-                                <div class="original-price mb-2">@originalPrice.ToString("N0") ₫</div>
-                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
-                                @if (savings > 0)
+                                <div class="original-price mb-2">@formattedOriginalPrice</div>
+                                <div class="final-price">@formattedFinalPrice</div>
+                                @if (!string.IsNullOrEmpty(formattedSavings))
                                 {
                                     <div class="price-subtext">
-                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @savings.ToString("N0") ₫
+                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @formattedSavings
                                     </div>
                                 }
                             }
@@ -1184,33 +1260,33 @@
                                     <span class="badge-large">Giá đặc biệt</span>
                                     <span class="text-muted small">Ưu đãi độc quyền</span>
                                 </div>
-                                <div class="original-price mb-2">@originalPrice.ToString("N0") ₫</div>
-                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
-                                @if (savings > 0)
+                                <div class="original-price mb-2">@formattedOriginalPrice</div>
+                                <div class="final-price">@formattedFinalPrice</div>
+                                @if (!string.IsNullOrEmpty(formattedSavings))
                                 {
                                     <div class="price-subtext">
-                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @savings.ToString("N0") ₫
+                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @formattedSavings
                                     </div>
                                 }
                             }
                             else if (hasAmountDiscount)
                             {
                                 <div class="d-flex align-items-center gap-2 mb-2">
-                                    <span class="badge-large">Giảm @discountValue.Value.ToString("N0") ₫</span>
+                                    <span class="badge-large">Giảm @FormatCurrencyWithSymbol(discountValue.Value)</span>
                                     <span class="text-muted small">Ưu đãi theo tiền</span>
                                 </div>
-                                <div class="original-price mb-2">@originalPrice.ToString("N0") ₫</div>
-                                <div class="final-price">@finalPrice.ToString("N0") ₫</div>
-                                @if (savings > 0)
+                                <div class="original-price mb-2">@formattedOriginalPrice</div>
+                                <div class="final-price">@formattedFinalPrice</div>
+                                @if (!string.IsNullOrEmpty(formattedSavings))
                                 {
                                     <div class="price-subtext">
-                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @savings.ToString("N0") ₫
+                                        <i class="fas fa-tag me-1"></i> Tiết kiệm @formattedSavings
                                     </div>
                                 }
                             }
                             else
                             {
-                                <div class="final-price">@priceDisplay ₫</div>
+                                <div class="final-price">@priceDisplayText</div>
                             }
                         </div>
 
@@ -1278,7 +1354,7 @@
                                                 <label class="type-option-card" for="@checkboxId">
                                                     <div class="d-flex justify-content-between align-items-start">
                                                         <span class="type-option-name">@type.Name</span>
-                                                        <span class="type-option-price">@typeFinalPrice.ToString("N0") ₫</span>
+                                                        <span class="type-option-price">@FormatCurrencyWithSymbol(typeFinalPrice)</span>
                                                     </div>
                                                     <div class="type-option-meta">
                                                         <span><i class="fas fa-clock me-1"></i>@type.PreparationTime phút</span>
