@@ -227,6 +227,37 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
+    options.AddPolicy("GetRecipePolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetRecipeAll") ||
+            (ctx.User.HasPermission("GetRecipe") &&
+             ctx.Resource is Recipe recipe &&
+             recipe.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateRecipePolicy", policy =>
+        policy.RequireClaim("CreateRecipe")
+    );
+
+    options.AddPolicy("UpdateRecipePolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("UpdateRecipeAll") ||
+            (ctx.User.HasPermission("UpdateRecipe") &&
+             ctx.Resource is Recipe recipe &&
+             recipe.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteRecipePolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("DeleteRecipeAll") ||
+            (ctx.User.HasPermission("DeleteRecipe") &&
+             ctx.Resource is Recipe recipe &&
+             recipe.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
     options.AddPolicy("GetComboPolicy", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasPermission("GetComboAll") ||
@@ -372,6 +403,7 @@ using (var scope = app.Services.CreateScope())
     await EnsureProductTypeSelectionTablesAsync(dbContext);
     await EnsureProductExtraTablesAsync(dbContext);
     await EnsureMaterialManagementTablesAsync(dbContext);
+    await EnsureRecipeManagementTablesAsync(dbContext);
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var usersWithoutSecurityStamp = await userManager.Users
@@ -400,6 +432,10 @@ using (var scope = app.Services.CreateScope())
         new Claim("CreateProductExtra", "true"),
         new Claim("UpdateProductExtraAll", "true"),
         new Claim("DeleteProductExtraAll", "true"),
+        new Claim("GetRecipeAll", "true"),
+        new Claim("CreateRecipe", "true"),
+        new Claim("UpdateRecipeAll", "true"),
+        new Claim("DeleteRecipeAll", "true"),
         new Claim("GetComboAll", "true"),
         new Claim("CreateCombo", "true"),
         new Claim("UpdateComboAll", "true"),
@@ -690,6 +726,71 @@ BEGIN
 END;";
 
     await context.Database.ExecuteSqlRawAsync(ensureMaterialDescriptionColumnSql);
+}
+
+static async Task EnsureRecipeManagementTablesAsync(ApplicationDbContext context)
+{
+    const string ensureSql = @"
+IF OBJECT_ID(N'dbo.Recipes', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Recipes]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [Name] NVARCHAR(200) NOT NULL,
+        [Description] NVARCHAR(1000) NULL,
+        [OutputUnitId] BIGINT NOT NULL,
+        [PreparationTime] INT NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_Recipes] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_Recipes_Name] ON [dbo].[Recipes]([Name]);
+    CREATE INDEX [IX_Recipes_OutputUnitId] ON [dbo].[Recipes]([OutputUnitId]);
+
+    ALTER TABLE [dbo].[Recipes] WITH CHECK
+        ADD CONSTRAINT [FK_Recipes_Units_OutputUnitId]
+        FOREIGN KEY([OutputUnitId]) REFERENCES [dbo].[Units]([Id]);
+END;
+
+IF OBJECT_ID(N'dbo.RecipeDetails', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[RecipeDetails]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [RecipeId] BIGINT NOT NULL,
+        [MaterialId] BIGINT NOT NULL,
+        [Quantity] DECIMAL(18,4) NOT NULL,
+        [UnitId] BIGINT NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_RecipeDetails] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_RecipeDetails_RecipeId] ON [dbo].[RecipeDetails]([RecipeId]);
+    CREATE INDEX [IX_RecipeDetails_MaterialId] ON [dbo].[RecipeDetails]([MaterialId]);
+    CREATE INDEX [IX_RecipeDetails_UnitId] ON [dbo].[RecipeDetails]([UnitId]);
+
+    ALTER TABLE [dbo].[RecipeDetails] WITH CHECK
+        ADD CONSTRAINT [FK_RecipeDetails_Recipes_RecipeId]
+        FOREIGN KEY([RecipeId]) REFERENCES [dbo].[Recipes]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[RecipeDetails] WITH CHECK
+        ADD CONSTRAINT [FK_RecipeDetails_Materials_MaterialId]
+        FOREIGN KEY([MaterialId]) REFERENCES [dbo].[Materials]([Id]);
+
+    ALTER TABLE [dbo].[RecipeDetails] WITH CHECK
+        ADD CONSTRAINT [FK_RecipeDetails_Units_UnitId]
+        FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]);
+END;";
+
+    await context.Database.ExecuteSqlRawAsync(ensureSql);
 }
 
 static async Task EnsureRoleMetadataColumnsAsync(ApplicationDbContext context)

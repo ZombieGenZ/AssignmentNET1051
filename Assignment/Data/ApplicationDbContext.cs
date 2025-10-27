@@ -45,6 +45,8 @@ namespace Assignment.Data
         public DbSet<Unit> Units { get; set; }
         public DbSet<ConversionUnit> ConversionUnits { get; set; }
         public DbSet<Material> Materials { get; set; }
+        public DbSet<Recipe> Recipes { get; set; }
+        public DbSet<RecipeDetail> RecipeDetails { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -60,6 +62,32 @@ namespace Assignment.Data
                 entity.HasOne(conversion => conversion.ToUnit)
                       .WithMany(unit => unit.ConvertedFrom)
                       .HasForeignKey(conversion => conversion.ToUnitId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<Recipe>(entity =>
+            {
+                entity.HasOne(recipe => recipe.OutputUnit)
+                      .WithMany()
+                      .HasForeignKey(recipe => recipe.OutputUnitId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<RecipeDetail>(entity =>
+            {
+                entity.HasOne(detail => detail.Recipe)
+                      .WithMany(recipe => recipe.Details)
+                      .HasForeignKey(detail => detail.RecipeId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(detail => detail.Material)
+                      .WithMany()
+                      .HasForeignKey(detail => detail.MaterialId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(detail => detail.Unit)
+                      .WithMany()
+                      .HasForeignKey(detail => detail.UnitId)
                       .OnDelete(DeleteBehavior.Restrict);
             });
         }

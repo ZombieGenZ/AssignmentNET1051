@@ -148,6 +148,15 @@
                     </a>
                 </li>
             }
+            @if (User.HasAnyPermission("GetRecipeAll", "GetRecipe"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Recipes" class="sidebar-menu-link">
+                        <i class="fa-solid fa-bowl-food"></i>
+                        <span>Công thức sản phẩm</span>
+                    </a>
+                </li>
+            }
             @if (User.HasAnyPermission("GetComboAll", "GetCombo"))
             {
                 <li class="sidebar-menu-item">
