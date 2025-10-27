@@ -137,6 +137,13 @@ namespace Assignment.Authorization
                 new PermissionDefinition("ViewCustomerAll", "Xem danh sách khách hàng"),
                 new PermissionDefinition("ViewTopUserAll", "Xem bảng xếp hạng khách hàng"),
             }),
+            new PermissionGroupDefinition("Inventory", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("GetReceivingAll", "Xem tất cả phiếu nhập"),
+                new PermissionDefinition("CreateReceiving", "Tạo phiếu nhập kho"),
+                new PermissionDefinition("ViewInventoryAll", "Xem tất cả tồn kho"),
+                new PermissionDefinition("ViewInventory", "Xem tồn kho được phân quyền"),
+            }),
         };
 
         private static readonly IReadOnlyCollection<string> _allPermissionKeys = new ReadOnlyCollection<string>(_groups

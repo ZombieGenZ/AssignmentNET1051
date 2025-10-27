@@ -48,6 +48,9 @@ namespace Assignment.Data
         public DbSet<Recipe> Recipes { get; set; }
         public DbSet<RecipeDetail> RecipeDetails { get; set; }
         public DbSet<RecipeStep> RecipeSteps { get; set; }
+        public DbSet<ReceivingNote> ReceivingNotes { get; set; }
+        public DbSet<ReceivingDetail> ReceivingDetails { get; set; }
+        public DbSet<Inventory> Inventories { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -98,6 +101,50 @@ namespace Assignment.Data
                       .WithMany(recipe => recipe.Steps)
                       .HasForeignKey(step => step.RecipeId)
                       .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            builder.Entity<ReceivingNote>(entity =>
+            {
+                entity.HasMany(note => note.Details)
+                      .WithOne(detail => detail.ReceivingNote)
+                      .HasForeignKey(detail => detail.ReceivingNoteId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.Property(note => note.NoteNumber)
+                      .HasMaxLength(100);
+
+                entity.Property(note => note.SupplierId)
+                      .HasMaxLength(100);
+
+                entity.Property(note => note.SupplierName)
+                      .HasMaxLength(255);
+
+                entity.Property(note => note.Status)
+                      .HasConversion<int>();
+            });
+
+            builder.Entity<ReceivingDetail>(entity =>
+            {
+                entity.HasOne(detail => detail.Material)
+                      .WithMany()
+                      .HasForeignKey(detail => detail.MaterialId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(detail => detail.Unit)
+                      .WithMany()
+                      .HasForeignKey(detail => detail.UnitId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            builder.Entity<Inventory>(entity =>
+            {
+                entity.HasOne(inventory => inventory.Material)
+                      .WithMany()
+                      .HasForeignKey(inventory => inventory.MaterialId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(inventory => new { inventory.MaterialId, inventory.WarehouseId })
+                      .IsUnique();
             });
         }
     }
