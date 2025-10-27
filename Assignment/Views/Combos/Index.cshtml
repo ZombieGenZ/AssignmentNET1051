@@ -648,17 +648,22 @@
                     return;
                 }
 
-                selectEl.innerHTML = '';
-
+                const hasProduct = Boolean(product);
                 const placeholder = document.createElement('option');
                 placeholder.value = '';
-                placeholder.textContent = product ? '-- Chọn loại sản phẩm --' : '-- Chọn sản phẩm trước --';
+                placeholder.textContent = hasProduct ? '-- Chọn loại sản phẩm --' : '-- Chọn sản phẩm trước --';
+                placeholder.disabled = true;
                 placeholder.selected = true;
+
+                selectEl.innerHTML = '';
                 selectEl.appendChild(placeholder);
 
                 const fallback = fallbackType && fallbackType.id ? fallbackType : null;
+                const productTypes = Array.isArray(product?.productTypes)
+                    ? product.productTypes.filter(type => type && type.id !== undefined && type.id !== null)
+                    : [];
 
-                if (!product || !Array.isArray(product.productTypes) || product.productTypes.length === 0) {
+                if (productTypes.length === 0) {
                     if (fallback) {
                         selectEl.disabled = false;
                         selectEl.removeAttribute('disabled');
@@ -677,24 +682,40 @@
                         fallbackOption.selected = true;
                         fallbackOption.dataset.fallback = 'true';
                         placeholder.selected = false;
+                        placeholder.disabled = true;
                         selectEl.appendChild(fallbackOption);
                     } else {
+                        placeholder.textContent = hasProduct
+                            ? 'Sản phẩm này chưa có loại khả dụng'
+                            : '-- Chọn sản phẩm trước --';
+                        selectEl.value = '';
                         selectEl.disabled = true;
                         selectEl.setAttribute('disabled', 'disabled');
                     }
+
                     return;
                 }
 
                 selectEl.disabled = false;
                 selectEl.removeAttribute('disabled');
 
-                product.productTypes.forEach(type => {
+                productTypes.forEach(type => {
                     const option = document.createElement('option');
                     option.value = type.id;
                     const finalPrice = Number.isFinite(Number(type.finalPrice))
                         ? Number(type.finalPrice)
                         : Number(type.price ?? 0);
-                    option.textContent = `${type.name} (${formatCurrency(finalPrice)})`;
+                    const parts = [type.name];
+                    if (Number.isFinite(finalPrice) && finalPrice > 0) {
+                        parts.push(`(${formatCurrency(finalPrice)})`);
+                    }
+                    if (type.isPublish === false) {
+                        parts.push('(Không bán riêng)');
+                        option.dataset.isPublish = 'false';
+                    } else {
+                        option.dataset.isPublish = 'true';
+                    }
+                    option.textContent = parts.join(' ');
                     if (selectedTypeId && Number(selectedTypeId) === Number(type.id)) {
                         option.selected = true;
                         placeholder.selected = false;
