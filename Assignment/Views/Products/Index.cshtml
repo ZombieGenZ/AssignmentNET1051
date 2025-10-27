@@ -945,18 +945,57 @@
                     }
                 };
 
-                const applyImageUrl = (url) => {
+                const applyImageUrl = (url, { feedbackMode = 'existing' } = {}) => {
                     if (urlInput) {
                         urlInput.value = url || '';
                     }
 
-                    if (url) {
-                        showImage(url);
-                        setFeedback('Ảnh hiện tại sẽ được giữ nguyên nếu bạn không tải ảnh mới.', 'muted');
-                    } else {
+                    if (!url) {
                         showPlaceholder();
                         setFeedback(defaultFeedback, 'muted');
+                        return;
                     }
+
+                    if (!isValidImageUrl(url)) {
+                        showPlaceholder();
+                        setFeedback('URL ảnh không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.', 'error');
+                        return;
+                    }
+
+                    showImage(url);
+
+                    if (feedbackMode === 'manual-blur') {
+                        setFeedback('URL ảnh đã được cập nhật.', 'success');
+                    } else if (feedbackMode === 'manual-input') {
+                        setFeedback('Ảnh sẽ được sử dụng khi lưu.', 'muted');
+                    } else {
+                        setFeedback('Ảnh hiện tại sẽ được giữ nguyên nếu bạn không tải ảnh mới.', 'muted');
+                    }
+                };
+
+                const handleManualUrl = (forceSuccess = false) => {
+                    if (!urlInput) {
+                        return;
+                    }
+
+                    const value = urlInput.value.trim();
+                    if (value !== urlInput.value) {
+                        urlInput.value = value;
+                    }
+
+                    if (!value) {
+                        showPlaceholder();
+                        setFeedback(defaultFeedback, 'muted');
+                        return;
+                    }
+
+                    if (!isValidImageUrl(value)) {
+                        showPlaceholder();
+                        setFeedback('URL ảnh không hợp lệ. Vui lòng nhập đường dẫn bắt đầu bằng http hoặc https.', 'error');
+                        return;
+                    }
+
+                    applyImageUrl(value, { feedbackMode: forceSuccess ? 'manual-blur' : 'manual-input' });
                 };
 
                 applyImageUrl(initialUrl);
@@ -965,7 +1004,7 @@
                     const file = event?.target?.files ? event.target.files[0] : null;
 
                     if (!file) {
-                        applyImageUrl(urlInput?.value || '');
+                        handleManualUrl();
                         return;
                     }
 
@@ -1029,9 +1068,27 @@
                     fileInput.addEventListener('change', handleChange);
                 }
 
+                let onUrlInput = null;
+                let onUrlBlur = null;
+                let debouncedManualUrl = null;
+
+                if (urlInput) {
+                    debouncedManualUrl = debounce(() => handleManualUrl(false), 400);
+                    onUrlInput = () => {
+                        debouncedManualUrl();
+                    };
+                    onUrlBlur = () => handleManualUrl(true);
+                    urlInput.addEventListener('input', onUrlInput);
+                    urlInput.addEventListener('blur', onUrlBlur);
+                }
+
                 return () => {
                     if (fileInput) {
                         fileInput.removeEventListener('change', handleChange);
+                    }
+                    if (urlInput) {
+                        urlInput.removeEventListener('input', onUrlInput);
+                        urlInput.removeEventListener('blur', onUrlBlur);
                     }
                     revokeTemporaryUrl();
                 };
@@ -1097,7 +1154,6 @@
                     <div id="${collapseId}" class="accordion-collapse collapse ${hasExistingId ? '' : 'show'}" aria-labelledby="${headerId}">
                         <div class="accordion-body">
                             <input type="hidden" class="product-type-id" value="${escapeHtml(typeId)}" />
-                            <input type="hidden" class="product-type-image-url" id="${imageHiddenId}" />
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="${nameId}" class="form-label">Tên loại sản phẩm<span class="text-danger">*</span></label>
@@ -1106,6 +1162,9 @@
                                 <div class="col-md-6">
                                     <label for="${imageFileId}" class="form-label">Ảnh loại</label>
                                     <input type="file" class="form-control product-type-image-file" id="${imageFileId}" accept="image/*" />
+                                    <div class="form-text text-muted">Hoặc nhập URL ảnh bên dưới.</div>
+                                    <label for="${imageHiddenId}" class="form-label mt-3">URL ảnh</label>
+                                    <input type="url" class="form-control product-type-image-url" id="${imageHiddenId}" placeholder="https://example.com/image.jpg" inputmode="url" autocomplete="off" />
                                     <div class="image-upload-preview mt-2 product-type-image-preview-wrapper">
                                         <img src="" alt="Xem trước ảnh loại sản phẩm" class="product-type-image-preview d-none" id="${imagePreviewId}" />
                                         <div class="image-upload-placeholder product-type-image-placeholder">
@@ -1116,7 +1175,7 @@
                                             <div class="spinner-border text-primary" role="status" aria-hidden="true"></div>
                                         </div>
                                     </div>
-                                    <div class="form-text text-muted product-type-image-feedback">Chọn ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
+                                    <div class="form-text text-muted product-type-image-feedback">Tải ảnh lên hoặc nhập URL ảnh định dạng JPG, PNG, GIF hoặc WEBP (tối đa 5MB).</div>
                                 </div>
                                 <div class="col-sm-6 col-md-4">
                                     <label for="${priceId}" class="form-label">Giá bán (VND)<span class="text-danger">*</span></label>
@@ -1337,6 +1396,15 @@
                     const idValue = item.querySelector('.product-type-id')?.value || '';
                     const nameValue = item.querySelector('.product-type-name')?.value?.trim() || '';
                     const imageValue = item.querySelector('.product-type-image-url')?.value?.trim() || '';
+                    const hasImageValue = imageValue.length > 0;
+                    let normalizedImageUrl = null;
+                    if (hasImageValue) {
+                        if (!isValidImageUrl(imageValue)) {
+                            errors.push(`URL ảnh của loại sản phẩm #${index + 1} không hợp lệ.`);
+                        } else {
+                            normalizedImageUrl = imageValue;
+                        }
+                    }
 
                     const priceRaw = item.querySelector('.product-type-price')?.value;
                     const parsedPrice = Number(priceRaw);
@@ -1391,7 +1459,7 @@
                     types.push({
                         id: idValue ? Number(idValue) : null,
                         name: nameValue,
-                        productTypeImageUrl: imageValue || null,
+                        productTypeImageUrl: normalizedImageUrl,
                         price: priceValue,
                         stock: stockValue,
                         discountType: Number.isFinite(discountTypeValue) ? discountTypeValue : DISCOUNT_NONE,
@@ -2295,14 +2363,29 @@
                         : '<span class="badge bg-secondary">Bản nháp</span>';
 
                     const displayedTypes = getDisplayedProductTypes(product);
-                    let priceSummary = formatPriceRangeFromTypes(displayedTypes);
-                    if (!priceSummary) {
-                        if (displayedTypes.length > 0) {
-                            priceSummary = currencyFormatter.format(calculateTypeFinalPrice(displayedTypes[0]));
-                        } else {
-                            priceSummary = currencyFormatter.format(Number(product.price ?? 0));
-                        }
+                    const finalPriceCandidates = displayedTypes
+                        .map(type => calculateTypeFinalPrice(type))
+                        .filter(price => Number.isFinite(price) && price >= 0);
+
+                    let bestFinalPrice = null;
+                    if (finalPriceCandidates.length > 0) {
+                        bestFinalPrice = Math.min(...finalPriceCandidates);
+                    } else if (Number.isFinite(Number(product.price))) {
+                        bestFinalPrice = Number(product.price);
                     }
+
+                    const finalPriceText = bestFinalPrice !== null ? currencyFormatter.format(bestFinalPrice) : null;
+                    let priceRangeText = formatPriceRangeFromTypes(displayedTypes);
+                    if (!priceRangeText && displayedTypes.length === 0 && Number.isFinite(Number(product.price))) {
+                        priceRangeText = currencyFormatter.format(Number(product.price));
+                    }
+
+                    const safeFinalPriceText = finalPriceText ? escapeHtml(finalPriceText) : null;
+                    const priceSummaryHtml = safeFinalPriceText
+                        ? (priceRangeText && priceRangeText !== finalPriceText
+                            ? `<div class="fw-semibold">${safeFinalPriceText}</div><div class="small text-muted">Khoảng giá: ${escapeHtml(priceRangeText)}</div>`
+                            : `<div class="fw-semibold">${safeFinalPriceText}</div>`)
+                        : '<div class="text-muted">Chưa có giá</div>';
 
                     const hasDiscount = displayedTypes.some(type => {
                         const discountType = Number(type?.discountType ?? DISCOUNT_NONE);
@@ -2398,7 +2481,7 @@
                         <div class="row g-3 mt-2">
                             <div class="col-md-4">
                                 <div class="small text-muted">Giá bán</div>
-                                <div class="fw-semibold">${escapeHtml(priceSummary)}</div>
+                                ${priceSummaryHtml}
                             </div>
                             <div class="col-md-4">
                                 <div class="small text-muted">Tồn kho</div>

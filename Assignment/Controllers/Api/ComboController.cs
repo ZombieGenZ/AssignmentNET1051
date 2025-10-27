@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.IO;
 using System.Linq;
@@ -45,8 +46,10 @@ namespace Assignment.Controllers.Api
             IQueryable<Combo> query = _context.Combos
                 .AsNoTracking()
                 .Include(c => c.ComboItems)!
-                .ThenInclude(ci => ci.Product)!
-                    .ThenInclude(p => p.ProductTypes)
+                    .ThenInclude(ci => ci.Product)!
+                        .ThenInclude(p => p.ProductTypes)
+                .Include(c => c.ComboItems)!
+                    .ThenInclude(ci => ci.ProductType)
                 .Where(c => !c.IsDeleted);
 
             if (!canGetAll)
@@ -67,8 +70,10 @@ namespace Assignment.Controllers.Api
         {
             var combo = await _context.Combos
                 .Include(c => c.ComboItems)!
-                .ThenInclude(ci => ci.Product)!
-                    .ThenInclude(p => p.ProductTypes)
+                    .ThenInclude(ci => ci.Product)!
+                        .ThenInclude(p => p.ProductTypes)
+                .Include(c => c.ComboItems)!
+                    .ThenInclude(ci => ci.ProductType)
                 .FirstOrDefaultAsync(c => c.Id == id && !c.IsDeleted);
 
             if (combo == null)
@@ -128,7 +133,8 @@ namespace Assignment.Controllers.Api
                 return ValidationProblem(ModelState);
             }
 
-            combo.Price = PriceCalculator.GetComboBasePrice(comboItemsResult.Items.Select(ci => (ci.Product, ci.Quantity)));
+            combo.Price = PriceCalculator.GetComboBasePrice(
+                comboItemsResult.Items.Select(ci => (ci.Product, ci.ProductType, ci.Quantity)));
 
             _context.Combos.Add(combo);
             await _context.SaveChangesAsync();
@@ -139,6 +145,7 @@ namespace Assignment.Controllers.Api
                 {
                     ComboId = combo.Id,
                     ProductId = item.Product!.Id,
+                    ProductTypeId = item.ProductType?.Id,
                     Quantity = item.Quantity,
                     CreateBy = CurrentUserId,
                     CreatedAt = now,
@@ -154,8 +161,10 @@ namespace Assignment.Controllers.Api
 
             var createdCombo = await _context.Combos
                 .Include(c => c.ComboItems)!
-                .ThenInclude(ci => ci.Product)!
-                    .ThenInclude(p => p.ProductTypes)
+                    .ThenInclude(ci => ci.Product)!
+                        .ThenInclude(p => p.ProductTypes)
+                .Include(c => c.ComboItems)!
+                    .ThenInclude(ci => ci.ProductType)
                 .FirstOrDefaultAsync(c => c.Id == combo.Id);
 
             return CreatedAtAction(nameof(GetCombo), new { id = combo.Id }, MapToResponse(createdCombo!));
@@ -206,7 +215,8 @@ namespace Assignment.Controllers.Api
             combo.Discount = NormalizeDiscount(request);
             combo.IsPublish = request.IsPublish;
             combo.UpdatedAt = DateTime.Now;
-            combo.Price = PriceCalculator.GetComboBasePrice(comboItemsResult.Items.Select(ci => (ci.Product, ci.Quantity)));
+            combo.Price = PriceCalculator.GetComboBasePrice(
+                comboItemsResult.Items.Select(ci => (ci.Product, ci.ProductType, ci.Quantity)));
 
             if (combo.ComboItems != null && combo.ComboItems.Any())
             {
@@ -219,6 +229,7 @@ namespace Assignment.Controllers.Api
                 {
                     ComboId = combo.Id,
                     ProductId = item.Product!.Id,
+                    ProductTypeId = item.ProductType?.Id,
                     Quantity = item.Quantity,
                     CreateBy = CurrentUserId,
                     CreatedAt = DateTime.Now,
@@ -232,7 +243,10 @@ namespace Assignment.Controllers.Api
 
             var updatedCombo = await _context.Combos
                 .Include(c => c.ComboItems)!
-                .ThenInclude(ci => ci.Product)
+                    .ThenInclude(ci => ci.Product)!
+                        .ThenInclude(p => p.ProductTypes)
+                .Include(c => c.ComboItems)!
+                    .ThenInclude(ci => ci.ProductType)
                 .FirstOrDefaultAsync(c => c.Id == combo.Id);
 
             return Ok(MapToResponse(updatedCombo!));
@@ -406,7 +420,20 @@ namespace Assignment.Controllers.Api
                     p.Id,
                     p.Name,
                     FinalPrice = PriceCalculator.GetProductFinalPrice(p),
-                    p.ProductImageUrl
+                    p.ProductImageUrl,
+                    ProductTypes = (p.ProductTypes ?? new List<ProductType>())
+                        .Where(pt => !pt.IsDeleted)
+                        .OrderBy(pt => pt.Name)
+                        .Select(pt => new
+                        {
+                            pt.Id,
+                            pt.Name,
+                            pt.Price,
+                            FinalPrice = PriceCalculator.GetProductTypeFinalPrice(pt),
+                            pt.DiscountType,
+                            pt.Discount,
+                            pt.IsPublish
+                        })
                 });
 
             return Ok(result);
@@ -562,7 +589,19 @@ namespace Assignment.Controllers.Api
                         Id = product.Id,
                         Name = product.Name,
                         FinalPrice = PriceCalculator.GetProductFinalPrice(product),
-                        ProductImageUrl = product.ProductImageUrl
+                        ProductImageUrl = product.ProductImageUrl,
+                        ProductTypes = (product.ProductTypes ?? new List<ProductType>())
+                            .Where(pt => !pt.IsDeleted)
+                            .Select(pt => new ComboItemProductType
+                            {
+                                Id = pt.Id,
+                                Name = pt.Name ?? $"Loại #{pt.Id}",
+                                FinalPrice = PriceCalculator.GetProductTypeFinalPrice(pt),
+                                DiscountType = pt.DiscountType,
+                                Discount = pt.Discount,
+                                IsPublish = pt.IsPublish
+                            })
+                            .ToList()
                     });
                 }
 
@@ -613,6 +652,11 @@ namespace Assignment.Controllers.Api
                         ModelState.AddModelError($"Items[{index}].ProductId", "Sản phẩm không hợp lệ.");
                     }
 
+                    if (item.ProductTypeId == null || item.ProductTypeId <= 0)
+                    {
+                        ModelState.AddModelError($"Items[{index}].ProductTypeId", "Vui lòng chọn loại sản phẩm.");
+                    }
+
                     if (item.Quantity <= 0)
                     {
                         ModelState.AddModelError($"Items[{index}].Quantity", "Số lượng phải lớn hơn 0.");
@@ -631,14 +675,14 @@ namespace Assignment.Controllers.Api
             };
         }
 
-        private async Task<(bool Success, List<(Product? Product, long Quantity)> Items, List<(string Key, string Error)> Errors)> BuildComboItems(List<ComboItemRequest> items)
+        private async Task<(bool Success, List<(Product? Product, ProductType? ProductType, long Quantity)> Items, List<(string Key, string Error)> Errors)> BuildComboItems(List<ComboItemRequest> items)
         {
             var errors = new List<(string Key, string Error)>();
 
             if (items == null || items.Count == 0)
             {
                 errors.Add((nameof(ComboRequest.Items), "Combo phải có ít nhất một sản phẩm."));
-                return (false, new List<(Product?, long)>(), errors);
+                return (false, new List<(Product?, ProductType?, long)>(), errors);
             }
 
             var productIds = items
@@ -660,11 +704,11 @@ namespace Assignment.Controllers.Api
             if (products.Count != productIds.Count)
             {
                 errors.Add((nameof(ComboRequest.Items), "Có sản phẩm không hợp lệ hoặc đã bị xóa."));
-                return (false, new List<(Product?, long)>(), errors);
+                return (false, new List<(Product?, ProductType?, long)>(), errors);
             }
 
             var productLookup = products.ToDictionary(p => p.Id);
-            var normalizedItems = new List<(Product?, long)>();
+            var normalizedItems = new List<(Product?, ProductType?, long)>();
 
             for (var index = 0; index < items.Count; index++)
             {
@@ -680,7 +724,24 @@ namespace Assignment.Controllers.Api
                     continue;
                 }
 
-                normalizedItems.Add((product, item.Quantity));
+                var availableTypes = product.ProductTypes?
+                    .Where(pt => !pt.IsDeleted)
+                    .ToList() ?? new List<ProductType>();
+
+                if (!item.ProductTypeId.HasValue || item.ProductTypeId <= 0)
+                {
+                    errors.Add(($"Items[{index}].ProductTypeId", "Vui lòng chọn loại sản phẩm."));
+                    continue;
+                }
+
+                var selectedType = availableTypes.FirstOrDefault(pt => pt.Id == item.ProductTypeId.Value);
+                if (selectedType == null)
+                {
+                    errors.Add(($"Items[{index}].ProductTypeId", "Loại sản phẩm không hợp lệ."));
+                    continue;
+                }
+
+                normalizedItems.Add((product, selectedType, item.Quantity));
             }
 
             var success = errors.Count == 0;
@@ -718,14 +779,30 @@ namespace Assignment.Controllers.Api
                 .Select(ci =>
                 {
                     ci.Product?.RefreshDerivedFields();
+                    var productType = ci.ProductType;
+
+                    if (productType == null && ci.ProductTypeId.HasValue)
+                    {
+                        productType = ci.Product?.ProductTypes?.FirstOrDefault(pt => pt.Id == ci.ProductTypeId.Value);
+                    }
+
+                    var finalPrice = productType != null
+                        ? PriceCalculator.GetProductTypeFinalPrice(productType)
+                        : ci.Product != null
+                            ? PriceCalculator.GetProductFinalPrice(ci.Product)
+                            : 0;
+
                     return new ComboItemResponse
                     {
                         Id = ci.Id,
                         ProductId = ci.ProductId,
                         ProductName = ci.Product?.Name ?? $"Sản phẩm #{ci.ProductId}",
                         ProductImageUrl = ci.Product?.ProductImageUrl,
+                        ProductTypeId = productType?.Id ?? ci.ProductTypeId,
+                        ProductTypeName = productType?.Name,
+                        ProductTypeFinalPrice = finalPrice,
                         Quantity = ci.Quantity,
-                        ProductFinalPrice = ci.Product != null ? PriceCalculator.GetProductFinalPrice(ci.Product) : 0
+                        ProductFinalPrice = finalPrice
                     };
                 })
                 .OrderBy(ci => ci.ProductName)
@@ -779,6 +856,23 @@ namespace Assignment.Controllers.Api
             public double FinalPrice { get; set; }
 
             public string? ProductImageUrl { get; set; }
+
+            public List<ComboItemProductType> ProductTypes { get; set; } = new();
+        }
+
+        public class ComboItemProductType
+        {
+            public long Id { get; set; }
+
+            public string Name { get; set; } = string.Empty;
+
+            public double FinalPrice { get; set; }
+
+            public DiscountType DiscountType { get; set; }
+
+            public long? Discount { get; set; }
+
+            public bool IsPublish { get; set; }
         }
 
         public class ComboRequest
@@ -817,6 +911,9 @@ namespace Assignment.Controllers.Api
             [Required]
             public long? ProductId { get; set; }
 
+            [Required]
+            public long? ProductTypeId { get; set; }
+
             [Range(1, long.MaxValue)]
             public long Quantity { get; set; }
         }
@@ -849,6 +946,9 @@ namespace Assignment.Controllers.Api
             public long ProductId { get; set; }
             public string ProductName { get; set; } = string.Empty;
             public string? ProductImageUrl { get; set; }
+            public long? ProductTypeId { get; set; }
+            public string? ProductTypeName { get; set; }
+            public double ProductTypeFinalPrice { get; set; }
             public long Quantity { get; set; }
             public double ProductFinalPrice { get; set; }
         }

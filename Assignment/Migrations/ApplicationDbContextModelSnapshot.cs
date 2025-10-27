@@ -366,6 +366,9 @@ namespace Assignment.Migrations
                     b.Property<long>("ProductId")
                         .HasColumnType("bigint");
 
+                    b.Property<long?>("ProductTypeId")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("Quantity")
                         .HasColumnType("bigint");
 
@@ -377,6 +380,8 @@ namespace Assignment.Migrations
                     b.HasIndex("ComboId");
 
                     b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductTypeId");
 
                     b.ToTable("ComboItems");
                 });
@@ -1469,9 +1474,15 @@ namespace Assignment.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Assignment.Models.ProductType", "ProductType")
+                        .WithMany()
+                        .HasForeignKey("ProductTypeId");
+
                     b.Navigation("Combo");
 
                     b.Navigation("Product");
+
+                    b.Navigation("ProductType");
                 });
 
             modelBuilder.Entity("Assignment.Models.Order", b =>
