@@ -75,6 +75,11 @@
 
     var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
 
+    string FormatCurrencyValue(decimal value) => value.ToString("N0", vietnamCulture);
+    string FormatCurrencyValue(double value) => Convert.ToDecimal(value).ToString("N0", vietnamCulture);
+    string FormatCurrencyWithSymbol(decimal value) => $"{FormatCurrencyValue(value)} ₫";
+    string FormatCurrencyWithSymbol(double value) => $"{FormatCurrencyValue(value)} ₫";
+
     string FormatPriceRange(string? priceRange, decimal? fallbackPrice = null)
     {
         if (string.IsNullOrWhiteSpace(priceRange))
@@ -306,7 +311,7 @@
                                         }
                                         else if (hasAmountDiscount)
                                         {
-                                            <span class="badge-discount">-@combo.Discount.Value.ToString("N0") ₫</span>
+                                            <span class="badge-discount">-@FormatCurrencyWithSymbol(combo.Discount.Value)</span>
                                         }
                                         else if (hasFixedDiscount)
                                         {
@@ -353,32 +358,32 @@
                                         <div class="mb-3">
                                             @if (!comboHasAnyDiscount)
                                             {
-                                                <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                                <span class="final-price">@FormatCurrencyWithSymbol(comboFinalPrice)</span>
                                             }
                                             else
                                             {
                                                 @if (comboHasOwnDiscount)
                                                 {
                                                     <div>
-                                                        <span class="original-price">@combo.Price.ToString("N0") ₫</span>
+                                                        <span class="original-price">@FormatCurrencyWithSymbol(combo.Price)</span>
                                                     </div>
-                                                    <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                                    <span class="final-price">@FormatCurrencyWithSymbol(comboFinalPrice)</span>
                                                     @if (hasPercentDiscount && comboSavings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(comboSavings)</div>
                                                     }
                                                     else if (hasAmountDiscount)
                                                     {
-                                                        <div class="small text-muted">Giảm @combo.Discount.Value.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Giảm @FormatCurrencyWithSymbol(combo.Discount.Value)</div>
                                                     }
                                                     else if (hasFixedDiscount && comboSavings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @comboSavings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(comboSavings)</div>
                                                     }
                                                 }
                                                 else
                                                 {
-                                                    <span class="final-price">@comboFinalPrice.ToString("N0") ₫</span>
+                                                    <span class="final-price">@FormatCurrencyWithSymbol(comboFinalPrice)</span>
                                                     <div class="small text-muted text-success">Bao gồm món đang giảm giá</div>
                                                 }
                                             }
@@ -469,7 +474,7 @@
                                             }
                                             else if (hasAmountDiscount)
                                             {
-                                                <span class="badge-discount">-@discountValue.Value.ToString("N0") ₫</span>
+                                                <span class="badge-discount">-@FormatCurrencyWithSymbol(discountValue.Value)</span>
                                             }
                                             else if (hasFixedDiscount)
                                             {
@@ -483,7 +488,7 @@
                                                 }
                                                 else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Amount && bestDiscountType.Discount.HasValue)
                                                 {
-                                                    <span class="badge-discount">-@bestDiscountType.Discount.Value.ToString("N0") ₫</span>
+                                                    <span class="badge-discount">-@FormatCurrencyWithSymbol(bestDiscountType.Discount.Value)</span>
                                                 }
                                                 else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.FixedAmount)
                                                 {
@@ -532,33 +537,33 @@
                                                 else if (hasDiscount)
                                                 {
                                                     <div>
-                                                        <span class="original-price">@originalPrice.ToString("N0") ₫</span>
+                                                        <span class="original-price">@FormatCurrencyWithSymbol(originalPrice)</span>
                                                     </div>
-                                                    <span class="final-price">@finalPrice.ToString("N0") ₫</span>
+                                                    <span class="final-price">@FormatCurrencyWithSymbol(finalPrice)</span>
                                                     @if (hasPercentDiscount && savings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(savings)</div>
                                                     }
                                                     else if (hasAmountDiscount)
                                                     {
-                                                        <div class="small text-muted">Giảm @discountValue.Value.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Giảm @FormatCurrencyWithSymbol(discountValue.Value)</div>
                                                     }
                                                     else if (hasFixedDiscount && savings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(savings)</div>
                                                     }
                                                 }
                                                 else if (hasOtherTypeDiscount && bestDiscountType != null)
                                                 {
                                                     var bestOriginalPrice = bestDiscountType.Price;
-                                                    var bestFinalPriceDisplay = Convert.ToDecimal(bestDiscountFinalPrice).ToString("N0");
+                                                    var bestFinalPriceDisplay = FormatCurrencyWithSymbol(bestDiscountFinalPrice);
                                                     <div>
-                                                        <span class="original-price">@bestOriginalPrice.ToString("N0") ₫</span>
+                                                        <span class="original-price">@FormatCurrencyWithSymbol(bestOriginalPrice)</span>
                                                     </div>
-                                                    <span class="final-price">@bestFinalPriceDisplay ₫</span>
+                                                    <span class="final-price">@bestFinalPriceDisplay</span>
                                                     @if (bestDiscountSavings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @bestDiscountSavings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(bestDiscountSavings)</div>
                                                     }
                                                 }
                                             </div>
@@ -633,7 +638,7 @@
                                             }
                                             else if (hasAmountDiscount)
                                             {
-                                                <span class="badge-discount">-@discountValue.Value.ToString("N0") ₫</span>
+                                                <span class="badge-discount">-@FormatCurrencyWithSymbol(discountValue.Value)</span>
                                             }
                                             else if (hasFixedDiscount)
                                             {
@@ -647,7 +652,7 @@
                                                 }
                                                 else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.Amount && bestDiscountType.Discount.HasValue)
                                                 {
-                                                    <span class="badge-discount">-@bestDiscountType.Discount.Value.ToString("N0") ₫</span>
+                                                    <span class="badge-discount">-@FormatCurrencyWithSymbol(bestDiscountType.Discount.Value)</span>
                                                 }
                                                 else if (bestDiscountType.DiscountType == Assignment.Enums.DiscountType.FixedAmount)
                                                 {
@@ -696,33 +701,33 @@
                                                 else if (hasDiscount)
                                                 {
                                                     <div>
-                                                        <span class="original-price">@originalPrice.ToString("N0") ₫</span>
+                                                        <span class="original-price">@FormatCurrencyWithSymbol(originalPrice)</span>
                                                     </div>
-                                                    <span class="final-price">@finalPrice.ToString("N0") ₫</span>
+                                                    <span class="final-price">@FormatCurrencyWithSymbol(finalPrice)</span>
                                                     @if (hasPercentDiscount && savings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(savings)</div>
                                                     }
                                                     else if (hasAmountDiscount)
                                                     {
-                                                        <div class="small text-muted">Giảm @discountValue.Value.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Giảm @FormatCurrencyWithSymbol(discountValue.Value)</div>
                                                     }
                                                     else if (hasFixedDiscount && savings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @savings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(savings)</div>
                                                     }
                                                 }
                                                 else if (hasOtherTypeDiscount && bestDiscountType != null)
                                                 {
                                                     var bestOriginalPrice = bestDiscountType.Price;
-                                                    var bestFinalPriceDisplay = Convert.ToDecimal(bestDiscountFinalPrice).ToString("N0");
+                                                    var bestFinalPriceDisplay = FormatCurrencyWithSymbol(bestDiscountFinalPrice);
                                                     <div>
-                                                        <span class="original-price">@bestOriginalPrice.ToString("N0") ₫</span>
+                                                        <span class="original-price">@FormatCurrencyWithSymbol(bestOriginalPrice)</span>
                                                     </div>
-                                                    <span class="final-price">@bestFinalPriceDisplay ₫</span>
+                                                    <span class="final-price">@bestFinalPriceDisplay</span>
                                                     @if (bestDiscountSavings > 0)
                                                     {
-                                                        <div class="small text-muted">Tiết kiệm @bestDiscountSavings.ToString("N0") ₫</div>
+                                                        <div class="small text-muted">Tiết kiệm @FormatCurrencyWithSymbol(bestDiscountSavings)</div>
                                                     }
                                                 }
                                             </div>

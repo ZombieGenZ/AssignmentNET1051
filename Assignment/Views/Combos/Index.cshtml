@@ -579,6 +579,105 @@
                 return number.toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
             }
 
+            function normalizeProduct(product) {
+                if (!product || typeof product !== 'object') {
+                    return null;
+                }
+
+                const normalizedId = Number(product.id ?? product.Id ?? NaN);
+                const normalizedFinalPrice = Number(product.finalPrice ?? product.FinalPrice ?? 0);
+                const normalizedImage = product.productImageUrl ?? product.ProductImageUrl ?? '';
+                const normalizedName = product.name ?? product.Name ?? '';
+                const rawTypes = product.productTypes ?? product.ProductTypes ?? [];
+
+                const normalizedTypes = Array.isArray(rawTypes)
+                    ? rawTypes.map(type => {
+                        const typeId = Number(type.id ?? type.Id ?? NaN);
+                        const basePrice = Number(type.price ?? type.Price ?? 0);
+                        const finalPrice = Number(type.finalPrice ?? type.FinalPrice ?? basePrice);
+                        const discountValue = type.discount ?? type.Discount;
+
+                        return {
+                            id: Number.isFinite(typeId) ? typeId : type.id ?? type.Id,
+                            name: type.name ?? type.Name ?? (Number.isFinite(typeId) ? `Loại #${typeId}` : 'Loại sản phẩm'),
+                            price: basePrice,
+                            finalPrice: finalPrice,
+                            discountType: Number(type.discountType ?? type.DiscountType ?? DISCOUNT_NONE),
+                            discount: discountValue !== null && discountValue !== undefined
+                                ? Number(discountValue)
+                                : null,
+                            isPublish: Boolean(type.isPublish ?? type.IsPublish)
+                        };
+                    })
+                    : [];
+
+                return {
+                    id: Number.isFinite(normalizedId) ? normalizedId : product.id ?? product.Id,
+                    name: normalizedName,
+                    finalPrice: normalizedFinalPrice,
+                    productImageUrl: normalizedImage,
+                    productTypes: normalizedTypes
+                };
+            }
+
+            function ensureProductsCache(products) {
+                if (!Array.isArray(products)) {
+                    return [];
+                }
+
+                return products
+                    .map(normalizeProduct)
+                    .filter(product => product !== null);
+            }
+
+            function getProductById(productId) {
+                if (!Array.isArray(productsCache)) {
+                    return null;
+                }
+
+                const targetId = Number(productId);
+                if (!Number.isFinite(targetId)) {
+                    return null;
+                }
+
+                return productsCache.find(product => Number(product.id) === targetId) || null;
+            }
+
+            function populateProductTypeSelect(selectEl, product, selectedTypeId) {
+                if (!selectEl) {
+                    return;
+                }
+
+                selectEl.innerHTML = '';
+
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = product ? '-- Chọn loại sản phẩm --' : '-- Chọn sản phẩm trước --';
+                placeholder.selected = true;
+                selectEl.appendChild(placeholder);
+
+                if (!product || !Array.isArray(product.productTypes) || product.productTypes.length === 0) {
+                    selectEl.disabled = true;
+                    return;
+                }
+
+                selectEl.disabled = false;
+
+                product.productTypes.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.id;
+                    const finalPrice = Number.isFinite(Number(type.finalPrice))
+                        ? Number(type.finalPrice)
+                        : Number(type.price ?? 0);
+                    option.textContent = `${type.name} (${formatCurrency(finalPrice)})`;
+                    if (selectedTypeId && Number(selectedTypeId) === Number(type.id)) {
+                        option.selected = true;
+                        placeholder.selected = false;
+                    }
+                    selectEl.appendChild(option);
+                });
+            }
+
             function toggleDiscountField() {
                 if (!discountWrapper || !discountInput) {
                     return;
@@ -905,12 +1004,15 @@
                     throw new Error('Không thể tải danh sách sản phẩm.');
                 }
 
-                productsCache = await response.json();
+                const rawProducts = await response.json();
+                productsCache = ensureProductsCache(rawProducts);
                 return productsCache;
             }
 
             function mergeProductsIntoCache(products) {
-                if (!Array.isArray(products) || products.length === 0) {
+                const normalized = ensureProductsCache(products);
+
+                if (!Array.isArray(normalized) || normalized.length === 0) {
                     return;
                 }
 
@@ -920,7 +1022,7 @@
 
                 const lookup = new Map(productsCache.map(product => [String(product.id), product]));
 
-                products.forEach(product => {
+                normalized.forEach(product => {
                     const key = String(product.id);
                     if (lookup.has(key)) {
                         const index = productsCache.findIndex(existing => String(existing.id) === key);
@@ -938,19 +1040,23 @@
 
                 if (Array.isArray(items) && items.length > 0) {
                     items.forEach(item => {
-                        createItemRow({ productId: item.productId, quantity: item.quantity });
+                        createItemRow({
+                            productId: item.productId,
+                            productTypeId: item.productTypeId,
+                            quantity: item.quantity
+                        });
                     });
                 } else {
                     createItemRow();
                 }
             }
 
-            function createItemRow(item = { productId: '', quantity: 1 }) {
+            function createItemRow(item = { productId: '', productTypeId: '', quantity: 1 }) {
                 const row = document.createElement('div');
-                row.className = 'row g-3 align-items-end';
+                row.className = 'row g-3 align-items-end combo-item-row';
 
                 const productCol = document.createElement('div');
-                productCol.className = 'col-md-8';
+                productCol.className = 'col-md-5';
                 const productLabel = document.createElement('label');
                 productLabel.className = 'form-label';
                 productLabel.textContent = 'Sản phẩm';
@@ -959,7 +1065,7 @@
                 productSelect.required = true;
                 productSelect.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
 
-                if (productsCache) {
+                if (Array.isArray(productsCache)) {
                     productsCache.forEach(product => {
                         const option = document.createElement('option');
                         option.value = product.id;
@@ -974,8 +1080,20 @@
                 productCol.appendChild(productLabel);
                 productCol.appendChild(productSelect);
 
+                const typeCol = document.createElement('div');
+                typeCol.className = 'col-md-4';
+                const typeLabel = document.createElement('label');
+                typeLabel.className = 'form-label';
+                typeLabel.textContent = 'Loại sản phẩm';
+                const typeSelect = document.createElement('select');
+                typeSelect.className = 'form-select combo-product-type-select';
+                typeSelect.required = true;
+                typeSelect.disabled = true;
+                typeCol.appendChild(typeLabel);
+                typeCol.appendChild(typeSelect);
+
                 const quantityCol = document.createElement('div');
-                quantityCol.className = 'col-md-3';
+                quantityCol.className = 'col-md-2';
                 const quantityLabel = document.createElement('label');
                 quantityLabel.className = 'form-label';
                 quantityLabel.textContent = 'Số lượng';
@@ -1001,8 +1119,17 @@
                 actionCol.appendChild(removeBtn);
 
                 row.appendChild(productCol);
+                row.appendChild(typeCol);
                 row.appendChild(quantityCol);
                 row.appendChild(actionCol);
+
+                const selectedProduct = getProductById(item.productId);
+                populateProductTypeSelect(typeSelect, selectedProduct, item.productTypeId);
+
+                productSelect.addEventListener('change', () => {
+                    const product = getProductById(productSelect.value);
+                    populateProductTypeSelect(typeSelect, product, null);
+                });
 
                 itemsContainer.appendChild(row);
             }
@@ -1319,11 +1446,22 @@
             }
 
             function gatherComboFormData() {
-                const items = Array.from(itemsContainer.querySelectorAll('.row')).map(row => {
+                const rows = Array.from(itemsContainer.querySelectorAll('.combo-item-row'));
+
+                const items = rows.map(row => {
                     const productSelect = row.querySelector('.combo-product-select');
+                    const typeSelect = row.querySelector('.combo-product-type-select');
                     const quantityInput = row.querySelector('.combo-quantity-input');
+
+                    const productValue = productSelect ? productSelect.value : '';
+                    const typeValue = typeSelect ? typeSelect.value : '';
+
+                    const productId = productValue ? Number(productValue) : null;
+                    const productTypeId = typeValue ? Number(typeValue) : null;
+
                     return {
-                        productId: productSelect ? Number(productSelect.value) : null,
+                        productId: Number.isFinite(productId) && productId > 0 ? productId : null,
+                        productTypeId: Number.isFinite(productTypeId) && productTypeId > 0 ? productTypeId : null,
                         quantity: quantityInput ? Number(quantityInput.value) : 0
                     };
                 }).filter(item => item.productId);
@@ -1390,6 +1528,12 @@
                 if (!payload.items || payload.items.length === 0) {
                     validationErrors.push('Combo phải có ít nhất một sản phẩm.');
                 }
+
+                payload.items.forEach((item, index) => {
+                    if (!item.productTypeId) {
+                        validationErrors.push(`Sản phẩm #${index + 1} cần chọn loại sản phẩm.`);
+                    }
+                });
 
                 if (payload.discountType === @( (int)DiscountType.Percent ) && payload.discount !== null) {
                     if (payload.discount < 0 || payload.discount > 100) {
@@ -1464,7 +1608,11 @@
                     await fetchProductsIfNeeded();
                     populateComboForm(combo);
                     const normalizedItems = Array.isArray(combo.items)
-                        ? combo.items.map(item => ({ productId: item.productId, quantity: item.quantity }))
+                        ? combo.items.map(item => ({
+                            productId: item.productId,
+                            productTypeId: item.productTypeId,
+                            quantity: item.quantity
+                        }))
                         : [];
                     setComboItems(normalizedItems);
                     comboModal.show();
@@ -1530,7 +1678,8 @@
                                                 <img src="${item.productImageUrl || '/images/default-product.svg'}" alt="${item.productName}" style="width: 40px; height: 40px; object-fit: cover;" class="rounded" />
                                                 <div>
                                                     <div class="fw-semibold">${item.productName}</div>
-                                                    <div class="text-muted small">Giá: ${formatCurrency(item.productFinalPrice)}</div>
+                                                    ${item.productTypeName ? `<div class="text-muted small">Loại: ${item.productTypeName}</div>` : ''}
+                                                    <div class="text-muted small">Giá: ${formatCurrency(item.productFinalPrice ?? item.productTypeFinalPrice ?? 0)}</div>
                                                 </div>
                                             </div>
                                             <span class="badge bg-primary">Số lượng: ${item.quantity}</span>

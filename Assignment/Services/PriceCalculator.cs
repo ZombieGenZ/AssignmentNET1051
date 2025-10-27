@@ -66,7 +66,7 @@ namespace Assignment.Services
             return Math.Round(Math.Max(unitPrice, 0), 2);
         }
 
-        public static double GetComboBasePrice(IEnumerable<(Product? product, long quantity)> items)
+        public static double GetComboBasePrice(IEnumerable<(Product? product, ProductType? productType, long quantity)> items)
         {
             if (items == null)
             {
@@ -75,18 +75,36 @@ namespace Assignment.Services
 
             double total = 0;
 
-            foreach (var (product, quantity) in items)
+            foreach (var (product, productType, quantity) in items)
             {
                 if (product == null || quantity <= 0)
                 {
                     continue;
                 }
 
-                var productPrice = GetProductFinalPrice(product);
+                double productPrice;
+
+                if (productType != null)
+                {
+                    productPrice = GetProductTypeFinalPrice(productType);
+                }
+                else
+                {
+                    productPrice = GetProductFinalPrice(product);
+                }
+
                 total += productPrice * quantity;
             }
 
             return Math.Round(Math.Max(total, 0), 2);
+        }
+
+        public static double GetComboBasePrice(IEnumerable<(Product? product, long quantity)> items)
+        {
+            var normalized = items?.Select(item => (item.product, (ProductType?)null, item.quantity))
+                ?? Array.Empty<(Product?, ProductType?, long)>();
+
+            return GetComboBasePrice(normalized);
         }
 
         public static double ApplyDiscount(double price, DiscountType discountType, double? discountValue)

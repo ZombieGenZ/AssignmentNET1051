@@ -8,6 +8,8 @@ namespace Assignment.Models
         public virtual Combo? Combo { get; set; }
         public long ProductId { get; set; }
         public virtual Product? Product { get; set; }
+        public long? ProductTypeId { get; set; }
+        public virtual ProductType? ProductType { get; set; }
         [Required]
         [Range(1, long.MaxValue)]
         public long Quantity { get; set; }
