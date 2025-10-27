@@ -218,6 +218,17 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
+    options.AddPolicy("CreateReceivingPolicy", policy =>
+        policy.RequireClaim("CreateReceiving")
+    );
+
+    options.AddPolicy("ViewInventoryPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("ViewInventoryAll") ||
+            ctx.User.HasPermission("ViewInventory")
+        )
+    );
+
     options.AddPolicy("DeleteMaterialPolicy", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasPermission("DeleteMaterialAll") ||
@@ -714,6 +725,90 @@ BEGIN
     ALTER TABLE [dbo].[Materials] WITH CHECK
         ADD CONSTRAINT [FK_Materials_Units_UnitId]
         FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
+END;
+
+IF OBJECT_ID(N'dbo.ReceivingNotes', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ReceivingNotes]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [NoteNumber] NVARCHAR(100) NOT NULL,
+        [Date] DATE NOT NULL,
+        [SupplierId] NVARCHAR(100) NULL,
+        [SupplierName] NVARCHAR(255) NULL,
+        [WarehouseId] BIGINT NULL,
+        [Status] INT NOT NULL,
+        [IsStockApplied] BIT NOT NULL,
+        [CompletedAt] DATETIME2 NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_ReceivingNotes] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_ReceivingNotes_NoteNumber] ON [dbo].[ReceivingNotes]([NoteNumber]);
+END;
+
+IF OBJECT_ID(N'dbo.ReceivingDetails', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ReceivingDetails]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [ReceivingNoteId] BIGINT NOT NULL,
+        [MaterialId] BIGINT NOT NULL,
+        [Quantity] DECIMAL(18,4) NOT NULL,
+        [UnitId] BIGINT NOT NULL,
+        [UnitPrice] DECIMAL(18,2) NOT NULL,
+        [BaseQuantity] DECIMAL(18,4) NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_ReceivingDetails] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_ReceivingDetails_ReceivingNoteId] ON [dbo].[ReceivingDetails]([ReceivingNoteId]);
+    CREATE INDEX [IX_ReceivingDetails_MaterialId] ON [dbo].[ReceivingDetails]([MaterialId]);
+    CREATE INDEX [IX_ReceivingDetails_UnitId] ON [dbo].[ReceivingDetails]([UnitId]);
+
+    ALTER TABLE [dbo].[ReceivingDetails] WITH CHECK
+        ADD CONSTRAINT [FK_ReceivingDetails_ReceivingNotes_ReceivingNoteId]
+        FOREIGN KEY([ReceivingNoteId]) REFERENCES [dbo].[ReceivingNotes]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[ReceivingDetails] WITH CHECK
+        ADD CONSTRAINT [FK_ReceivingDetails_Materials_MaterialId]
+        FOREIGN KEY([MaterialId]) REFERENCES [dbo].[Materials]([Id]);
+
+    ALTER TABLE [dbo].[ReceivingDetails] WITH CHECK
+        ADD CONSTRAINT [FK_ReceivingDetails_Units_UnitId]
+        FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]);
+END;
+
+IF OBJECT_ID(N'dbo.Inventories', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Inventories]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [MaterialId] BIGINT NOT NULL,
+        [WarehouseId] BIGINT NULL,
+        [CurrentStock] DECIMAL(18,4) NOT NULL,
+        [LastUpdated] DATETIME2 NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_Inventories] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE UNIQUE INDEX [IX_Inventories_MaterialId_WarehouseId] ON [dbo].[Inventories]([MaterialId], [WarehouseId]);
+
+    ALTER TABLE [dbo].[Inventories] WITH CHECK
+        ADD CONSTRAINT [FK_Inventories_Materials_MaterialId]
+        FOREIGN KEY([MaterialId]) REFERENCES [dbo].[Materials]([Id]);
 END;";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
