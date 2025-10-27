@@ -1251,7 +1251,7 @@
 
                     let product = getProductById(numericId);
 
-                    if (!product || (Array.isArray(product.productTypes) && product.productTypes.length > 0)) {
+                    if (product && Array.isArray(product.productTypes) && product.productTypes.length > 0) {
                         populateProductTypeSelect(typeSelect, product, null);
                         return;
                     }
@@ -1260,6 +1260,8 @@
                         await fetchProductsIfNeeded(true);
                     } catch (error) {
                         showAlert('danger', error.message || 'Không thể tải danh sách sản phẩm.');
+                        populateProductTypeSelect(typeSelect, product, null);
+                        return;
                     }
 
                     product = getProductById(numericId);
