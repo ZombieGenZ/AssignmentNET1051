@@ -400,6 +400,35 @@ BEGIN
     ALTER TABLE [dbo].[OrderItemProductTypes] WITH CHECK
         ADD CONSTRAINT [FK_OrderItemProductTypes_ProductTypes_ProductTypeId]
         FOREIGN KEY([ProductTypeId]) REFERENCES [dbo].[ProductTypes]([Id]) ON DELETE CASCADE;
+END;
+
+IF COL_LENGTH(N'dbo.ComboItems', N'ProductTypeId') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[ComboItems]
+    ADD [ProductTypeId] BIGINT NULL;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_ComboItems_ProductTypeId'
+            AND object_id = OBJECT_ID(N'dbo.ComboItems')
+    )
+    BEGIN
+        CREATE INDEX [IX_ComboItems_ProductTypeId]
+        ON [dbo].[ComboItems]([ProductTypeId]);
+    END;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.foreign_keys
+        WHERE name = N'FK_ComboItems_ProductTypes_ProductTypeId'
+            AND parent_object_id = OBJECT_ID(N'dbo.ComboItems')
+    )
+    BEGIN
+        ALTER TABLE [dbo].[ComboItems] WITH CHECK
+            ADD CONSTRAINT [FK_ComboItems_ProductTypes_ProductTypeId]
+            FOREIGN KEY([ProductTypeId]) REFERENCES [dbo].[ProductTypes]([Id]);
+    END;
 END;";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
