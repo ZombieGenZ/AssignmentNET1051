@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
@@ -8,7 +9,9 @@ using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Extensions;
 using Assignment.Models;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -287,6 +290,142 @@ namespace Assignment.Controllers.Api
             return Ok(new { deleted, unauthorized, blocked = 0 });
         }
 
+        [HttpGet("template")]
+        public IActionResult DownloadTemplate()
+        {
+            if (!User.HasAnyPermission("CreateProductExtra", "UpdateProductExtra", "UpdateProductExtraAll"))
+            {
+                return Forbid();
+            }
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("ApplicableProducts");
+            worksheet.Cell(1, 1).Value = "ProductId";
+            worksheet.Cell(2, 1).Value = "1";
+            worksheet.Cell(3, 1).Value = "2";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            var content = stream.ToArray();
+            const string fileName = "product_extra_products_template.xlsx";
+            const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(content, contentType, fileName);
+        }
+
+        [HttpPost("import-products")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportApplicableProducts([FromForm] IFormFile? file)
+        {
+            if (!User.HasAnyPermission("CreateProductExtra", "UpdateProductExtra", "UpdateProductExtraAll"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách sản phẩm." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu sản phẩm." });
+                }
+
+                var orderedIds = new List<long>();
+                var seenIds = new HashSet<long>();
+                var invalidEntries = new List<string>();
+
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    var rawValue = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(rawValue))
+                    {
+                        continue;
+                    }
+
+                    if (row.RowNumber() == 1 && string.Equals(rawValue, "ProductId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!long.TryParse(rawValue, out var productId) || productId <= 0)
+                    {
+                        invalidEntries.Add(rawValue);
+                        continue;
+                    }
+
+                    if (seenIds.Add(productId))
+                    {
+                        orderedIds.Add(productId);
+                    }
+                }
+
+                if (orderedIds.Count == 0)
+                {
+                    return Ok(new ProductExtraImportResponse
+                    {
+                        InvalidEntries = invalidEntries
+                    });
+                }
+
+                var accessibleIds = await GetAccessibleProductIdsAsync(orderedIds);
+                var accessibleSet = accessibleIds.ToHashSet();
+
+                foreach (var id in orderedIds)
+                {
+                    if (!accessibleSet.Contains(id))
+                    {
+                        invalidEntries.Add(id.ToString());
+                    }
+                }
+
+                var allowedIds = orderedIds
+                    .Where(id => accessibleSet.Contains(id))
+                    .ToList();
+
+                if (allowedIds.Count == 0)
+                {
+                    return Ok(new ProductExtraImportResponse
+                    {
+                        InvalidEntries = invalidEntries
+                    });
+                }
+
+                var options = await GetProductOptionsByIdsAsync(allowedIds);
+                var lookup = options.ToDictionary(option => option.Id, option => option);
+                var orderedOptions = allowedIds
+                    .Where(id => lookup.ContainsKey(id))
+                    .Select(id => lookup[id])
+                    .ToList();
+
+                return Ok(new ProductExtraImportResponse
+                {
+                    Products = orderedOptions,
+                    InvalidEntries = invalidEntries
+                });
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "File không hợp lệ hoặc bị hỏng." });
+            }
+        }
+
         [HttpGet("product-options")]
         public async Task<IActionResult> GetProductOptions([FromQuery] string? search = null)
         {
@@ -414,6 +553,45 @@ namespace Assignment.Controllers.Api
                 .ToListAsync();
 
             return accessibleIds.ToHashSet();
+        }
+
+        private async Task<List<ProductOption>> GetProductOptionsByIdsAsync(IReadOnlyCollection<long> ids)
+        {
+            if (ids == null || ids.Count == 0)
+            {
+                return new List<ProductOption>();
+            }
+
+            var canGetAllProducts = User.HasPermission("GetProductAll");
+            var canGetOwnProducts = User.HasPermission("GetProduct");
+
+            if (!canGetAllProducts && !canGetOwnProducts)
+            {
+                return new List<ProductOption>();
+            }
+
+            IQueryable<Product> query = _context.Products
+                .AsNoTracking()
+                .Include(p => p.Category)
+                .Where(p => !p.IsDeleted && ids.Contains(p.Id));
+
+            if (!canGetAllProducts)
+            {
+                var currentUserId = CurrentUserId;
+                query = query.Where(p => p.CreateBy == currentUserId);
+            }
+
+            var products = await query
+                .Select(p => new ProductOption
+                {
+                    Id = p.Id,
+                    Name = p.Name,
+                    CategoryName = p.Category != null ? p.Category.Name : null,
+                    IsPublish = p.IsPublish
+                })
+                .ToListAsync();
+
+            return products;
         }
 
         private async Task UpdateProductAssociationsAsync(ProductExtra extra, IList<long>? requestedIds, DateTime now)
@@ -619,6 +797,13 @@ namespace Assignment.Controllers.Api
             public long Id { get; set; }
             public string Name { get; set; } = string.Empty;
             public string? CategoryName { get; set; }
+        }
+
+        public class ProductExtraImportResponse
+        {
+            public List<ProductOption> Products { get; set; } = new();
+
+            public List<string> InvalidEntries { get; set; } = new();
         }
 
         public class ProductOption
