@@ -254,6 +254,16 @@
                                         <span class="input-group-text"><i class="fas fa-search"></i></span>
                                         <input type="search" class="form-control" id="productOptionSearch" placeholder="Tìm sản phẩm..." />
                                     </div>
+                                    <a class="btn btn-outline-secondary btn-sm" id="downloadProductOptionsTemplateLink" href="/api/product-extras/template">
+                                        <i class="fas fa-file-download me-1"></i>Tải file mẫu
+                                    </a>
+                                    <input type="file" accept=".xlsx" id="productOptionsImportInput" class="d-none" />
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="importProductOptionsBtn">
+                                        <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearProductOptionsBtn">
+                                        <i class="fas fa-trash-can me-1"></i>Xóa tất cả
+                                    </button>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductOptionsBtn">
                                         <i class="fas fa-rotate-right"></i>
                                     </button>
@@ -402,6 +412,10 @@
             const addProductBtn = document.getElementById('addProductOptionBtn');
             const productSearchInput = document.getElementById('productOptionSearch');
             const productRefreshBtn = document.getElementById('refreshProductOptionsBtn');
+            const importProductBtn = document.getElementById('importProductOptionsBtn');
+            const importProductInput = document.getElementById('productOptionsImportInput');
+            const clearProductBtn = document.getElementById('clearProductOptionsBtn');
+            const importProductBtnInitialHtml = importProductBtn ? importProductBtn.innerHTML : '';
 
             let editingId = null;
             let deleteId = null;
@@ -540,6 +554,37 @@
                 };
             }
 
+            function mergeProductOptions(options = []) {
+                if (!Array.isArray(options) || options.length === 0) {
+                    return;
+                }
+
+                const normalized = options
+                    .map(normalizeProductOption)
+                    .filter(option => option !== null);
+
+                if (normalized.length === 0) {
+                    return;
+                }
+
+                const map = new Map();
+
+                if (Array.isArray(productOptions) && productOptions.length > 0) {
+                    productOptions.forEach(option => {
+                        if (option && option.id !== undefined && option.id !== null) {
+                            map.set(String(option.id), option);
+                        }
+                    });
+                }
+
+                normalized.forEach(option => {
+                    map.set(String(option.id), option);
+                });
+
+                productOptions = Array.from(map.values())
+                    .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+            }
+
             function findProductOptionById(id) {
                 if (!Array.isArray(productOptions) || productOptions.length === 0) {
                     return null;
@@ -648,6 +693,11 @@
                     addProductBtn.disabled = availableOptions.length === 0;
                 }
 
+                if (clearProductBtn) {
+                    const hasRows = Boolean(productsContainer?.querySelector('.product-extra-product-row'));
+                    clearProductBtn.disabled = !hasRows;
+                }
+
                 if (productOptionsStatus && (!Array.isArray(productOptions) || productOptions.length === 0)) {
                     productOptionsStatus.classList.remove('text-danger');
                 }
@@ -734,6 +784,69 @@
 
                 refreshProductSelectOptions();
                 updateProductControlStates();
+            }
+
+            async function importProductOptionsFromFile(file) {
+                if (!file) {
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                if (importProductBtn) {
+                    importProductBtn.disabled = true;
+                    importProductBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang nhập...';
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/import-products`, {
+                        method: 'POST',
+                        headers: {
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const result = await response.json().catch(() => null);
+                        const message = result?.message || 'Không thể nhập sản phẩm từ file.';
+                        showAlert(message, 'danger');
+                        return;
+                    }
+
+                    const result = await response.json();
+                    const importedProducts = Array.isArray(result?.products) ? result.products : [];
+                    const invalidEntries = Array.isArray(result?.invalidEntries) ? result.invalidEntries : [];
+
+                    if (importedProducts.length === 0) {
+                        let warningMessage = 'Không có sản phẩm hợp lệ trong file.';
+                        if (invalidEntries.length > 0) {
+                            warningMessage += ` Bỏ qua ${invalidEntries.length} dòng không hợp lệ.`;
+                        }
+                        showAlert(warningMessage, 'warning');
+                        return;
+                    }
+
+                    mergeProductOptions(importedProducts);
+                    setProductRows(importedProducts);
+
+                    let successMessage = `Đã nhập ${importedProducts.length} sản phẩm hợp lệ.`;
+                    if (invalidEntries.length > 0) {
+                        successMessage += ` Bỏ qua ${invalidEntries.length} dòng không hợp lệ.`;
+                    }
+                    showAlert(successMessage, 'success');
+                } catch (error) {
+                    showAlert('Không thể nhập sản phẩm từ file. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    if (importProductBtn) {
+                        importProductBtn.disabled = false;
+                        importProductBtn.innerHTML = importProductBtnInitialHtml || '<i class="fas fa-file-import me-1"></i>Nhập từ file';
+                    }
+                    if (importProductInput) {
+                        importProductInput.value = '';
+                    }
+                }
             }
 
             function getSelectedProductIds() {
@@ -1490,6 +1603,29 @@
             });
 
             productRefreshBtn?.addEventListener('click', () => loadProductOptions(productSearchInput?.value?.trim() ?? ''));
+            importProductBtn?.addEventListener('click', () => {
+                importProductInput?.click();
+            });
+            importProductInput?.addEventListener('change', event => {
+                const file = event.target.files ? event.target.files[0] : null;
+                if (file) {
+                    importProductOptionsFromFile(file);
+                }
+            });
+            clearProductBtn?.addEventListener('click', () => {
+                if (!productsContainer) {
+                    return;
+                }
+
+                const hasRows = Boolean(productsContainer.querySelector('.product-extra-product-row'));
+                if (!hasRows) {
+                    showAlert('Không có sản phẩm áp dụng nào để xóa.', 'info');
+                    return;
+                }
+
+                setProductRows([]);
+                showAlert('Đã xóa tất cả sản phẩm áp dụng.', 'info');
+            });
             addProductBtn?.addEventListener('click', () => addProductRow());
 
             loadProductExtras();
