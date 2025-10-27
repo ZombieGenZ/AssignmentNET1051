@@ -20,11 +20,8 @@
     var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
 
     string FormatCurrency(decimal value) => value.ToString("N0", vietnamCulture);
-    string FormatCurrency(double value) => FormatCurrency(Convert.ToDecimal(value));
     string FormatCurrencyWithSymbol(decimal value) => $"{FormatCurrency(value)} ₫";
-    string FormatCurrencyWithSymbol(double value) => $"{FormatCurrency(value)} ₫";
     string FormatPercent(decimal value) => value.ToString("0.##", vietnamCulture);
-    string FormatPercent(double value) => FormatPercent(Convert.ToDecimal(value));
     string FormatPriceRange(string? priceRange, decimal? fallbackPrice = null)
     {
         if (string.IsNullOrWhiteSpace(priceRange))
@@ -1338,7 +1335,7 @@
                                 <div class="row g-3">
                                     @foreach (var type in availableTypes)
                                     {
-                                        var typeFinalPrice = PriceCalculator.GetProductTypeFinalPrice(type);
+                                        var typeFinalPrice = Convert.ToDecimal(PriceCalculator.GetProductTypeFinalPrice(type));
                                         var checkboxId = $"product-type-{type.Id}";
                                         var isAvailable = type.Stock > 0;
                                         <div class="col-md-6">
