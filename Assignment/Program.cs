@@ -322,50 +322,64 @@ using (var scope = app.Services.CreateScope())
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     var adminRole = "Admin";
 
-    if (!await roleManager.RoleExistsAsync(adminRole))
+    var requiredClaims = new List<Claim>
     {
-        var role = new ApplicationRole
+        new Claim("GetCategoryAll", "true"),
+        new Claim("CreateCategory", "true"),
+        new Claim("UpdateCategoryAll", "true"),
+        new Claim("DeleteCategoryAll", "true"),
+        new Claim("GetProductAll", "true"),
+        new Claim("CreateProduct", "true"),
+        new Claim("UpdateProductAll", "true"),
+        new Claim("DeleteProductAll", "true"),
+        new Claim("GetProductExtraAll", "true"),
+        new Claim("CreateProductExtra", "true"),
+        new Claim("UpdateProductExtraAll", "true"),
+        new Claim("DeleteProductExtraAll", "true"),
+        new Claim("GetComboAll", "true"),
+        new Claim("CreateCombo", "true"),
+        new Claim("UpdateComboAll", "true"),
+        new Claim("DeleteComboAll", "true"),
+        new Claim("GetVoucherAll", "true"),
+        new Claim("CreateVoucher", "true"),
+        new Claim("UpdateVoucherAll", "true"),
+        new Claim("DeleteVoucherAll", "true"),
+        new Claim("GetOrderAll", "true"),
+        new Claim("ChangeOrderStatusAll", "true"),
+        new Claim("ViewStatistics", "true"),
+        new Claim("DeleteEvaluate", "true"),
+        new Claim("GetRewardAll", "true"),
+        new Claim("CreateReward", "true"),
+        new Claim("UpdateRewardAll", "true"),
+        new Claim("DeleteRewardAll", "true"),
+        new Claim("ViewTopUserAll", "true"),
+        new Claim("ViewCustomerAll", "true"),
+    };
+
+    var adminRoleEntity = await roleManager.FindByNameAsync(adminRole);
+    if (adminRoleEntity == null)
+    {
+        adminRoleEntity = new ApplicationRole
         {
             Name = adminRole,
             NormalizedName = adminRole.ToUpperInvariant(),
             CreatedAt = DateTime.UtcNow,
             CreatedBy = "System",
         };
-        await roleManager.CreateAsync(role);
 
-        var claims = new List<Claim>
-        {
-            new Claim("GetCategoryAll", "true"),
-            new Claim("CreateCategory", "true"),
-            new Claim("UpdateCategoryAll", "true"),
-            new Claim("DeleteCategoryAll", "true"),
-            new Claim("GetProductAll", "true"),
-            new Claim("CreateProduct", "true"),
-            new Claim("UpdateProductAll", "true"),
-            new Claim("DeleteProductAll", "true"),
-            new Claim("GetComboAll", "true"),
-            new Claim("CreateCombo", "true"),
-            new Claim("UpdateComboAll", "true"),
-            new Claim("DeleteComboAll", "true"),
-            new Claim("GetVoucherAll", "true"),
-            new Claim("CreateVoucher", "true"),
-            new Claim("UpdateVoucherAll", "true"),
-            new Claim("DeleteVoucherAll", "true"),
-            new Claim("GetOrderAll", "true"),
-            new Claim("ChangeOrderStatusAll", "true"),
-            new Claim("ViewStatistics", "true"),
-            new Claim("DeleteEvaluate", "true"),
-            new Claim("GetRewardAll", "true"),
-            new Claim("CreateReward", "true"),
-            new Claim("UpdateRewardAll", "true"),
-            new Claim("DeleteRewardAll", "true"),
-            new Claim("ViewTopUserAll", "true"),
-            new Claim("ViewCustomerAll", "true"),
-        };
+        await roleManager.CreateAsync(adminRoleEntity);
+    }
 
-        foreach (var claim in claims)
+    var existingClaims = await roleManager.GetClaimsAsync(adminRoleEntity);
+    foreach (var claim in requiredClaims)
+    {
+        var hasClaim = existingClaims.Any(existing =>
+            string.Equals(existing.Type, claim.Type, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(existing.Value, claim.Value, StringComparison.OrdinalIgnoreCase));
+
+        if (!hasClaim)
         {
-            await roleManager.AddClaimAsync(role, claim);
+            await roleManager.AddClaimAsync(adminRoleEntity, claim);
         }
     }
 }
