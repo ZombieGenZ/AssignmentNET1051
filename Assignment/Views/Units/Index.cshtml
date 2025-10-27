@@ -34,6 +34,29 @@
         .conversion-summary {
             line-height: 1.4;
         }
+
+        #unitModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - var(--bs-modal-margin) * 2);
+        }
+
+        #unitModal form {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        #unitModal .modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        #unitModal .modal-footer {
+            flex-shrink: 0;
+        }
     </style>
 }
 
