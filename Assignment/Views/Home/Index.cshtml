@@ -76,9 +76,7 @@
     var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
 
     string FormatCurrencyValue(decimal value) => value.ToString("N0", vietnamCulture);
-    string FormatCurrencyValue(double value) => Convert.ToDecimal(value).ToString("N0", vietnamCulture);
     string FormatCurrencyWithSymbol(decimal value) => $"{FormatCurrencyValue(value)} ₫";
-    string FormatCurrencyWithSymbol(double value) => $"{FormatCurrencyValue(value)} ₫";
 
     string FormatPriceRange(string? priceRange, decimal? fallbackPrice = null)
     {
@@ -294,8 +292,9 @@
                         var comboHasOwnDiscount = hasPercentDiscount || hasAmountDiscount || hasFixedDiscount;
                         var comboHasProductDiscount = combo.HasProductDiscount;
                         var comboHasAnyDiscount = comboHasOwnDiscount || comboHasProductDiscount;
-                        var comboFinalPrice = PriceCalculator.GetComboFinalPrice(combo);
-                        var comboSavings = comboHasOwnDiscount ? Math.Max(combo.Price - comboFinalPrice, 0) : 0;
+                        var comboPrice = Convert.ToDecimal(combo.Price);
+                        var comboFinalPrice = Convert.ToDecimal(PriceCalculator.GetComboFinalPrice(combo));
+                        var comboSavings = comboHasOwnDiscount ? Math.Max(comboPrice - comboFinalPrice, 0m) : 0m;
                         var comboImageUrl = string.IsNullOrWhiteSpace(combo.ImageUrl) ? defaultImageUrl : combo.ImageUrl;
                         <div class="col-md-4 col-lg-3">
                             <a class="product-card-link" href="@Url.Action("ComboDetail", "Home", new { id = combo.Id })">
@@ -365,7 +364,7 @@
                                                 @if (comboHasOwnDiscount)
                                                 {
                                                     <div>
-                                                        <span class="original-price">@FormatCurrencyWithSymbol(combo.Price)</span>
+                                                        <span class="original-price">@FormatCurrencyWithSymbol(comboPrice)</span>
                                                     </div>
                                                     <span class="final-price">@FormatCurrencyWithSymbol(comboFinalPrice)</span>
                                                     @if (hasPercentDiscount && comboSavings > 0)
@@ -435,9 +434,9 @@
                             var hasAmountDiscount = discountType == Assignment.Enums.DiscountType.Amount && discountValue.HasValue;
                             var hasFixedDiscount = discountType == Assignment.Enums.DiscountType.FixedAmount && discountValue.HasValue;
                             var hasDiscount = discountType != Assignment.Enums.DiscountType.None && discountValue.HasValue;
-                            var finalPrice = PriceCalculator.GetProductFinalPrice(product);
+                            var finalPrice = Convert.ToDecimal(PriceCalculator.GetProductFinalPrice(product));
                             var originalPrice = defaultType?.Price ?? 0m;
-                            var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
+                            var savings = hasDiscount ? Math.Max(originalPrice - finalPrice, 0m) : 0m;
                             var priceDisplay = FormatPriceRange(product.PriceRange, originalPrice);
                             var productTypes = (product.ProductTypes ?? Enumerable.Empty<Assignment.Models.ProductType>())
                                 .Where(pt => !pt.IsDeleted);
@@ -447,16 +446,16 @@
                                             (pt.DiscountType == Assignment.Enums.DiscountType.FixedAmount || pt.Discount.Value > 0))
                                 .Select(pt =>
                                 {
-                                    var typeFinalPrice = PriceCalculator.GetProductTypeFinalPrice(pt);
-                                    var typeSavings = Math.Max((double)pt.Price - typeFinalPrice, 0);
+                                    var typeFinalPrice = Convert.ToDecimal(PriceCalculator.GetProductTypeFinalPrice(pt));
+                                    var typeSavings = Math.Max(pt.Price - typeFinalPrice, 0m);
                                     return new { Type = pt, FinalPrice = typeFinalPrice, Savings = typeSavings };
                                 })
                                 .OrderByDescending(x => x.Savings)
                                 .ThenBy(x => x.Type.Price)
                                 .FirstOrDefault();
                             var bestDiscountType = discountCandidates?.Type;
-                            var bestDiscountFinalPrice = discountCandidates?.FinalPrice ?? 0;
-                            var bestDiscountSavings = discountCandidates?.Savings ?? 0;
+                            var bestDiscountFinalPrice = discountCandidates?.FinalPrice ?? 0m;
+                            var bestDiscountSavings = discountCandidates?.Savings ?? 0m;
                             var hasOtherTypeDiscount = !hasDiscount && bestDiscountType != null;
                             var hasAnyTypeDiscount = hasDiscount || bestDiscountType != null;
                             var productImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl) ? defaultImageUrl : product.ProductImageUrl;
@@ -599,9 +598,9 @@
                                 var hasAmountDiscount = discountType == Assignment.Enums.DiscountType.Amount && discountValue.HasValue;
                                 var hasFixedDiscount = discountType == Assignment.Enums.DiscountType.FixedAmount && discountValue.HasValue;
                                 var hasDiscount = discountType != Assignment.Enums.DiscountType.None && discountValue.HasValue;
-                                var finalPrice = PriceCalculator.GetProductFinalPrice(product);
+                                var finalPrice = Convert.ToDecimal(PriceCalculator.GetProductFinalPrice(product));
                                 var originalPrice = defaultType?.Price ?? 0m;
-                                var savings = hasDiscount ? Math.Max((double)originalPrice - finalPrice, 0) : 0;
+                                var savings = hasDiscount ? Math.Max(originalPrice - finalPrice, 0m) : 0m;
                                 var priceDisplay = FormatPriceRange(product.PriceRange, originalPrice);
                                 var productTypes = (product.ProductTypes ?? Enumerable.Empty<Assignment.Models.ProductType>())
                                     .Where(pt => !pt.IsDeleted);
@@ -611,16 +610,16 @@
                                                 (pt.DiscountType == Assignment.Enums.DiscountType.FixedAmount || pt.Discount.Value > 0))
                                     .Select(pt =>
                                     {
-                                        var typeFinalPrice = PriceCalculator.GetProductTypeFinalPrice(pt);
-                                        var typeSavings = Math.Max((double)pt.Price - typeFinalPrice, 0);
+                                        var typeFinalPrice = Convert.ToDecimal(PriceCalculator.GetProductTypeFinalPrice(pt));
+                                        var typeSavings = Math.Max(pt.Price - typeFinalPrice, 0m);
                                         return new { Type = pt, FinalPrice = typeFinalPrice, Savings = typeSavings };
                                     })
                                     .OrderByDescending(x => x.Savings)
                                     .ThenBy(x => x.Type.Price)
                                     .FirstOrDefault();
                                 var bestDiscountType = discountCandidates?.Type;
-                                var bestDiscountFinalPrice = discountCandidates?.FinalPrice ?? 0;
-                                var bestDiscountSavings = discountCandidates?.Savings ?? 0;
+                                var bestDiscountFinalPrice = discountCandidates?.FinalPrice ?? 0m;
+                                var bestDiscountSavings = discountCandidates?.Savings ?? 0m;
                                 var hasOtherTypeDiscount = !hasDiscount && bestDiscountType != null;
                                 var hasAnyTypeDiscount = hasDiscount || bestDiscountType != null;
                                 var productImageUrl = string.IsNullOrWhiteSpace(product.ProductImageUrl) ? defaultImageUrl : product.ProductImageUrl;
