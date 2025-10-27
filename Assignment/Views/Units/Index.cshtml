@@ -1,0 +1,738 @@
+@{
+    ViewData["Title"] = "Quản lý đơn vị";
+    Layout = "_AdminLayout";
+
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
+}
+
+@section Styles {
+    <style>
+        #unitModal .modal-dialog {
+            max-width: 720px;
+        }
+
+        .conversion-row {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            position: relative;
+        }
+
+        .conversion-row + .conversion-row {
+            margin-top: 1rem;
+        }
+
+        .conversion-remove {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+        }
+
+        .conversion-summary {
+            line-height: 1.4;
+        }
+    </style>
+}
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm" id="unit-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
+        <div class="card-header bg-light">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h4 class="mb-1 text-primary">
+                        <i class="fas fa-ruler-combined me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                @if (canCreate)
+                {
+                    <button type="button" class="btn btn-primary" id="createUnitBtn">
+                        <i class="fas fa-plus me-2"></i>Thêm đơn vị
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="unitAlertPlaceholder"></div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <div class="text-muted small" id="unitTableStatus">@(canView ? "Đang tải dữ liệu đơn vị..." : "Bạn không có quyền xem danh sách đơn vị.")</div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshUnitsBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
+                </div>
+            </div>
+            <div class="filter-toolbar mb-4" id="unitFilters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-5">
+                        <label class="form-label filter-label" for="unitSearchInput">Tìm kiếm</label>
+                        <div class="filter-input-icon">
+                            <i class="fas fa-search filter-icon"></i>
+                            <input type="search" class="form-control" id="unitSearchInput" placeholder="Tên hoặc mô tả đơn vị" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-2 ms-lg-auto d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="unitResetFilters">
+                            <i class="fas fa-eraser me-1"></i>Xóa lọc
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tên đơn vị</th>
+                            <th style="width: 25%;">Mô tả</th>
+                            <th>Chuyển đổi</th>
+                            @if (canUpdate || canDelete)
+                            {
+                                <th style="width: 120px;" class="text-center">Hành động</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody id="unitsTableBody">
+                        <tr>
+                            <td colspan="@(canUpdate || canDelete ? 4 : 3)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="unitAntiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="unitModal" tabindex="-1" aria-labelledby="unitModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="unitModalLabel">Thêm đơn vị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="unitForm" novalidate>
+                <div class="modal-body">
+                    <div id="unitFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="unitName" class="form-label">Tên đơn vị<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="unitName" maxlength="100" required />
+                    </div>
+                    <div class="mb-4">
+                        <label for="unitDescription" class="form-label">Mô tả</label>
+                        <textarea class="form-control" id="unitDescription" rows="2" maxlength="255"></textarea>
+                    </div>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h6 class="mb-0">Chuyển đổi đơn vị</h6>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-outline-secondary btn-sm" id="clearConversionsBtn">
+                                <i class="fas fa-trash-can me-1"></i>Xóa tất cả
+                            </button>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="addConversionBtn">
+                                <i class="fas fa-plus me-1"></i>Thêm chuyển đổi
+                            </button>
+                        </div>
+                    </div>
+                    <p class="text-muted small">Thiết lập các đơn vị có thể chuyển đổi từ đơn vị này. Giá trị chuyển đổi thể hiện số lượng đơn vị đích tương ứng với <strong>1</strong> đơn vị gốc.</p>
+                    <div id="conversionList" class="d-flex flex-column gap-3"></div>
+                    <div id="conversionEmpty" class="text-muted text-center py-4">Chưa có cấu hình chuyển đổi nào.</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="unitSubmitBtn">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="unitDeleteModal" tabindex="-1" aria-labelledby="unitDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="unitDeleteModalLabel">Xóa đơn vị</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa đơn vị <strong id="deleteUnitName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteUnitBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('unit-app');
+            if (!app) {
+                return;
+            }
+
+            const canView = app.dataset.canView === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+            const canCreate = app.dataset.canCreate === 'true';
+            const API_BASE_URL = '/api/units';
+
+            const tableBody = document.getElementById('unitsTableBody');
+            const tableStatus = document.getElementById('unitTableStatus');
+            const alertPlaceholder = document.getElementById('unitAlertPlaceholder');
+            const refreshBtn = document.getElementById('refreshUnitsBtn');
+            const createBtn = document.getElementById('createUnitBtn');
+            const searchInput = document.getElementById('unitSearchInput');
+            const resetFiltersBtn = document.getElementById('unitResetFilters');
+            const antiForgeryInput = document.querySelector('#unitAntiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryInput ? antiForgeryInput.value : '';
+
+            const unitModalEl = document.getElementById('unitModal');
+            const unitModal = new bootstrap.Modal(unitModalEl);
+            const unitModalLabel = document.getElementById('unitModalLabel');
+            const unitForm = document.getElementById('unitForm');
+            const unitFormErrors = document.getElementById('unitFormErrors');
+            const unitNameInput = document.getElementById('unitName');
+            const unitDescriptionInput = document.getElementById('unitDescription');
+            const unitSubmitBtn = document.getElementById('unitSubmitBtn');
+            const addConversionBtn = document.getElementById('addConversionBtn');
+            const clearConversionsBtn = document.getElementById('clearConversionsBtn');
+            const conversionList = document.getElementById('conversionList');
+            const conversionEmpty = document.getElementById('conversionEmpty');
+
+            const deleteModalEl = document.getElementById('unitDeleteModal');
+            const deleteModal = new bootstrap.Modal(deleteModalEl);
+            const deleteUnitName = document.getElementById('deleteUnitName');
+            const confirmDeleteUnitBtn = document.getElementById('confirmDeleteUnitBtn');
+
+            let allUnits = [];
+            let filteredUnits = [];
+            let editingUnitId = null;
+            let deleteUnitId = null;
+
+            const debounce = (fn, delay = 300) => {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        window.clearTimeout(timeoutId);
+                    }
+
+                    timeoutId = window.setTimeout(() => fn(...args), delay);
+                };
+            };
+
+            const numberFormatter = new Intl.NumberFormat('vi-VN', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 6
+            });
+
+            function showAlert(type, message) {
+                if (!alertPlaceholder) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    <div>${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+                alertPlaceholder.appendChild(wrapper);
+            }
+
+            function updateStatus(count) {
+                if (!tableStatus || !canView) {
+                    return;
+                }
+
+                const total = allUnits.length;
+                if (total === 0) {
+                    tableStatus.textContent = 'Không có đơn vị nào để hiển thị.';
+                    return;
+                }
+
+                if (count === total) {
+                    tableStatus.textContent = `Đang hiển thị ${count} đơn vị.`;
+                } else {
+                    tableStatus.textContent = `Tìm thấy ${count}/${total} đơn vị.`;
+                }
+            }
+
+            function renderUnits() {
+                if (!tableBody) {
+                    return;
+                }
+
+                tableBody.innerHTML = '';
+
+                if (!canView) {
+                    const row = document.createElement('tr');
+                    const cell = document.createElement('td');
+                    cell.colSpan = canUpdate || canDelete ? 4 : 3;
+                    cell.className = 'text-center py-4 text-muted';
+                    cell.textContent = 'Bạn không có quyền xem danh sách đơn vị.';
+                    row.appendChild(cell);
+                    tableBody.appendChild(row);
+                    return;
+                }
+
+                if (!Array.isArray(filteredUnits) || filteredUnits.length === 0) {
+                    const row = document.createElement('tr');
+                    const cell = document.createElement('td');
+                    cell.colSpan = canUpdate || canDelete ? 4 : 3;
+                    cell.className = 'text-center py-4 text-muted';
+                    cell.textContent = 'Không có đơn vị nào phù hợp.';
+                    row.appendChild(cell);
+                    tableBody.appendChild(row);
+                    updateStatus(0);
+                    return;
+                }
+
+                filteredUnits.forEach(unit => {
+                    const row = document.createElement('tr');
+
+                    const nameCell = document.createElement('td');
+                    const nameStrong = document.createElement('strong');
+                    nameStrong.textContent = unit.name ?? '';
+                    nameCell.appendChild(nameStrong);
+                    row.appendChild(nameCell);
+
+                    const descriptionCell = document.createElement('td');
+                    descriptionCell.textContent = unit.description || '—';
+                    row.appendChild(descriptionCell);
+
+                    const conversionCell = document.createElement('td');
+                    if (Array.isArray(unit.conversions) && unit.conversions.length > 0) {
+                        const list = document.createElement('div');
+                        list.className = 'd-flex flex-column gap-2';
+                        unit.conversions.forEach(conversion => {
+                            const item = document.createElement('div');
+                            item.className = 'conversion-summary';
+
+                            const mainLine = document.createElement('div');
+                            const fromStrong = document.createElement('strong');
+                            fromStrong.textContent = `1 ${unit.name ?? ''}`;
+                            const equalSpan = document.createElement('span');
+                            equalSpan.textContent = ' = ';
+                            const rateStrong = document.createElement('strong');
+                            rateStrong.textContent = numberFormatter.format(Number(conversion.conversionRate ?? 0));
+                            const targetSpan = document.createElement('span');
+                            targetSpan.textContent = ` ${conversion.targetUnitName ?? ''}`;
+
+                            mainLine.appendChild(fromStrong);
+                            mainLine.appendChild(equalSpan);
+                            mainLine.appendChild(rateStrong);
+                            mainLine.appendChild(targetSpan);
+                            item.appendChild(mainLine);
+
+                            if (conversion.description) {
+                                const desc = document.createElement('div');
+                                desc.className = 'text-muted small';
+                                desc.textContent = conversion.description;
+                                item.appendChild(desc);
+                            }
+
+                            list.appendChild(item);
+                        });
+                        conversionCell.appendChild(list);
+                    } else {
+                        conversionCell.innerHTML = '<span class="text-muted">Chưa cấu hình</span>';
+                    }
+                    row.appendChild(conversionCell);
+
+                    if (canUpdate || canDelete) {
+                        const actionCell = document.createElement('td');
+                        actionCell.className = 'text-center';
+                        actionCell.style.whiteSpace = 'nowrap';
+
+                        if (canUpdate) {
+                            const editBtn = document.createElement('button');
+                            editBtn.type = 'button';
+                            editBtn.className = 'btn btn-outline-primary btn-sm me-2';
+                            editBtn.innerHTML = '<i class="fas fa-pen"></i>';
+                            editBtn.addEventListener('click', () => openEditUnit(unit));
+                            actionCell.appendChild(editBtn);
+                        }
+
+                        if (canDelete) {
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.type = 'button';
+                            deleteBtn.className = 'btn btn-outline-danger btn-sm';
+                            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                            deleteBtn.addEventListener('click', () => openDeleteUnit(unit));
+                            actionCell.appendChild(deleteBtn);
+                        }
+
+                        row.appendChild(actionCell);
+                    }
+
+                    tableBody.appendChild(row);
+                });
+
+                updateStatus(filteredUnits.length);
+            }
+
+            function applyFilters() {
+                if (!Array.isArray(allUnits)) {
+                    filteredUnits = [];
+                    renderUnits();
+                    return;
+                }
+
+                const searchTerm = (searchInput?.value || '').trim().toLowerCase();
+                filteredUnits = allUnits.filter(unit => {
+                    if (!searchTerm) {
+                        return true;
+                    }
+
+                    const name = (unit.name || '').toLowerCase();
+                    const description = (unit.description || '').toLowerCase();
+                    return name.includes(searchTerm) || description.includes(searchTerm);
+                });
+
+                renderUnits();
+            }
+
+            function resetForm() {
+                unitForm.reset();
+                unitFormErrors?.classList.add('d-none');
+                unitFormErrors && (unitFormErrors.innerHTML = '');
+                conversionList.innerHTML = '';
+                conversionEmpty.classList.remove('d-none');
+            }
+
+            function getAvailableTargetUnits(currentUnitId) {
+                return allUnits.filter(u => u.id !== currentUnitId);
+            }
+
+            function populateConversionOptions(select, currentUnitId, selectedValue) {
+                if (!select) {
+                    return;
+                }
+
+                const options = getAvailableTargetUnits(currentUnitId);
+                select.innerHTML = '<option value="">Chọn đơn vị</option>';
+                options.forEach(unit => {
+                    const option = document.createElement('option');
+                    option.value = String(unit.id);
+                    option.textContent = unit.name || `#${unit.id}`;
+                    if (selectedValue && Number(selectedValue) === unit.id) {
+                        option.selected = true;
+                    }
+                    select.appendChild(option);
+                });
+
+                select.disabled = options.length === 0;
+            }
+
+            function updateConversionEmptyState() {
+                const hasItems = conversionList.children.length > 0;
+                conversionEmpty.classList.toggle('d-none', hasItems);
+            }
+
+            function createConversionRow(conversion, currentUnitId) {
+                const row = document.createElement('div');
+                row.className = 'conversion-row';
+
+                const targetLabel = document.createElement('label');
+                targetLabel.className = 'form-label';
+                targetLabel.textContent = 'Đơn vị chuyển đổi';
+
+                const targetSelect = document.createElement('select');
+                targetSelect.className = 'form-select mb-2';
+                targetSelect.setAttribute('data-target-select', 'true');
+                populateConversionOptions(targetSelect, currentUnitId, conversion?.targetUnitId);
+
+                const rateLabel = document.createElement('label');
+                rateLabel.className = 'form-label';
+                rateLabel.textContent = 'Giá trị chuyển đổi';
+
+                const rateInput = document.createElement('input');
+                rateInput.type = 'number';
+                rateInput.className = 'form-control mb-2';
+                rateInput.min = '0';
+                rateInput.step = '0.000001';
+                rateInput.placeholder = 'Ví dụ: 0.5';
+                rateInput.value = conversion?.conversionRate != null ? conversion.conversionRate : '';
+                rateInput.setAttribute('data-rate-input', 'true');
+
+                const descLabel = document.createElement('label');
+                descLabel.className = 'form-label';
+                descLabel.textContent = 'Ghi chú';
+
+                const descInput = document.createElement('input');
+                descInput.type = 'text';
+                descInput.className = 'form-control';
+                descInput.maxLength = 255;
+                descInput.placeholder = 'Mô tả thêm (không bắt buộc)';
+                descInput.value = conversion?.description || '';
+                descInput.setAttribute('data-description-input', 'true');
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-outline-danger btn-sm conversion-remove';
+                removeBtn.innerHTML = '<i class="fas fa-xmark"></i>';
+                removeBtn.addEventListener('click', () => {
+                    row.remove();
+                    updateConversionEmptyState();
+                });
+
+                row.appendChild(removeBtn);
+                row.appendChild(targetLabel);
+                row.appendChild(targetSelect);
+                row.appendChild(rateLabel);
+                row.appendChild(rateInput);
+                row.appendChild(descLabel);
+                row.appendChild(descInput);
+
+                conversionList.appendChild(row);
+                updateConversionEmptyState();
+            }
+
+            function openCreateUnit() {
+                editingUnitId = null;
+                unitModalLabel.textContent = 'Thêm đơn vị';
+                unitSubmitBtn.textContent = 'Thêm mới';
+                resetForm();
+                const options = getAvailableTargetUnits(null);
+                addConversionBtn.disabled = options.length === 0;
+                unitModal.show();
+            }
+
+            function openEditUnit(unit) {
+                editingUnitId = unit.id;
+                unitModalLabel.textContent = 'Cập nhật đơn vị';
+                unitSubmitBtn.textContent = 'Cập nhật';
+                resetForm();
+
+                unitNameInput.value = unit.name || '';
+                unitDescriptionInput.value = unit.description || '';
+
+                if (Array.isArray(unit.conversions)) {
+                    unit.conversions.forEach(conversion => createConversionRow(conversion, unit.id));
+                }
+
+                addConversionBtn.disabled = getAvailableTargetUnits(unit.id).length === 0;
+                updateConversionEmptyState();
+                unitModal.show();
+            }
+
+            function openDeleteUnit(unit) {
+                deleteUnitId = unit.id;
+                deleteUnitName.textContent = unit.name || `#${unit.id}`;
+                deleteModal.show();
+            }
+
+            async function fetchUnits(showLoading = true) {
+                if (!canView) {
+                    return;
+                }
+
+                if (showLoading && tableStatus) {
+                    tableStatus.textContent = 'Đang tải dữ liệu đơn vị...';
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}?includeConversions=true`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách đơn vị.');
+                    }
+
+                    const data = await response.json();
+                    allUnits = Array.isArray(data) ? data : [];
+                    applyFilters();
+                } catch (error) {
+                    showAlert('danger', error.message || 'Đã xảy ra lỗi khi tải danh sách đơn vị.');
+                    allUnits = [];
+                    filteredUnits = [];
+                    renderUnits();
+                }
+            }
+
+            function collectConversions(currentUnitId) {
+                const conversions = [];
+                const rows = conversionList.querySelectorAll('.conversion-row');
+                rows.forEach(row => {
+                    const select = row.querySelector('[data-target-select]');
+                    const rateInput = row.querySelector('[data-rate-input]');
+                    const descInput = row.querySelector('[data-description-input]');
+
+                    const targetUnitId = select ? Number(select.value) : 0;
+                    const conversionRate = rateInput ? Number(rateInput.value) : 0;
+                    const description = descInput ? descInput.value.trim() : '';
+
+                    if (!targetUnitId || Number.isNaN(targetUnitId)) {
+                        return;
+                    }
+
+                    conversions.push({
+                        targetUnitId,
+                        conversionRate: Number.isNaN(conversionRate) ? 0 : conversionRate,
+                        description
+                    });
+                });
+
+                return conversions;
+            }
+
+            async function submitUnitForm(event) {
+                event.preventDefault();
+
+                if (!unitForm || !unitSubmitBtn) {
+                    return;
+                }
+
+                const name = unitNameInput.value.trim();
+                const description = unitDescriptionInput.value.trim();
+                const conversions = collectConversions(editingUnitId);
+
+                const payload = {
+                    name,
+                    description: description || null,
+                    conversions
+                };
+
+                unitSubmitBtn.disabled = true;
+                unitSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý';
+                unitFormErrors?.classList.add('d-none');
+                unitFormErrors && (unitFormErrors.innerHTML = '');
+
+                try {
+                    const response = await fetch(editingUnitId ? `${API_BASE_URL}/${editingUnitId}` : API_BASE_URL, {
+                        method: editingUnitId ? 'PUT' : 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 400 || response.status === 422) {
+                        const errorData = await response.json();
+                        const errors = errorData?.errors || errorData;
+                        const messages = [];
+                        if (errors) {
+                            for (const key of Object.keys(errors)) {
+                                const value = errors[key];
+                                if (Array.isArray(value)) {
+                                    messages.push(...value);
+                                } else if (typeof value === 'string') {
+                                    messages.push(value);
+                                }
+                            }
+                        }
+
+                        if (messages.length > 0) {
+                            unitFormErrors?.classList.remove('d-none');
+                            unitFormErrors.innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+                        }
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể lưu đơn vị.');
+                    }
+
+                    await fetchUnits(false);
+                    unitModal.hide();
+                    showAlert('success', editingUnitId ? 'Cập nhật đơn vị thành công.' : 'Thêm đơn vị thành công.');
+                } catch (error) {
+                    showAlert('danger', error.message || 'Đã xảy ra lỗi khi lưu đơn vị.');
+                } finally {
+                    unitSubmitBtn.disabled = false;
+                    unitSubmitBtn.textContent = editingUnitId ? 'Cập nhật' : 'Thêm mới';
+                }
+            }
+
+            async function confirmDeleteUnit() {
+                if (!deleteUnitId) {
+                    return;
+                }
+
+                confirmDeleteUnitBtn.disabled = true;
+                confirmDeleteUnitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xóa';
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${deleteUnitId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'RequestVerificationToken': antiForgeryToken
+                        }
+                    });
+
+                    if (response.status === 400) {
+                        const errorData = await response.json();
+                        const message = errorData?.message || 'Không thể xóa đơn vị.';
+                        showAlert('warning', message);
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể xóa đơn vị.');
+                    }
+
+                    deleteModal.hide();
+                    showAlert('success', 'Đã xóa đơn vị thành công.');
+                    await fetchUnits(false);
+                } catch (error) {
+                    showAlert('danger', error.message || 'Đã xảy ra lỗi khi xóa đơn vị.');
+                } finally {
+                    confirmDeleteUnitBtn.disabled = false;
+                    confirmDeleteUnitBtn.textContent = 'Xóa';
+                    deleteUnitId = null;
+                }
+            }
+
+            function initializeEvents() {
+                refreshBtn?.addEventListener('click', () => fetchUnits());
+
+                if (canCreate) {
+                    createBtn?.addEventListener('click', () => openCreateUnit());
+                }
+
+                searchInput?.addEventListener('input', debounce(() => applyFilters()));
+                resetFiltersBtn?.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    applyFilters();
+                });
+
+                addConversionBtn?.addEventListener('click', () => {
+                    createConversionRow(null, editingUnitId);
+                });
+
+                clearConversionsBtn?.addEventListener('click', () => {
+                    conversionList.innerHTML = '';
+                    updateConversionEmptyState();
+                });
+
+                unitForm?.addEventListener('submit', submitUnitForm);
+                confirmDeleteUnitBtn?.addEventListener('click', confirmDeleteUnit);
+
+                unitModalEl?.addEventListener('hidden.bs.modal', () => {
+                    unitSubmitBtn.textContent = editingUnitId ? 'Cập nhật' : 'Thêm mới';
+                    unitSubmitBtn.disabled = false;
+                    editingUnitId = null;
+                });
+            }
+
+            initializeEvents();
+            fetchUnits();
+        })();
+    </script>
+}

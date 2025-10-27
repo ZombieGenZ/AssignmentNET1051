@@ -55,6 +55,26 @@ namespace Assignment.Authorization
                 new PermissionDefinition("DeleteProductAll", "Xóa bất kỳ sản phẩm"),
                 new PermissionDefinition("DeleteProduct", "Xóa sản phẩm của bản thân"),
             }),
+            new PermissionGroupDefinition("Units", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("GetUnitAll", "Xem tất cả đơn vị"),
+                new PermissionDefinition("GetUnit", "Xem đơn vị của bản thân"),
+                new PermissionDefinition("CreateUnit", "Tạo đơn vị"),
+                new PermissionDefinition("UpdateUnitAll", "Sửa bất kỳ đơn vị"),
+                new PermissionDefinition("UpdateUnit", "Sửa đơn vị của bản thân"),
+                new PermissionDefinition("DeleteUnitAll", "Xóa bất kỳ đơn vị"),
+                new PermissionDefinition("DeleteUnit", "Xóa đơn vị của bản thân"),
+            }),
+            new PermissionGroupDefinition("Materials", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("GetMaterialAll", "Xem tất cả nguyên vật liệu"),
+                new PermissionDefinition("GetMaterial", "Xem nguyên vật liệu của bản thân"),
+                new PermissionDefinition("CreateMaterial", "Tạo nguyên vật liệu"),
+                new PermissionDefinition("UpdateMaterialAll", "Sửa bất kỳ nguyên vật liệu"),
+                new PermissionDefinition("UpdateMaterial", "Sửa nguyên vật liệu của bản thân"),
+                new PermissionDefinition("DeleteMaterialAll", "Xóa bất kỳ nguyên vật liệu"),
+                new PermissionDefinition("DeleteMaterial", "Xóa nguyên vật liệu của bản thân"),
+            }),
             new PermissionGroupDefinition("Product Extras", new List<PermissionDefinition>
             {
                 new PermissionDefinition("GetProductExtraAll", "Xem tất cả sản phẩm bổ sung"),
