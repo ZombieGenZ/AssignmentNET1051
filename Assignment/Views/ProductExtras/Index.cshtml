@@ -20,6 +20,63 @@
     };
 }
 
+@section Styles {
+    <style>
+        #productExtraModal .modal-dialog,
+        #productExtraDetailModal .modal-dialog {
+            max-height: calc(100vh - var(--bs-modal-margin) * 2);
+        }
+
+        #productExtraModal .modal-content,
+        #productExtraDetailModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+        }
+
+        #productExtraModal form {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        #productExtraModal .modal-body,
+        #productExtraDetailModal .modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        #productExtraModal .modal-footer,
+        #productExtraDetailModal .modal-footer {
+            flex-shrink: 0;
+            position: sticky;
+            bottom: 0;
+            background-color: var(--bs-modal-bg);
+            border-top: 1px solid var(--bs-modal-border-color);
+            z-index: 1;
+        }
+
+        #productExtraModal .modal-body::after {
+            content: '';
+            display: block;
+            height: 1rem;
+        }
+
+        .product-extra-selection {
+            border: 1px solid var(--bs-border-color);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            background-color: var(--bs-light);
+        }
+
+        .product-extra-product-row .btn {
+            min-width: 40px;
+        }
+    </style>
+}
+
 <div class="container-fluid pt-4 px-4">
     <div class="card shadow-sm" id="product-extra-app"
          data-can-create="@(canCreate ? "true" : "false")"
@@ -191,16 +248,26 @@
                         </div>
                         <div class="col-12">
                             <div class="d-flex justify-content-between align-items-center mb-2">
-                                <label for="productExtraProducts" class="form-label mb-0">Sản phẩm áp dụng</label>
-                                <div class="d-flex gap-2">
-                                    <input type="text" class="form-control form-control-sm" id="productOptionSearch" placeholder="Tìm sản phẩm..." />
+                                <label for="productOptionSearch" class="form-label mb-0">Sản phẩm áp dụng</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <div class="input-group input-group-sm">
+                                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                                        <input type="search" class="form-control" id="productOptionSearch" placeholder="Tìm sản phẩm..." />
+                                    </div>
                                     <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshProductOptionsBtn">
                                         <i class="fas fa-rotate-right"></i>
                                     </button>
+                                    <button type="button" class="btn btn-outline-success btn-sm" id="addProductOptionBtn">
+                                        <i class="fas fa-plus me-1"></i>Thêm sản phẩm
+                                    </button>
                                 </div>
                             </div>
-                            <select id="productExtraProducts" class="form-select" multiple size="6"></select>
-                            <div class="form-text">Giữ Ctrl (Windows) hoặc Command (macOS) để chọn nhiều sản phẩm áp dụng.</div>
+                            <div class="product-extra-selection">
+                                <div class="text-muted small mb-2" id="productOptionsStatus"></div>
+                                <div id="productExtraProductsContainer" class="d-flex flex-column gap-2"></div>
+                                <div id="productExtraProductsEmpty" class="text-muted fst-italic">Chưa chọn sản phẩm nào.</div>
+                            </div>
+                            <div class="form-text mt-2">Chọn các sản phẩm áp dụng cho sản phẩm bổ sung.</div>
                         </div>
                     </div>
                 </div>
@@ -329,7 +396,10 @@
             const isPublishInput = document.getElementById('productExtraIsPublish');
             const isSpicyInput = document.getElementById('productExtraIsSpicy');
             const isVegetarianInput = document.getElementById('productExtraIsVegetarian');
-            const productsSelect = document.getElementById('productExtraProducts');
+            const productsContainer = document.getElementById('productExtraProductsContainer');
+            const productsEmptyState = document.getElementById('productExtraProductsEmpty');
+            const productOptionsStatus = document.getElementById('productOptionsStatus');
+            const addProductBtn = document.getElementById('addProductOptionBtn');
             const productSearchInput = document.getElementById('productOptionSearch');
             const productRefreshBtn = document.getElementById('refreshProductOptionsBtn');
 
@@ -341,6 +411,19 @@
             const selectedIds = new Set();
 
             const discountLabels = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(discountLabels.ToDictionary(kvp => (int)kvp.Key, kvp => kvp.Value)));
+
+            const debounce = (fn, delay = 300) => {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        clearTimeout(timeoutId);
+                    }
+
+                    timeoutId = window.setTimeout(() => {
+                        fn(...args);
+                    }, delay);
+                };
+            };
 
             function escapeHtml(value) {
                 if (value === null || value === undefined) {
@@ -434,6 +517,233 @@
                 }
 
                 return basePrice;
+            }
+
+            function normalizeProductOption(option) {
+                if (!option || typeof option !== 'object') {
+                    return null;
+                }
+
+                const rawId = option.id ?? option.Id;
+                const numericId = Number(rawId);
+                const normalizedId = Number.isFinite(numericId) ? numericId : (rawId ?? null);
+
+                if (normalizedId === null || normalizedId === undefined || normalizedId === '') {
+                    return null;
+                }
+
+                return {
+                    id: normalizedId,
+                    name: option.name ?? option.Name ?? `Sản phẩm #${normalizedId}`,
+                    categoryName: option.categoryName ?? option.CategoryName ?? null,
+                    isPublish: Boolean(option.isPublish ?? option.IsPublish)
+                };
+            }
+
+            function findProductOptionById(id) {
+                if (!Array.isArray(productOptions) || productOptions.length === 0) {
+                    return null;
+                }
+
+                const numericId = Number(id);
+                return productOptions.find(option => {
+                    if (Number.isFinite(numericId)) {
+                        return Number(option.id) === numericId;
+                    }
+
+                    return String(option.id) === String(id);
+                }) ?? null;
+            }
+
+            function populateProductSelectOptions(selectElement, selectedOption = null) {
+                if (!selectElement) {
+                    return;
+                }
+
+                const fallbackValue = selectedOption?.id ?? selectElement.value ?? '';
+                const fallbackLabel = selectedOption?.name ?? selectElement.selectedOptions?.[0]?.textContent ?? '';
+                const normalizedFallback = fallbackValue !== null && fallbackValue !== undefined
+                    ? String(fallbackValue)
+                    : '';
+
+                selectElement.innerHTML = '<option value="">-- Chọn sản phẩm --</option>';
+
+                if (Array.isArray(productOptions) && productOptions.length > 0) {
+                    productOptions.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = String(option.id);
+                        const category = option.categoryName ? ` (${option.categoryName})` : '';
+                        const status = option.isPublish ? '' : ' - Nháp';
+                        optionElement.textContent = `${option.name}${category}${status}`;
+
+                        if (normalizedFallback && String(option.id) === normalizedFallback) {
+                            optionElement.selected = true;
+                        }
+
+                        selectElement.appendChild(optionElement);
+                    });
+                }
+
+                if (normalizedFallback && selectElement.value !== normalizedFallback) {
+                    const fallbackOption = document.createElement('option');
+                    fallbackOption.value = normalizedFallback;
+                    const label = fallbackLabel || (Number.isFinite(Number(normalizedFallback))
+                        ? `Sản phẩm #${normalizedFallback}`
+                        : 'Sản phẩm');
+                    fallbackOption.textContent = `${label} (không có trong danh sách)`;
+                    fallbackOption.selected = true;
+                    fallbackOption.dataset.fallback = 'true';
+                    selectElement.appendChild(fallbackOption);
+                }
+            }
+
+            function toggleProductEmptyState() {
+                if (!productsContainer || !productsEmptyState) {
+                    return;
+                }
+
+                const hasRows = Boolean(productsContainer.querySelector('.product-extra-product-row'));
+                productsEmptyState.classList.toggle('d-none', hasRows);
+            }
+
+            function refreshProductSelectOptions() {
+                if (!productsContainer) {
+                    toggleProductEmptyState();
+                    return;
+                }
+
+                const selects = Array.from(productsContainer.querySelectorAll('.product-extra-product-select'));
+                const selectedValues = new Set(selects.map(select => select.value).filter(value => value));
+
+                selects.forEach(select => {
+                    const currentValue = select.value;
+                    Array.from(select.options).forEach(option => {
+                        if (!option.value) {
+                            option.disabled = false;
+                            return;
+                        }
+
+                        if (option.dataset.fallback === 'true') {
+                            option.disabled = false;
+                            return;
+                        }
+
+                        option.disabled = option.value !== currentValue && selectedValues.has(option.value);
+                    });
+                });
+
+                toggleProductEmptyState();
+            }
+
+            function updateProductControlStates() {
+                if (addProductBtn) {
+                    const options = Array.isArray(productOptions) ? productOptions : [];
+                    const selectedValues = productsContainer
+                        ? new Set(Array.from(productsContainer.querySelectorAll('.product-extra-product-select'))
+                            .map(select => select.value)
+                            .filter(value => value))
+                        : new Set();
+
+                    const availableOptions = options.filter(option => !selectedValues.has(String(option.id)));
+                    addProductBtn.disabled = availableOptions.length === 0;
+                }
+
+                if (productOptionsStatus && (!Array.isArray(productOptions) || productOptions.length === 0)) {
+                    productOptionsStatus.classList.remove('text-danger');
+                }
+            }
+
+            function createProductRow(productOption = null) {
+                if (!productsContainer) {
+                    return null;
+                }
+
+                const row = document.createElement('div');
+                row.className = 'row g-2 align-items-end product-extra-product-row';
+
+                const selectCol = document.createElement('div');
+                selectCol.className = 'col';
+                const select = document.createElement('select');
+                select.className = 'form-select product-extra-product-select';
+                select.required = true;
+                populateProductSelectOptions(select, productOption);
+                select.addEventListener('change', () => {
+                    refreshProductSelectOptions();
+                });
+                selectCol.appendChild(select);
+
+                const actionCol = document.createElement('div');
+                actionCol.className = 'col-auto';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-outline-danger';
+                removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                removeBtn.addEventListener('click', () => {
+                    row.remove();
+                    refreshProductSelectOptions();
+                    updateProductControlStates();
+                });
+                actionCol.appendChild(removeBtn);
+
+                row.appendChild(selectCol);
+                row.appendChild(actionCol);
+
+                return row;
+            }
+
+            function addProductRow(productOption = null) {
+                if (!productsContainer) {
+                    return;
+                }
+
+                if (!productOption && (!Array.isArray(productOptions) || productOptions.length === 0)) {
+                    showAlert('Không có sản phẩm để chọn.', 'warning');
+                    return;
+                }
+
+                const row = createProductRow(productOption);
+                if (!row) {
+                    return;
+                }
+
+                productsContainer.appendChild(row);
+                refreshProductSelectOptions();
+                updateProductControlStates();
+            }
+
+            function setProductRows(products = []) {
+                if (!productsContainer) {
+                    return;
+                }
+
+                productsContainer.innerHTML = '';
+
+                if (Array.isArray(products) && products.length > 0) {
+                    products.forEach(product => {
+                        const normalized = normalizeProductOption(product);
+                        if (!normalized) {
+                            return;
+                        }
+
+                        const row = createProductRow(normalized);
+                        if (row) {
+                            productsContainer.appendChild(row);
+                        }
+                    });
+                }
+
+                refreshProductSelectOptions();
+                updateProductControlStates();
+            }
+
+            function getSelectedProductIds() {
+                if (!productsContainer) {
+                    return [];
+                }
+
+                return Array.from(productsContainer.querySelectorAll('.product-extra-product-select'))
+                    .map(select => Number(select.value))
+                    .filter(id => Number.isFinite(id) && id > 0);
             }
 
             function renderProductExtras(items) {
@@ -582,7 +892,14 @@
                 submitButton.disabled = false;
                 submitButton.textContent = 'Thêm mới';
                 discountInput.disabled = discountTypeSelect.value === String(@((int)DiscountType.None));
-                Array.from(productsSelect.options).forEach(option => option.selected = false);
+                if (productSearchInput) {
+                    productSearchInput.value = '';
+                }
+                if (productsContainer) {
+                    productsContainer.innerHTML = '';
+                }
+                refreshProductSelectOptions();
+                updateProductControlStates();
             }
 
             function fillForm(extra) {
@@ -599,13 +916,8 @@
                 isSpicyInput.checked = Boolean(extra.isSpicy);
                 isVegetarianInput.checked = Boolean(extra.isVegetarian);
 
-                const productIds = Array.isArray(extra.applicableProducts)
-                    ? extra.applicableProducts.map(product => product.id)
-                    : [];
-
-                Array.from(productsSelect.options).forEach(option => {
-                    option.selected = productIds.includes(Number(option.value));
-                });
+                const products = Array.isArray(extra.applicableProducts) ? extra.applicableProducts : [];
+                setProductRows(products);
             }
 
             function syncSelectAllState() {
@@ -753,11 +1065,14 @@
             }
 
             async function loadProductOptions(searchTerm = '') {
-                if (!productsSelect) {
-                    return;
+                if (productOptionsStatus) {
+                    productOptionsStatus.textContent = 'Đang tải danh sách sản phẩm...';
+                    productOptionsStatus.classList.remove('text-danger');
                 }
 
-                productsSelect.innerHTML = '<option value="" disabled>Đang tải...</option>';
+                if (addProductBtn) {
+                    addProductBtn.disabled = true;
+                }
 
                 try {
                     const url = new URL(PRODUCT_OPTIONS_URL, window.location.origin);
@@ -768,27 +1083,50 @@
                     const response = await fetch(url);
                     if (!response.ok) {
                         if (response.status === 403) {
-                            productsSelect.innerHTML = '<option value="" disabled>Bạn không có quyền xem danh sách sản phẩm.</option>';
+                            productOptions = [];
+                            if (productOptionsStatus) {
+                                productOptionsStatus.textContent = 'Bạn không có quyền xem danh sách sản phẩm.';
+                                productOptionsStatus.classList.add('text-danger');
+                            }
+                            refreshProductSelectOptions();
+                            updateProductControlStates();
                             return;
                         }
+
                         throw new Error('Failed to load product options');
                     }
 
                     const options = await response.json();
-                    productOptions = Array.isArray(options) ? options : [];
+                    productOptions = Array.isArray(options)
+                        ? options.map(normalizeProductOption).filter(option => option !== null)
+                        : [];
 
-                    if (productOptions.length === 0) {
-                        productsSelect.innerHTML = '<option value="" disabled>Không có sản phẩm khả dụng.</option>';
-                        return;
+                    if (productsContainer) {
+                        const selects = Array.from(productsContainer.querySelectorAll('.product-extra-product-select'));
+                        selects.forEach(select => {
+                            const currentValue = select.value;
+                            const matched = currentValue ? findProductOptionById(currentValue) : null;
+                            const fallback = matched ?? (currentValue
+                                ? { id: currentValue, name: select.selectedOptions?.[0]?.textContent ?? '' }
+                                : null);
+                            populateProductSelectOptions(select, fallback);
+                        });
                     }
 
-                    productsSelect.innerHTML = productOptions.map(option => {
-                        const category = option.categoryName ? `(${option.categoryName})` : '';
-                        const status = option.isPublish ? '' : ' - Nháp';
-                        return `<option value="${option.id}">${escapeHtml(option.name)} ${escapeHtml(category)}${status}</option>`;
-                    }).join('');
+                    if (productOptionsStatus) {
+                        productOptionsStatus.textContent = productOptions.length === 0
+                            ? 'Không tìm thấy sản phẩm phù hợp.'
+                            : '';
+                        productOptionsStatus.classList.remove('text-danger');
+                    }
                 } catch (error) {
-                    productsSelect.innerHTML = '<option value="" disabled>Không thể tải danh sách sản phẩm.</option>';
+                    if (productOptionsStatus) {
+                        productOptionsStatus.textContent = 'Không thể tải danh sách sản phẩm.';
+                        productOptionsStatus.classList.add('text-danger');
+                    }
+                } finally {
+                    refreshProductSelectOptions();
+                    updateProductControlStates();
                 }
             }
 
@@ -824,7 +1162,7 @@
                     }
 
                     const extra = await response.json();
-                    await loadProductOptions();
+                    await loadProductOptions(productSearchInput?.value?.trim() ?? '');
                     fillForm(extra);
                     productExtraModal.show();
                 } catch (error) {
@@ -921,10 +1259,7 @@
 
                 clearValidationErrors();
 
-                const selectedProductIds = Array.from(productsSelect.options)
-                    .filter(option => option.selected)
-                    .map(option => Number(option.value))
-                    .filter(id => Number.isFinite(id) && id > 0);
+                const selectedProductIds = getSelectedProductIds();
 
                 const payload = {
                     name: nameInput.value.trim(),
@@ -1109,7 +1444,7 @@
             refreshBtn?.addEventListener('click', () => loadProductExtras());
             createBtn?.addEventListener('click', () => {
                 openCreateModal();
-                loadProductOptions();
+                loadProductOptions(productSearchInput?.value?.trim() ?? '');
             });
             productExtraForm?.addEventListener('submit', submitForm);
             deleteConfirmBtn?.addEventListener('click', async () => {
@@ -1141,11 +1476,21 @@
 
             selectAllCheckbox?.addEventListener('change', handleSelectAllChange);
 
+            const debouncedProductSearch = debounce(term => loadProductOptions(term));
+
             productSearchInput?.addEventListener('input', () => {
                 const term = productSearchInput.value.trim();
-                loadProductOptions(term);
+                debouncedProductSearch(term);
             });
+
+            productSearchInput?.addEventListener('keydown', event => {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                }
+            });
+
             productRefreshBtn?.addEventListener('click', () => loadProductOptions(productSearchInput?.value?.trim() ?? ''));
+            addProductBtn?.addEventListener('click', () => addProductRow());
 
             loadProductExtras();
             loadProductOptions();
