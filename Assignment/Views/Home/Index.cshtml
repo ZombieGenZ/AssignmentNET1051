@@ -76,12 +76,8 @@
     var vietnamCulture = CultureInfo.GetCultureInfo("vi-VN");
 
     string FormatCurrencyValue(decimal value) => value.ToString("N0", vietnamCulture);
-    string FormatCurrencyValue(double value) => FormatCurrencyValue(Convert.ToDecimal(value));
     string FormatCurrencyWithSymbol(decimal value) => $"{FormatCurrencyValue(value)} ₫";
-    string FormatCurrencyWithSymbol(double value) => $"{FormatCurrencyValue(value)} ₫";
     string FormatPercent(decimal value) => value.ToString("0.##", vietnamCulture);
-    string FormatPercent(long value) => FormatPercent(Convert.ToDecimal(value));
-    string FormatPercent(double value) => FormatPercent(Convert.ToDecimal(value));
 
     string FormatPriceRange(string? priceRange, decimal? fallbackPrice = null)
     {
@@ -300,6 +296,7 @@
                         var comboHasAnyDiscount = comboHasOwnDiscount || comboHasProductDiscount;
                         var comboPrice = Convert.ToDecimal(combo.Price);
                         var comboFinalPrice = Convert.ToDecimal(PriceCalculator.GetComboFinalPrice(combo));
+                        var comboDiscountValue = combo.Discount.HasValue ? Convert.ToDecimal(combo.Discount.Value) : (decimal?)null;
                         var comboSavings = comboHasOwnDiscount ? Math.Max(comboPrice - comboFinalPrice, 0m) : 0m;
                         var comboImageUrl = string.IsNullOrWhiteSpace(combo.ImageUrl) ? defaultImageUrl : combo.ImageUrl;
                         <div class="col-md-4 col-lg-3">
@@ -312,11 +309,11 @@
                                              onerror="this.onerror=null;this.src='@defaultImageUrl';" />
                                         @if (hasPercentDiscount)
                                         {
-                                            <span class="badge-discount">-@FormatPercent(combo.Discount.Value)%</span>
+                                            <span class="badge-discount">-@FormatPercent(comboDiscountValue.GetValueOrDefault())%</span>
                                         }
                                         else if (hasAmountDiscount)
                                         {
-                                            <span class="badge-discount">-@FormatCurrencyWithSymbol(combo.Discount.Value)</span>
+                                            <span class="badge-discount">-@FormatCurrencyWithSymbol(comboDiscountValue.GetValueOrDefault())</span>
                                         }
                                         else if (hasFixedDiscount)
                                         {
@@ -379,7 +376,7 @@
                                                     }
                                                     else if (hasAmountDiscount)
                                                     {
-                                                        <div class="small text-muted">Giảm @FormatCurrencyWithSymbol(combo.Discount.Value)</div>
+                                                        <div class="small text-muted">Giảm @FormatCurrencyWithSymbol(comboDiscountValue.GetValueOrDefault())</div>
                                                     }
                                                     else if (hasFixedDiscount && comboSavings > 0)
                                                     {
