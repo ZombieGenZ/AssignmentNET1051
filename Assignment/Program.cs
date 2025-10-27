@@ -134,6 +134,37 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
+    options.AddPolicy("GetUnitPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetUnitAll") ||
+            (ctx.User.HasPermission("GetUnit") &&
+             ctx.Resource is Unit unit &&
+             unit.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateUnitPolicy", policy =>
+        policy.RequireClaim("CreateUnit")
+    );
+
+    options.AddPolicy("UpdateUnitPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("UpdateUnitAll") ||
+            (ctx.User.HasPermission("UpdateUnit") &&
+             ctx.Resource is Unit unit &&
+             unit.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteUnitPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("DeleteUnitAll") ||
+            (ctx.User.HasPermission("DeleteUnit") &&
+             ctx.Resource is Unit unit &&
+             unit.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
     options.AddPolicy("GetProductExtraPolicy", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasPermission("GetProductExtraAll") ||
@@ -162,6 +193,37 @@ builder.Services.AddAuthorization(options =>
             (ctx.User.HasPermission("DeleteProductExtra") &&
              ctx.Resource is ProductExtra extra &&
              extra.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("GetMaterialPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetMaterialAll") ||
+            (ctx.User.HasPermission("GetMaterial") &&
+             ctx.Resource is Material material &&
+             material.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateMaterialPolicy", policy =>
+        policy.RequireClaim("CreateMaterial")
+    );
+
+    options.AddPolicy("UpdateMaterialPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("UpdateMaterialAll") ||
+            (ctx.User.HasPermission("UpdateMaterial") &&
+             ctx.Resource is Material material &&
+             material.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteMaterialPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("DeleteMaterialAll") ||
+            (ctx.User.HasPermission("DeleteMaterial") &&
+             ctx.Resource is Material material &&
+             material.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
     );
 

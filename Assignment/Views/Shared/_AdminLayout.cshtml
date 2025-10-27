@@ -130,6 +130,24 @@
                     </a>
                 </li>
             }
+            @if (User.HasAnyPermission("GetUnitAll", "GetUnit"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Units" class="sidebar-menu-link">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                        <span>Đơn vị &amp; chuyển đổi</span>
+                    </a>
+                </li>
+            }
+            @if (User.HasAnyPermission("GetMaterialAll", "GetMaterial"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Materials" class="sidebar-menu-link">
+                        <i class="fa-solid fa-warehouse"></i>
+                        <span>Nguyên vật liệu</span>
+                    </a>
+                </li>
+            }
             @if (User.HasAnyPermission("GetComboAll", "GetCombo"))
             {
                 <li class="sidebar-menu-item">

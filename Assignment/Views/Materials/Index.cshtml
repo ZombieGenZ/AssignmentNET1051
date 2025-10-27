@@ -1,0 +1,647 @@
+@{
+    ViewData["Title"] = "Quản lý nguyên vật liệu";
+    Layout = "_AdminLayout";
+
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
+}
+
+<div class="container-fluid pt-4 px-4">
+    <div class="card shadow-sm" id="material-app"
+         data-can-create="@(canCreate ? "true" : "false")"
+         data-can-update="@(canUpdate ? "true" : "false")"
+         data-can-delete="@(canDelete ? "true" : "false")"
+         data-can-view="@(canView ? "true" : "false")">
+        <div class="card-header bg-light">
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+                <div>
+                    <h4 class="mb-1 text-primary">
+                        <i class="fas fa-boxes-stacked me-2"></i>@ViewData["Title"]
+                    </h4>
+                </div>
+                @if (canCreate)
+                {
+                    <button type="button" class="btn btn-primary" id="createMaterialBtn">
+                        <i class="fas fa-plus me-2"></i>Thêm nguyên vật liệu
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="materialAlertPlaceholder"></div>
+            <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
+                <div class="text-muted small" id="materialTableStatus">@(canView ? "Đang tải dữ liệu nguyên vật liệu..." : "Bạn không có quyền xem danh sách nguyên vật liệu.")</div>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm" id="refreshMaterialsBtn">
+                        <i class="fas fa-rotate-right me-1"></i>Tải lại
+                    </button>
+                </div>
+            </div>
+            <div class="filter-toolbar mb-4" id="materialFilters">
+                <div class="row g-3 align-items-end">
+                    <div class="col-12 col-lg-4">
+                        <label class="form-label filter-label" for="materialSearchInput">Tìm kiếm</label>
+                        <div class="filter-input-icon">
+                            <i class="fas fa-search filter-icon"></i>
+                            <input type="search" class="form-control" id="materialSearchInput" placeholder="Tên hoặc mã nguyên vật liệu" />
+                        </div>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <label class="form-label filter-label" for="materialCodeInput">Mã nguyên vật liệu</label>
+                        <input type="text" class="form-control" id="materialCodeInput" placeholder="Nhập mã chính xác" />
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-3">
+                        <label class="form-label filter-label" for="materialUnitFilter">Đơn vị</label>
+                        <select id="materialUnitFilter" class="form-select">
+                            <option value="">Tất cả đơn vị</option>
+                        </select>
+                    </div>
+                    <div class="col-12 col-sm-6 col-lg-2 d-flex align-items-end">
+                        <button type="button" class="btn btn-outline-secondary w-100" id="materialResetFilters">
+                            <i class="fas fa-eraser me-1"></i>Xóa lọc
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 140px;">Mã</th>
+                            <th>Tên nguyên vật liệu</th>
+                            <th style="width: 160px;">Đơn vị</th>
+                            <th style="width: 160px;" class="text-end">Tồn kho tối thiểu</th>
+                            <th style="width: 160px;" class="text-end">Giá trung bình</th>
+                            @if (canUpdate || canDelete)
+                            {
+                                <th style="width: 120px;" class="text-center">Hành động</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody id="materialsTableBody">
+                        <tr>
+                            <td colspan="@(canUpdate || canDelete ? 6 : 5)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="materialAntiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="materialModal" tabindex="-1" aria-labelledby="materialModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="materialModalLabel">Thêm nguyên vật liệu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="materialForm" novalidate>
+                <div class="modal-body">
+                    <div id="materialFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="mb-3">
+                        <label for="materialCode" class="form-label">Mã nguyên vật liệu<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="materialCode" maxlength="100" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialName" class="form-label">Tên nguyên vật liệu<span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="materialName" maxlength="200" required />
+                    </div>
+                    <div class="mb-3">
+                        <label for="materialUnit" class="form-label">Đơn vị<span class="text-danger">*</span></label>
+                        <select id="materialUnit" class="form-select" required></select>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12 col-sm-6">
+                            <label for="materialMinStock" class="form-label">Tồn kho tối thiểu</label>
+                            <input type="number" class="form-control" id="materialMinStock" min="0" step="0.0001" placeholder="0" />
+                        </div>
+                        <div class="col-12 col-sm-6">
+                            <label for="materialPrice" class="form-label">Giá trung bình (VNĐ)</label>
+                            <input type="number" class="form-control" id="materialPrice" min="0" step="0.01" placeholder="0" />
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="materialSubmitBtn">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="materialDeleteModal" tabindex="-1" aria-labelledby="materialDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="materialDeleteModalLabel">Xóa nguyên vật liệu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa nguyên vật liệu <strong id="deleteMaterialName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteMaterialBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('material-app');
+            if (!app) {
+                return;
+            }
+
+            const canView = app.dataset.canView === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+            const canCreate = app.dataset.canCreate === 'true';
+            const API_BASE_URL = '/api/materials';
+            const UNIT_LOOKUP_URL = '/api/units/lookup';
+
+            const tableBody = document.getElementById('materialsTableBody');
+            const tableStatus = document.getElementById('materialTableStatus');
+            const alertPlaceholder = document.getElementById('materialAlertPlaceholder');
+            const refreshBtn = document.getElementById('refreshMaterialsBtn');
+            const createBtn = document.getElementById('createMaterialBtn');
+            const searchInput = document.getElementById('materialSearchInput');
+            const codeInput = document.getElementById('materialCodeInput');
+            const unitFilter = document.getElementById('materialUnitFilter');
+            const resetFiltersBtn = document.getElementById('materialResetFilters');
+            const antiForgeryInput = document.querySelector('#materialAntiForgeryForm input[name="__RequestVerificationToken"]');
+            const antiForgeryToken = antiForgeryInput ? antiForgeryInput.value : '';
+
+            const materialModalEl = document.getElementById('materialModal');
+            const materialModal = new bootstrap.Modal(materialModalEl);
+            const materialModalLabel = document.getElementById('materialModalLabel');
+            const materialForm = document.getElementById('materialForm');
+            const materialFormErrors = document.getElementById('materialFormErrors');
+            const materialCodeInput = document.getElementById('materialCode');
+            const materialNameInput = document.getElementById('materialName');
+            const materialUnitSelect = document.getElementById('materialUnit');
+            const materialMinStockInput = document.getElementById('materialMinStock');
+            const materialPriceInput = document.getElementById('materialPrice');
+            const materialSubmitBtn = document.getElementById('materialSubmitBtn');
+
+            const deleteModalEl = document.getElementById('materialDeleteModal');
+            const deleteModal = new bootstrap.Modal(deleteModalEl);
+            const deleteMaterialName = document.getElementById('deleteMaterialName');
+            const confirmDeleteMaterialBtn = document.getElementById('confirmDeleteMaterialBtn');
+
+            let allMaterials = [];
+            let filteredMaterials = [];
+            let unitLookup = [];
+            let editingMaterialId = null;
+            let deleteMaterialId = null;
+
+            const debounce = (fn, delay = 300) => {
+                let timeoutId;
+                return (...args) => {
+                    if (timeoutId) {
+                        window.clearTimeout(timeoutId);
+                    }
+
+                    timeoutId = window.setTimeout(() => fn(...args), delay);
+                };
+            };
+
+            const numberFormatter = new Intl.NumberFormat('vi-VN', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 4
+            });
+
+            const currencyFormatter = new Intl.NumberFormat('vi-VN', {
+                style: 'currency',
+                currency: 'VND'
+            });
+
+            function showAlert(type, message) {
+                if (!alertPlaceholder) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    <div>${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+                alertPlaceholder.appendChild(wrapper);
+            }
+
+            function updateStatus(count) {
+                if (!tableStatus || !canView) {
+                    return;
+                }
+
+                const total = allMaterials.length;
+                if (total === 0) {
+                    tableStatus.textContent = 'Không có nguyên vật liệu nào để hiển thị.';
+                    return;
+                }
+
+                if (count === total) {
+                    tableStatus.textContent = `Đang hiển thị ${count} nguyên vật liệu.`;
+                } else {
+                    tableStatus.textContent = `Tìm thấy ${count}/${total} nguyên vật liệu.`;
+                }
+            }
+
+            function populateUnitSelect(selectElement, includeAllOption = false) {
+                if (!selectElement) {
+                    return;
+                }
+
+                const currentValue = selectElement.value;
+                selectElement.innerHTML = '';
+
+                if (includeAllOption) {
+                    const allOption = document.createElement('option');
+                    allOption.value = '';
+                    allOption.textContent = 'Tất cả đơn vị';
+                    selectElement.appendChild(allOption);
+                }
+
+                unitLookup.forEach(unit => {
+                    const option = document.createElement('option');
+                    option.value = String(unit.id);
+                    option.textContent = unit.name || `#${unit.id}`;
+                    selectElement.appendChild(option);
+                });
+
+                if (currentValue) {
+                    selectElement.value = currentValue;
+                }
+            }
+
+            function renderMaterials() {
+                if (!tableBody) {
+                    return;
+                }
+
+                tableBody.innerHTML = '';
+
+                if (!canView) {
+                    const row = document.createElement('tr');
+                    const cell = document.createElement('td');
+                    cell.colSpan = canUpdate || canDelete ? 6 : 5;
+                    cell.className = 'text-center py-4 text-muted';
+                    cell.textContent = 'Bạn không có quyền xem danh sách nguyên vật liệu.';
+                    row.appendChild(cell);
+                    tableBody.appendChild(row);
+                    return;
+                }
+
+                if (!Array.isArray(filteredMaterials) || filteredMaterials.length === 0) {
+                    const row = document.createElement('tr');
+                    const cell = document.createElement('td');
+                    cell.colSpan = canUpdate || canDelete ? 6 : 5;
+                    cell.className = 'text-center py-4 text-muted';
+                    cell.textContent = 'Không có nguyên vật liệu nào phù hợp.';
+                    row.appendChild(cell);
+                    tableBody.appendChild(row);
+                    updateStatus(0);
+                    return;
+                }
+
+                filteredMaterials.forEach(material => {
+                    const row = document.createElement('tr');
+
+                    const codeCell = document.createElement('td');
+                    const codeBadge = document.createElement('span');
+                    codeBadge.className = 'badge bg-light text-dark border';
+                    codeBadge.textContent = material.code || '';
+                    codeCell.appendChild(codeBadge);
+                    row.appendChild(codeCell);
+
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = material.name || '';
+                    row.appendChild(nameCell);
+
+                    const unitCell = document.createElement('td');
+                    unitCell.textContent = material.unitName || '—';
+                    row.appendChild(unitCell);
+
+                    const minStockCell = document.createElement('td');
+                    minStockCell.className = 'text-end';
+                    minStockCell.textContent = numberFormatter.format(material.minStockLevel || 0);
+                    row.appendChild(minStockCell);
+
+                    const priceCell = document.createElement('td');
+                    priceCell.className = 'text-end';
+                    priceCell.textContent = currencyFormatter.format(material.price || 0);
+                    row.appendChild(priceCell);
+
+                    if (canUpdate || canDelete) {
+                        const actionCell = document.createElement('td');
+                        actionCell.className = 'text-center';
+                        actionCell.style.whiteSpace = 'nowrap';
+
+                        if (canUpdate) {
+                            const editBtn = document.createElement('button');
+                            editBtn.type = 'button';
+                            editBtn.className = 'btn btn-outline-primary btn-sm me-2';
+                            editBtn.innerHTML = '<i class="fas fa-pen"></i>';
+                            editBtn.addEventListener('click', () => openEditMaterial(material));
+                            actionCell.appendChild(editBtn);
+                        }
+
+                        if (canDelete) {
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.type = 'button';
+                            deleteBtn.className = 'btn btn-outline-danger btn-sm';
+                            deleteBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                            deleteBtn.addEventListener('click', () => openDeleteMaterial(material));
+                            actionCell.appendChild(deleteBtn);
+                        }
+
+                        row.appendChild(actionCell);
+                    }
+
+                    tableBody.appendChild(row);
+                });
+
+                updateStatus(filteredMaterials.length);
+            }
+
+            function applyFilters() {
+                if (!Array.isArray(allMaterials)) {
+                    filteredMaterials = [];
+                    renderMaterials();
+                    return;
+                }
+
+                const searchTerm = (searchInput?.value || '').trim().toLowerCase();
+                const codeTerm = (codeInput?.value || '').trim().toLowerCase();
+                const unitId = unitFilter?.value || '';
+
+                filteredMaterials = allMaterials.filter(material => {
+                    const matchesSearch = !searchTerm || (material.name || '').toLowerCase().includes(searchTerm) || (material.code || '').toLowerCase().includes(searchTerm);
+                    const matchesCode = !codeTerm || (material.code || '').toLowerCase() === codeTerm;
+                    const matchesUnit = !unitId || String(material.unitId ?? '') === unitId;
+                    return matchesSearch && matchesCode && matchesUnit;
+                });
+
+                renderMaterials();
+            }
+
+            function resetForm() {
+                materialForm.reset();
+                materialFormErrors?.classList.add('d-none');
+                materialFormErrors && (materialFormErrors.innerHTML = '');
+                if (materialUnitSelect && unitLookup.length > 0) {
+                    materialUnitSelect.value = unitLookup[0]?.id ? String(unitLookup[0].id) : '';
+                }
+            }
+
+            function openCreateMaterial() {
+                editingMaterialId = null;
+                materialModalLabel.textContent = 'Thêm nguyên vật liệu';
+                materialSubmitBtn.textContent = 'Thêm mới';
+                resetForm();
+                materialModal.show();
+            }
+
+            function openEditMaterial(material) {
+                editingMaterialId = material.id;
+                materialModalLabel.textContent = 'Cập nhật nguyên vật liệu';
+                materialSubmitBtn.textContent = 'Cập nhật';
+                resetForm();
+
+                materialCodeInput.value = material.code || '';
+                materialNameInput.value = material.name || '';
+                if (materialUnitSelect) {
+                    materialUnitSelect.value = material.unitId ? String(material.unitId) : '';
+                }
+                materialMinStockInput.value = material.minStockLevel != null ? material.minStockLevel : '';
+                materialPriceInput.value = material.price != null ? material.price : '';
+
+                materialModal.show();
+            }
+
+            function openDeleteMaterial(material) {
+                deleteMaterialId = material.id;
+                deleteMaterialName.textContent = material.name || material.code || `#${material.id}`;
+                deleteModal.show();
+            }
+
+            async function fetchUnits() {
+                try {
+                    const response = await fetch(UNIT_LOOKUP_URL, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách đơn vị.');
+                    }
+
+                    const data = await response.json();
+                    unitLookup = Array.isArray(data) ? data : [];
+                    populateUnitSelect(unitFilter, true);
+                    populateUnitSelect(materialUnitSelect);
+                } catch (error) {
+                    showAlert('warning', error.message || 'Không thể tải danh sách đơn vị.');
+                    unitLookup = [];
+                    populateUnitSelect(unitFilter, true);
+                    populateUnitSelect(materialUnitSelect);
+                }
+            }
+
+            async function fetchMaterials(showLoading = true) {
+                if (!canView) {
+                    return;
+                }
+
+                if (showLoading && tableStatus) {
+                    tableStatus.textContent = 'Đang tải dữ liệu nguyên vật liệu...';
+                }
+
+                const params = new URLSearchParams();
+                const searchTerm = (searchInput?.value || '').trim();
+                const codeTerm = (codeInput?.value || '').trim();
+                const unitId = unitFilter?.value || '';
+
+                if (searchTerm) {
+                    params.append('search', searchTerm);
+                }
+                if (codeTerm) {
+                    params.append('code', codeTerm);
+                }
+                if (unitId) {
+                    params.append('unitId', unitId);
+                }
+
+                const queryString = params.toString();
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}${queryString ? `?${queryString}` : ''}`, {
+                        headers: {
+                            'Accept': 'application/json'
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể tải danh sách nguyên vật liệu.');
+                    }
+
+                    const data = await response.json();
+                    allMaterials = Array.isArray(data) ? data : [];
+                    applyFilters();
+                } catch (error) {
+                    showAlert('danger', error.message || 'Đã xảy ra lỗi khi tải danh sách nguyên vật liệu.');
+                    allMaterials = [];
+                    filteredMaterials = [];
+                    renderMaterials();
+                }
+            }
+
+            async function submitMaterialForm(event) {
+                event.preventDefault();
+
+                if (!materialForm || !materialSubmitBtn) {
+                    return;
+                }
+
+                const payload = {
+                    code: materialCodeInput.value.trim(),
+                    name: materialNameInput.value.trim(),
+                    unitId: materialUnitSelect.value ? Number(materialUnitSelect.value) : null,
+                    minStockLevel: materialMinStockInput.value ? Number(materialMinStockInput.value) : 0,
+                    price: materialPriceInput.value ? Number(materialPriceInput.value) : 0
+                };
+
+                materialSubmitBtn.disabled = true;
+                materialSubmitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xử lý';
+                materialFormErrors?.classList.add('d-none');
+                materialFormErrors && (materialFormErrors.innerHTML = '');
+
+                try {
+                    const response = await fetch(editingMaterialId ? `${API_BASE_URL}/${editingMaterialId}` : API_BASE_URL, {
+                        method: editingMaterialId ? 'PUT' : 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': antiForgeryToken
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.status === 400 || response.status === 422) {
+                        const errorData = await response.json();
+                        const errors = errorData?.errors || errorData;
+                        const messages = [];
+                        if (errors) {
+                            for (const key of Object.keys(errors)) {
+                                const value = errors[key];
+                                if (Array.isArray(value)) {
+                                    messages.push(...value);
+                                } else if (typeof value === 'string') {
+                                    messages.push(value);
+                                }
+                            }
+                        }
+
+                        if (messages.length > 0) {
+                            materialFormErrors?.classList.remove('d-none');
+                            materialFormErrors.innerHTML = messages.map(m => `<div>${m}</div>`).join('');
+                        }
+                        return;
+                    }
+
+                    if (!response.ok) {
+                        throw new Error('Không thể lưu nguyên vật liệu.');
+                    }
+
+                    await fetchMaterials(false);
+                    materialModal.hide();
+                    showAlert('success', editingMaterialId ? 'Cập nhật nguyên vật liệu thành công.' : 'Thêm nguyên vật liệu thành công.');
+                } catch (error) {
+                    showAlert('danger', error.message || 'Đã xảy ra lỗi khi lưu nguyên vật liệu.');
+                } finally {
+                    materialSubmitBtn.disabled = false;
+                    materialSubmitBtn.textContent = editingMaterialId ? 'Cập nhật' : 'Thêm mới';
+                }
+            }
+
+            async function confirmDeleteMaterial() {
+                if (!deleteMaterialId) {
+                    return;
+                }
+
+                confirmDeleteMaterialBtn.disabled = true;
+                confirmDeleteMaterialBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang xóa';
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/${deleteMaterialId}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'RequestVerificationToken': antiForgeryToken
+                        }
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Không thể xóa nguyên vật liệu.');
+                    }
+
+                    deleteModal.hide();
+                    showAlert('success', 'Đã xóa nguyên vật liệu thành công.');
+                    await fetchMaterials(false);
+                } catch (error) {
+                    showAlert('danger', error.message || 'Đã xảy ra lỗi khi xóa nguyên vật liệu.');
+                } finally {
+                    confirmDeleteMaterialBtn.disabled = false;
+                    confirmDeleteMaterialBtn.textContent = 'Xóa';
+                    deleteMaterialId = null;
+                }
+            }
+
+            function initializeEvents() {
+                refreshBtn?.addEventListener('click', () => fetchMaterials());
+
+                if (canCreate) {
+                    createBtn?.addEventListener('click', () => openCreateMaterial());
+                }
+
+                searchInput?.addEventListener('input', debounce(() => fetchMaterials(false)));
+                codeInput?.addEventListener('input', debounce(() => fetchMaterials(false)));
+                unitFilter?.addEventListener('change', () => fetchMaterials(false));
+                resetFiltersBtn?.addEventListener('click', () => {
+                    if (searchInput) {
+                        searchInput.value = '';
+                    }
+                    if (codeInput) {
+                        codeInput.value = '';
+                    }
+                    if (unitFilter) {
+                        unitFilter.value = '';
+                    }
+                    fetchMaterials();
+                });
+
+                materialForm?.addEventListener('submit', submitMaterialForm);
+                confirmDeleteMaterialBtn?.addEventListener('click', confirmDeleteMaterial);
+
+                materialModalEl?.addEventListener('hidden.bs.modal', () => {
+                    materialSubmitBtn.textContent = editingMaterialId ? 'Cập nhật' : 'Thêm mới';
+                    materialSubmitBtn.disabled = false;
+                    editingMaterialId = null;
+                });
+            }
+
+            initializeEvents();
+            fetchUnits().then(() => fetchMaterials());
+        })();
+    </script>
+}
