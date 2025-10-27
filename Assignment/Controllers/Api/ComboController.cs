@@ -870,7 +870,7 @@ namespace Assignment.Controllers.Api
 
             public DiscountType DiscountType { get; set; }
 
-            public long? Discount { get; set; }
+            public decimal? Discount { get; set; }
 
             public bool IsPublish { get; set; }
         }
