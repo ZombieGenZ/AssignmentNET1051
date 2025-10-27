@@ -371,6 +371,7 @@ using (var scope = app.Services.CreateScope())
     await EnsureVoucherMinimumRankColumnAsync(dbContext);
     await EnsureProductTypeSelectionTablesAsync(dbContext);
     await EnsureProductExtraTablesAsync(dbContext);
+    await EnsureMaterialManagementTablesAsync(dbContext);
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var usersWithoutSecurityStamp = await userManager.Users
@@ -598,6 +599,85 @@ BEGIN
         FOREIGN KEY([ProductId]) REFERENCES [dbo].[Products]([Id]) ON DELETE CASCADE;
 END;
 ";
+
+    await context.Database.ExecuteSqlRawAsync(ensureSql);
+}
+
+static async Task EnsureMaterialManagementTablesAsync(ApplicationDbContext context)
+{
+    const string ensureSql = @"
+IF OBJECT_ID(N'dbo.Units', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Units]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [Name] NVARCHAR(100) NOT NULL,
+        [Description] NVARCHAR(255) NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_Units] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+END;
+
+IF OBJECT_ID(N'dbo.ConversionUnits', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ConversionUnits]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [FromUnitId] BIGINT NOT NULL,
+        [ToUnitId] BIGINT NOT NULL,
+        [ConversionRate] DECIMAL(18,6) NOT NULL,
+        [Description] NVARCHAR(255) NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_ConversionUnits] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_ConversionUnits_FromUnitId] ON [dbo].[ConversionUnits]([FromUnitId]);
+    CREATE INDEX [IX_ConversionUnits_ToUnitId] ON [dbo].[ConversionUnits]([ToUnitId]);
+    CREATE UNIQUE INDEX [IX_ConversionUnits_FromUnitId_ToUnitId] ON [dbo].[ConversionUnits]([FromUnitId], [ToUnitId]);
+
+    ALTER TABLE [dbo].[ConversionUnits] WITH CHECK
+        ADD CONSTRAINT [FK_ConversionUnits_Units_FromUnitId]
+        FOREIGN KEY([FromUnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[ConversionUnits] WITH CHECK
+        ADD CONSTRAINT [FK_ConversionUnits_Units_ToUnitId]
+        FOREIGN KEY([ToUnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
+END;
+
+IF OBJECT_ID(N'dbo.Materials', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Materials]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [Code] NVARCHAR(100) NOT NULL,
+        [Name] NVARCHAR(200) NOT NULL,
+        [UnitId] BIGINT NOT NULL,
+        [MinStockLevel] DECIMAL(18,4) NOT NULL,
+        [Price] DECIMAL(18,2) NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_Materials] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_Materials_Code] ON [dbo].[Materials]([Code]);
+    CREATE INDEX [IX_Materials_Name] ON [dbo].[Materials]([Name]);
+    CREATE INDEX [IX_Materials_UnitId] ON [dbo].[Materials]([UnitId]);
+
+    ALTER TABLE [dbo].[Materials] WITH CHECK
+        ADD CONSTRAINT [FK_Materials_Units_UnitId]
+        FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
+END;";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
 }
