@@ -71,6 +71,90 @@
     </div>
 </div>
 
+<form id="receivingAntiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="receivingCreateModal" tabindex="-1" aria-labelledby="receivingCreateModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receivingCreateModalLabel">Tạo phiếu nhập</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <form id="receivingCreateForm" novalidate>
+                <div class="modal-body">
+                    <div id="receivingFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="receivingNoteNumber" class="form-label">Số phiếu</label>
+                            <input type="text" class="form-control" id="receivingNoteNumber" maxlength="100" placeholder="Tự động nếu để trống" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="receivingDate" class="form-label">Ngày lập<span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="receivingDate" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="receivingSupplierId" class="form-label">Mã nhà cung cấp</label>
+                            <input type="text" class="form-control" id="receivingSupplierId" maxlength="100" placeholder="Không bắt buộc" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="receivingSupplierName" class="form-label">Tên nhà cung cấp</label>
+                            <input type="text" class="form-control" id="receivingSupplierName" maxlength="255" placeholder="Không bắt buộc" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="receivingWarehouseId" class="form-label">Kho</label>
+                            <input type="number" class="form-control" id="receivingWarehouseId" min="0" step="1" placeholder="Nhập mã kho" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="receivingStatus" class="form-label">Trạng thái<span class="text-danger">*</span></label>
+                            <select id="receivingStatus" class="form-select" required>
+                                <option value="0">Bản nháp</option>
+                                <option value="1">Hoàn thành</option>
+                                <option value="2">Đã hủy</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mt-4">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h6 class="mb-0">Chi tiết phiếu nhập</h6>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="receivingAddDetailBtn">
+                                <i class="fas fa-plus me-1"></i>Thêm dòng
+                            </button>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle" id="receivingDetailsTable">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th style="width: 35%;">Nguyên vật liệu</th>
+                                        <th style="width: 15%;" class="text-end">Số lượng</th>
+                                        <th style="width: 20%;">Đơn vị</th>
+                                        <th style="width: 20%;" class="text-end">Đơn giá</th>
+                                        <th style="width: 10%;" class="text-center">Xóa</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr data-placeholder="true">
+                                        <td colspan="5" class="text-center text-muted py-3">Chưa có nguyên vật liệu.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="receivingSubmitBtn">
+                        <span class="spinner-border spinner-border-sm d-none" id="receivingSubmitSpinner" role="status" aria-hidden="true"></span>
+                        <span class="ms-1">Lưu phiếu nhập</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
     <script>
         (() => {
@@ -86,9 +170,28 @@
             const detailModal = detailModalEl ? new bootstrap.Modal(detailModalEl) : null;
             const detailBody = document.getElementById('receivingDetailBody');
             const canView = app.dataset.canView === 'true';
+            const canCreate = app.dataset.canCreate === 'true';
+            const createBtn = document.getElementById('receivingCreateBtn');
+            const createModalEl = document.getElementById('receivingCreateModal');
+            const createModal = createModalEl ? new bootstrap.Modal(createModalEl) : null;
+            const createForm = document.getElementById('receivingCreateForm');
+            const formErrors = document.getElementById('receivingFormErrors');
+            const addDetailBtn = document.getElementById('receivingAddDetailBtn');
+            const detailTableBody = document.querySelector('#receivingDetailsTable tbody');
+            const noteNumberInput = document.getElementById('receivingNoteNumber');
+            const dateInput = document.getElementById('receivingDate');
+            const supplierIdInput = document.getElementById('receivingSupplierId');
+            const supplierNameInput = document.getElementById('receivingSupplierName');
+            const warehouseInput = document.getElementById('receivingWarehouseId');
+            const statusSelect = document.getElementById('receivingStatus');
+            const submitBtn = document.getElementById('receivingSubmitBtn');
+            const submitSpinner = document.getElementById('receivingSubmitSpinner');
+            const antiForgeryTokenInput = document.querySelector('#receivingAntiForgeryForm input[name="__RequestVerificationToken"]');
 
             let allNotes = [];
             let filteredNotes = [];
+            let materials = [];
+            let materialsLoadPromise = null;
 
             function showAlert(message, type = 'danger') {
                 if (!alertPlaceholder) {
@@ -301,6 +404,263 @@
                 }
             }
 
+            function formatInputDate(date) {
+                if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+                    return '';
+                }
+
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function clearFormErrors() {
+                if (!formErrors) {
+                    return;
+                }
+
+                formErrors.classList.add('d-none');
+                formErrors.innerHTML = '';
+            }
+
+            function showFormErrors(messages) {
+                if (!formErrors) {
+                    return;
+                }
+
+                const content = Array.isArray(messages) ? messages : [messages];
+                formErrors.innerHTML = content
+                    .filter(Boolean)
+                    .map(message => `<div>${message}</div>`)
+                    .join('');
+                formErrors.classList.toggle('d-none', formErrors.innerHTML.trim().length === 0);
+            }
+
+            function setSubmitting(isSubmitting) {
+                if (submitBtn) {
+                    submitBtn.disabled = isSubmitting;
+                }
+
+                if (submitSpinner) {
+                    submitSpinner.classList.toggle('d-none', !isSubmitting);
+                }
+            }
+
+            function showDetailPlaceholder(message = 'Chưa có nguyên vật liệu.') {
+                if (!detailTableBody) {
+                    return;
+                }
+
+                detailTableBody.innerHTML = `
+                    <tr data-placeholder="true">
+                        <td colspan="5" class="text-center text-muted py-3">${message}</td>
+                    </tr>`;
+            }
+
+            function resetCreateForm() {
+                createForm?.reset();
+
+                if (dateInput) {
+                    dateInput.value = formatInputDate(new Date());
+                    dateInput.classList.remove('is-invalid');
+                }
+
+                if (statusSelect) {
+                    statusSelect.value = '0';
+                }
+
+                warehouseInput?.classList.remove('is-invalid');
+
+                clearFormErrors();
+                showDetailPlaceholder();
+
+                if (addDetailBtn) {
+                    addDetailBtn.disabled = true;
+                }
+
+                setSubmitting(false);
+            }
+
+            function updateDetailRowUnit(row, materialId) {
+                const unitSelect = row.querySelector('.receiving-detail-unit');
+                if (!unitSelect) {
+                    return;
+                }
+
+                unitSelect.innerHTML = '';
+
+                if (!materialId) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'Chọn đơn vị';
+                    unitSelect.appendChild(option);
+                    return;
+                }
+
+                const material = materials.find(item => Number(item.id) === Number(materialId));
+                if (!material) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'Chọn đơn vị';
+                    unitSelect.appendChild(option);
+                    return;
+                }
+
+                const option = document.createElement('option');
+                option.value = material.unitId != null ? String(material.unitId) : '';
+                option.textContent = material.unitName ?? '—';
+                unitSelect.appendChild(option);
+                unitSelect.value = option.value;
+            }
+
+            function addDetailRow(initial = {}) {
+                if (!detailTableBody) {
+                    return;
+                }
+
+                if (!Array.isArray(materials) || materials.length === 0) {
+                    showFormErrors('Không tìm thấy nguyên vật liệu. Vui lòng tạo nguyên vật liệu trước khi lập phiếu nhập.');
+                    return;
+                }
+
+                const placeholder = detailTableBody.querySelector('[data-placeholder]');
+                if (placeholder) {
+                    detailTableBody.innerHTML = '';
+                }
+
+                const row = document.createElement('tr');
+                row.dataset.detailRow = 'true';
+
+                const materialCell = document.createElement('td');
+                const materialSelect = document.createElement('select');
+                materialSelect.className = 'form-select form-select-sm receiving-detail-material';
+                materialSelect.innerHTML = '<option value="">Chọn nguyên vật liệu</option>';
+
+                materials.forEach(material => {
+                    const option = document.createElement('option');
+                    option.value = material.id != null ? String(material.id) : '';
+                    const code = material.code ? `[${material.code}] ` : '';
+                    option.textContent = `${code}${material.name ?? ''}`.trim();
+                    materialSelect.appendChild(option);
+                });
+
+                if (initial.materialId) {
+                    materialSelect.value = String(initial.materialId);
+                }
+
+                materialCell.appendChild(materialSelect);
+                row.appendChild(materialCell);
+
+                const quantityCell = document.createElement('td');
+                quantityCell.className = 'text-end';
+                const quantityInput = document.createElement('input');
+                quantityInput.type = 'number';
+                quantityInput.min = '0.0001';
+                quantityInput.step = '0.0001';
+                quantityInput.placeholder = '0';
+                quantityInput.className = 'form-control form-control-sm receiving-detail-quantity text-end';
+                if (initial.quantity != null) {
+                    quantityInput.value = String(initial.quantity);
+                }
+                quantityCell.appendChild(quantityInput);
+                row.appendChild(quantityCell);
+
+                const unitCell = document.createElement('td');
+                const unitSelect = document.createElement('select');
+                unitSelect.className = 'form-select form-select-sm receiving-detail-unit';
+                unitCell.appendChild(unitSelect);
+                row.appendChild(unitCell);
+
+                const priceCell = document.createElement('td');
+                priceCell.className = 'text-end';
+                const priceInput = document.createElement('input');
+                priceInput.type = 'number';
+                priceInput.min = '0';
+                priceInput.step = '0.01';
+                priceInput.placeholder = '0';
+                priceInput.className = 'form-control form-control-sm receiving-detail-unit-price text-end';
+                if (initial.unitPrice != null) {
+                    priceInput.value = String(initial.unitPrice);
+                }
+                priceCell.appendChild(priceInput);
+                row.appendChild(priceCell);
+
+                const actionCell = document.createElement('td');
+                actionCell.className = 'text-center';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-link text-danger btn-sm';
+                removeBtn.dataset.action = 'remove-detail';
+                removeBtn.innerHTML = '<i class="fas fa-times"></i>';
+                actionCell.appendChild(removeBtn);
+                row.appendChild(actionCell);
+
+                detailTableBody.appendChild(row);
+
+                updateDetailRowUnit(row, materialSelect.value ? Number(materialSelect.value) : null);
+
+                materialSelect.addEventListener('change', () => {
+                    materialSelect.classList.remove('is-invalid');
+                    updateDetailRowUnit(row, materialSelect.value ? Number(materialSelect.value) : null);
+                });
+
+                [quantityInput, unitSelect, priceInput].forEach(input => {
+                    input.addEventListener('input', () => input.classList.remove('is-invalid'));
+                    input.addEventListener('change', () => input.classList.remove('is-invalid'));
+                });
+            }
+
+            async function ensureMaterialsLoaded() {
+                if (Array.isArray(materials) && materials.length > 0) {
+                    return true;
+                }
+
+                if (!materialsLoadPromise) {
+                    materialsLoadPromise = (async () => {
+                        try {
+                            const response = await fetch('/api/materials');
+                            if (!response.ok) {
+                                if (response.status === 403) {
+                                    throw new Error('Bạn không có quyền xem danh sách nguyên vật liệu.');
+                                }
+
+                                throw new Error('Không thể tải danh sách nguyên vật liệu.');
+                            }
+
+                            const data = await response.json();
+                            materials = Array.isArray(data) ? data : [];
+                            materials.sort((a, b) => {
+                                const nameA = (a?.name ?? '').toLowerCase();
+                                const nameB = (b?.name ?? '').toLowerCase();
+                                if (nameA === nameB) {
+                                    return (a?.code ?? '').localeCompare(b?.code ?? '');
+                                }
+                                return nameA.localeCompare(nameB);
+                            });
+
+                            return materials.length > 0;
+                        } catch (error) {
+                            materials = [];
+                            throw error;
+                        }
+                    })();
+                }
+
+                try {
+                    const hasMaterials = await materialsLoadPromise;
+                    if (!hasMaterials) {
+                        showFormErrors('Không tìm thấy nguyên vật liệu. Vui lòng tạo nguyên vật liệu trước khi lập phiếu nhập.');
+                    }
+                    return hasMaterials;
+                } catch (error) {
+                    showFormErrors(error.message ?? 'Không thể tải danh sách nguyên vật liệu.');
+                    return false;
+                } finally {
+                    materialsLoadPromise = null;
+                }
+            }
+
             tableBody?.addEventListener('click', event => {
                 const button = event.target.closest('button[data-action="detail"]');
                 if (!button) {
@@ -312,6 +672,227 @@
                     openDetailModal(id);
                 }
             });
+
+            detailTableBody?.addEventListener('click', event => {
+                const button = event.target.closest('button[data-action="remove-detail"]');
+                if (!button) {
+                    return;
+                }
+
+                const row = button.closest('tr');
+                row?.remove();
+
+                if (!detailTableBody.querySelector('tr[data-detail-row="true"]')) {
+                    showDetailPlaceholder();
+                }
+            });
+
+            addDetailBtn?.addEventListener('click', async () => {
+                if (addDetailBtn.disabled) {
+                    return;
+                }
+
+                const loaded = await ensureMaterialsLoaded();
+                if (!loaded) {
+                    return;
+                }
+
+                addDetailRow();
+            });
+
+            createBtn?.addEventListener('click', async () => {
+                if (!createModal || !canCreate) {
+                    return;
+                }
+
+                resetCreateForm();
+                createModal.show();
+                showDetailPlaceholder('Đang tải danh sách nguyên vật liệu...');
+
+                const loaded = await ensureMaterialsLoaded();
+                if (loaded) {
+                    if (addDetailBtn) {
+                        addDetailBtn.disabled = false;
+                    }
+                    if (detailTableBody) {
+                        detailTableBody.innerHTML = '';
+                    }
+                    addDetailRow();
+                } else {
+                    if (addDetailBtn) {
+                        addDetailBtn.disabled = true;
+                    }
+                    showDetailPlaceholder('Không thể tải danh sách nguyên vật liệu.');
+                }
+
+                if (dateInput && !dateInput.value) {
+                    dateInput.value = formatInputDate(new Date());
+                }
+            });
+
+            createModalEl?.addEventListener('hidden.bs.modal', () => {
+                resetCreateForm();
+            });
+
+            dateInput?.addEventListener('change', () => dateInput.classList.remove('is-invalid'));
+            warehouseInput?.addEventListener('input', () => warehouseInput.classList.remove('is-invalid'));
+
+            createForm?.addEventListener('submit', async event => {
+                event.preventDefault();
+
+                if (!canCreate) {
+                    showFormErrors('Bạn không có quyền tạo phiếu nhập.');
+                    return;
+                }
+
+                if (!detailTableBody) {
+                    return;
+                }
+
+                clearFormErrors();
+
+                const detailRows = Array.from(detailTableBody.querySelectorAll('tr[data-detail-row="true"]'));
+                if (detailRows.length === 0) {
+                    showFormErrors('Phiếu nhập phải có ít nhất một nguyên vật liệu.');
+                    return;
+                }
+
+                const details = [];
+                const errors = [];
+
+                detailRows.forEach((row, index) => {
+                    const materialSelect = row.querySelector('.receiving-detail-material');
+                    const quantityInput = row.querySelector('.receiving-detail-quantity');
+                    const unitSelect = row.querySelector('.receiving-detail-unit');
+                    const priceInput = row.querySelector('.receiving-detail-unit-price');
+
+                    const materialIdValue = materialSelect?.value ? Number(materialSelect.value) : NaN;
+                    if (!Number.isFinite(materialIdValue) || materialIdValue <= 0) {
+                        errors.push(`Dòng ${index + 1}: Vui lòng chọn nguyên vật liệu.`);
+                        materialSelect?.classList.add('is-invalid');
+                    }
+
+                    const quantityRaw = quantityInput?.value ?? '';
+                    const quantityValue = quantityRaw === '' ? NaN : Number(quantityRaw);
+                    if (!Number.isFinite(quantityValue) || quantityValue <= 0) {
+                        errors.push(`Dòng ${index + 1}: Số lượng phải lớn hơn 0.`);
+                        quantityInput?.classList.add('is-invalid');
+                    }
+
+                    const unitIdValue = unitSelect?.value ? Number(unitSelect.value) : NaN;
+                    if (!Number.isFinite(unitIdValue) || unitIdValue <= 0) {
+                        errors.push(`Dòng ${index + 1}: Không tìm thấy đơn vị hợp lệ.`);
+                        unitSelect?.classList.add('is-invalid');
+                    }
+
+                    const priceRaw = priceInput?.value ?? '';
+                    const priceValue = priceRaw === '' ? 0 : Number(priceRaw);
+                    if (!Number.isFinite(priceValue) || priceValue < 0) {
+                        errors.push(`Dòng ${index + 1}: Đơn giá không hợp lệ.`);
+                        priceInput?.classList.add('is-invalid');
+                    }
+
+                    if (
+                        Number.isFinite(materialIdValue) && materialIdValue > 0 &&
+                        Number.isFinite(quantityValue) && quantityValue > 0 &&
+                        Number.isFinite(unitIdValue) && unitIdValue > 0 &&
+                        Number.isFinite(priceValue) && priceValue >= 0
+                    ) {
+                        details.push({
+                            materialId: materialIdValue,
+                            quantity: quantityValue,
+                            unitId: unitIdValue,
+                            unitPrice: priceValue
+                        });
+                    }
+                });
+
+                if (details.length === 0 || errors.length > 0) {
+                    const uniqueErrors = errors.length > 0 ? [...new Set(errors)] : ['Phiếu nhập phải có ít nhất một nguyên vật liệu hợp lệ.'];
+                    showFormErrors(uniqueErrors);
+                    return;
+                }
+
+                if (!dateInput || !dateInput.value) {
+                    showFormErrors('Vui lòng chọn ngày lập phiếu.');
+                    dateInput?.classList.add('is-invalid');
+                    return;
+                }
+
+                const warehouseValue = warehouseInput?.value?.trim();
+                const warehouseId = warehouseValue ? Number(warehouseValue) : null;
+                if (warehouseId != null && !Number.isFinite(warehouseId)) {
+                    showFormErrors('Kho không hợp lệ.');
+                    warehouseInput?.classList.add('is-invalid');
+                    return;
+                }
+
+                const payload = {
+                    noteNumber: noteNumberInput?.value?.trim() || null,
+                    date: dateInput.value,
+                    supplierId: supplierIdInput?.value?.trim() || null,
+                    supplierName: supplierNameInput?.value?.trim() || null,
+                    warehouseId,
+                    status: Number(statusSelect?.value ?? 0),
+                    details
+                };
+
+                setSubmitting(true);
+
+                try {
+                    const response = await fetch('/api/receiving-notes', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(antiForgeryTokenInput?.value ? { 'RequestVerificationToken': antiForgeryTokenInput.value } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        const note = await response.json();
+                        createModal?.hide();
+                        showAlert('Tạo phiếu nhập thành công.', 'success');
+                        allNotes = Array.isArray(allNotes) ? [note, ...allNotes] : [note];
+                        applyFilters();
+                        return;
+                    }
+
+                    if (response.status === 403) {
+                        showFormErrors('Bạn không có quyền tạo phiếu nhập.');
+                        return;
+                    }
+
+                    if (response.status === 400 || response.status === 422) {
+                        const problem = await response.json().catch(() => null);
+                        if (problem) {
+                            const problemErrors = problem.errors ? Object.values(problem.errors).flat() : [];
+                            if (problemErrors.length > 0) {
+                                showFormErrors(problemErrors);
+                                return;
+                            }
+
+                            if (problem.title) {
+                                showFormErrors(problem.title);
+                                return;
+                            }
+                        }
+
+                        showFormErrors('Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.');
+                        return;
+                    }
+
+                    showFormErrors('Không thể tạo phiếu nhập. Vui lòng thử lại sau.');
+                } catch (error) {
+                    showFormErrors('Có lỗi xảy ra khi tạo phiếu nhập. Vui lòng thử lại sau.');
+                } finally {
+                    setSubmitting(false);
+                }
+            });
+
+            if (createModalEl) {
+                resetCreateForm();
+            }
 
             searchInput?.addEventListener('input', () => applyFilters());
 
