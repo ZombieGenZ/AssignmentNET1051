@@ -87,10 +87,6 @@
                     <div id="receivingFormErrors" class="alert alert-danger d-none" role="alert"></div>
                     <div class="row g-3">
                         <div class="col-md-6">
-                            <label for="receivingNoteNumber" class="form-label">Số phiếu</label>
-                            <input type="text" class="form-control" id="receivingNoteNumber" maxlength="100" placeholder="Tự động nếu để trống" />
-                        </div>
-                        <div class="col-md-6">
                             <label for="receivingDate" class="form-label">Ngày lập<span class="text-danger">*</span></label>
                             <input type="date" class="form-control" id="receivingDate" required />
                         </div>
@@ -200,7 +196,6 @@
             const formErrors = document.getElementById('receivingFormErrors');
             const addDetailBtn = document.getElementById('receivingAddDetailBtn');
             const detailTableBody = document.querySelector('#receivingDetailsTable tbody');
-            const noteNumberInput = document.getElementById('receivingNoteNumber');
             const dateInput = document.getElementById('receivingDate');
             const supplierSelect = document.getElementById('receivingSupplierSelect');
             const supplierInfo = document.getElementById('receivingSupplierInfo');
@@ -1391,7 +1386,6 @@
                 }
 
                 const payload = {
-                    noteNumber: noteNumberInput?.value?.trim() || null,
                     date: dateInput.value,
                     supplierId: selectedSupplier ? Number(selectedSupplier.id) : null,
                     warehouseId: Number(selectedWarehouse.id),
