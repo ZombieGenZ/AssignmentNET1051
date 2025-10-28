@@ -1,6 +1,7 @@
 using Assignment.Models;
 using Assignment.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace Assignment.Services
@@ -22,6 +23,9 @@ namespace Assignment.Services
                     .ThenInclude(ci => ci.ProductTypeSelections)
                         .ThenInclude(selection => selection.ProductType)
                 .Include(c => c.CartItems)
+                    .ThenInclude(ci => ci.ProductExtraSelections)
+                        .ThenInclude(selection => selection.ProductExtra)
+                .Include(c => c.CartItems)
                     .ThenInclude(ci => ci.Combo)
                 .FirstOrDefaultAsync(c => c.UserId == userId, cancellationToken);
 
@@ -31,18 +35,46 @@ namespace Assignment.Services
             }
 
             var items = cart.CartItems.ToList();
+            var extrasToRemove = new List<CartItemProductExtra>();
 
             foreach (var item in items)
             {
                 item.Product?.RefreshDerivedFields();
+
+                if (item.ProductExtraSelections != null && item.ProductExtraSelections.Any())
+                {
+                    var invalidExtras = item.ProductExtraSelections
+                        .Where(selection => selection.ProductExtra == null ||
+                                             selection.ProductExtra.IsDeleted ||
+                                             !selection.ProductExtra.IsPublish)
+                        .ToList();
+
+                    if (invalidExtras.Any())
+                    {
+                        extrasToRemove.AddRange(invalidExtras);
+                        foreach (var invalid in invalidExtras)
+                        {
+                            item.ProductExtraSelections.Remove(invalid);
+                        }
+                    }
+                }
             }
             var unavailableItems = items
                 .Where(ci => IsUnavailable(ci))
                 .ToList();
 
-            if (unavailableItems.Any())
+            if (unavailableItems.Any() || extrasToRemove.Any())
             {
-                context.CartItems.RemoveRange(unavailableItems);
+                if (unavailableItems.Any())
+                {
+                    context.CartItems.RemoveRange(unavailableItems);
+                }
+
+                if (extrasToRemove.Any())
+                {
+                    context.CartItemProductExtras.RemoveRange(extrasToRemove);
+                }
+
                 await context.SaveChangesAsync(cancellationToken);
             }
 

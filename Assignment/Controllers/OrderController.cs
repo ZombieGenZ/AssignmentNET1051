@@ -130,6 +130,18 @@ namespace Assignment.Controllers
 
             foreach (var cartItem in filteredItems)
             {
+                var extraItems = cartItem.ProductExtraSelections != null && cartItem.ProductExtraSelections.Any()
+                    ? cartItem.ProductExtraSelections
+                        .Select(extra => new OrderItemProductExtra
+                        {
+                            ProductExtraId = extra.ProductExtraId,
+                            ProductExtra = extra.ProductExtra,
+                            Quantity = extra.Quantity,
+                            UnitPrice = extra.UnitPrice
+                        })
+                        .ToList()
+                    : new List<OrderItemProductExtra>();
+
                 if (cartItem.Product != null && cartItem.ProductTypeSelections != null && cartItem.ProductTypeSelections.Any())
                 {
                     var selectionItems = cartItem.ProductTypeSelections
@@ -149,7 +161,8 @@ namespace Assignment.Controllers
                         Product = cartItem.Product,
                         Quantity = totalSelectionQuantity,
                         Price = 0,
-                        ProductTypeSelections = selectionItems
+                        ProductTypeSelections = selectionItems,
+                        ProductExtraSelections = extraItems
                     });
                 }
                 else
@@ -161,7 +174,8 @@ namespace Assignment.Controllers
                         ProductId = cartItem.ProductId,
                         ComboId = cartItem.ComboId,
                         Product = cartItem.Product,
-                        Combo = cartItem.Combo
+                        Combo = cartItem.Combo,
+                        ProductExtraSelections = extraItems
                     });
                 }
             }
@@ -1469,14 +1483,21 @@ namespace Assignment.Controllers
                     filteredSelections = new List<CartItemProductType>();
                 }
 
-                var clonedItem = CloneCartItem(cartItem, filteredSelections);
+                var clonedExtras = cartItem.ProductExtraSelections != null
+                    ? cartItem.ProductExtraSelections
+                        .Where(extra => extra != null)
+                        .Select(CloneCartItemExtra)
+                        .ToList()
+                    : new List<CartItemProductExtra>();
+
+                var clonedItem = CloneCartItem(cartItem, filteredSelections, clonedExtras);
                 result.Add(clonedItem);
             }
 
             return result;
         }
 
-        private static CartItem CloneCartItem(CartItem source, List<CartItemProductType> selections)
+        private static CartItem CloneCartItem(CartItem source, List<CartItemProductType> selections, List<CartItemProductExtra> extras)
         {
             return new CartItem
             {
@@ -1493,7 +1514,8 @@ namespace Assignment.Controllers
                 UpdatedAt = source.UpdatedAt,
                 IsDeleted = source.IsDeleted,
                 DeletedAt = source.DeletedAt,
-                ProductTypeSelections = selections
+                ProductTypeSelections = selections,
+                ProductExtraSelections = extras
             };
         }
 
@@ -1506,6 +1528,25 @@ namespace Assignment.Controllers
                 CartItem = null,
                 ProductTypeId = selection.ProductTypeId,
                 ProductType = selection.ProductType,
+                Quantity = selection.Quantity,
+                UnitPrice = selection.UnitPrice,
+                CreateBy = selection.CreateBy,
+                CreatedAt = selection.CreatedAt,
+                UpdatedAt = selection.UpdatedAt,
+                IsDeleted = selection.IsDeleted,
+                DeletedAt = selection.DeletedAt
+            };
+        }
+
+        private static CartItemProductExtra CloneCartItemExtra(CartItemProductExtra selection)
+        {
+            return new CartItemProductExtra
+            {
+                Id = selection.Id,
+                CartItemId = selection.CartItemId,
+                CartItem = null,
+                ProductExtraId = selection.ProductExtraId,
+                ProductExtra = selection.ProductExtra,
                 Quantity = selection.Quantity,
                 UnitPrice = selection.UnitPrice,
                 CreateBy = selection.CreateBy,
@@ -1534,35 +1575,43 @@ namespace Assignment.Controllers
 
         private static double GetCartItemTotalPrice(CartItem cartItem)
         {
+            var extrasTotal = cartItem.ProductExtraSelections != null
+                ? cartItem.ProductExtraSelections.Sum(extra => extra.UnitPrice * extra.Quantity)
+                : 0;
+
             if (cartItem.Product != null)
             {
                 if (cartItem.ProductTypeSelections != null && cartItem.ProductTypeSelections.Any())
                 {
-                    return cartItem.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+                    return cartItem.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity) + extrasTotal;
                 }
 
                 cartItem.Product.RefreshDerivedFields();
                 var unitPrice = PriceCalculator.GetProductFinalPrice(cartItem.Product);
-                return unitPrice * cartItem.Quantity;
+                return unitPrice * cartItem.Quantity + extrasTotal;
             }
 
             if (cartItem.Combo != null)
             {
                 var unitPrice = PriceCalculator.GetComboFinalPrice(cartItem.Combo);
-                return unitPrice * cartItem.Quantity;
+                return unitPrice * cartItem.Quantity + extrasTotal;
             }
 
-            return 0;
+            return extrasTotal;
         }
 
         private static double GetOrderItemTotalPrice(OrderItem orderItem)
         {
+            var extrasTotal = orderItem.ProductExtraSelections != null
+                ? orderItem.ProductExtraSelections.Sum(extra => extra.UnitPrice * extra.Quantity)
+                : 0;
+
             if (orderItem.ProductTypeSelections != null && orderItem.ProductTypeSelections.Any())
             {
-                return orderItem.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+                return orderItem.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity) + extrasTotal;
             }
 
-            return orderItem.Price * orderItem.Quantity;
+            return orderItem.Price * orderItem.Quantity + extrasTotal;
         }
 
         private static long GetOrderItemTotalQuantity(OrderItem orderItem)

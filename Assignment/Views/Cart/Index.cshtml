@@ -71,10 +71,14 @@
                                         @foreach (var item in Model.CartItems)
                                         {
                                             double itemUnitPrice = 0;
-                                            double itemTotal = 0;
+                                            double baseTotal = 0;
+                                            double extraTotal = item.ProductExtraSelections != null && item.ProductExtraSelections.Any()
+                                                ? item.ProductExtraSelections.Sum(extra => extra.UnitPrice * extra.Quantity)
+                                                : 0;
                                             string itemName = "";
                                             string itemImage = "";
                                             var hasProductSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
+                                            var hasExtras = extraTotal > 0;
 
         if (item.Product != null)
         {
@@ -85,13 +89,13 @@
 
                                                 if (hasProductSelections)
                                                 {
-                                                    itemTotal = item.ProductTypeSelections
+                                                    baseTotal = item.ProductTypeSelections
                                                         .Sum(selection => selection.UnitPrice * selection.Quantity);
                                                 }
                                                 else
                                                 {
                                                     itemUnitPrice = PriceCalculator.GetProductFinalPrice(item.Product);
-                                                    itemTotal = itemUnitPrice * item.Quantity;
+                                                    baseTotal = itemUnitPrice * item.Quantity;
                                                 }
                                             }
         else if (item.Combo != null)
@@ -101,7 +105,7 @@
             itemImage = string.IsNullOrWhiteSpace(item.Combo.ImageUrl)
                 ? defaultImageUrl
                 : item.Combo.ImageUrl;
-            itemTotal = itemUnitPrice * item.Quantity;
+            baseTotal = itemUnitPrice * item.Quantity;
         }
 
         if (string.IsNullOrWhiteSpace(itemImage))
@@ -109,8 +113,10 @@
             itemImage = defaultImageUrl;
         }
 
-        string itemTotalInvariant = itemTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                                            totalPrice += itemTotal;
+        double displayTotal = baseTotal + extraTotal;
+        string baseTotalInvariant = baseTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        string displayTotalInvariant = displayTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                            totalPrice += displayTotal;
 
                                             <tr>
                                                 <td class="text-center">
@@ -119,7 +125,7 @@
                                                                class="form-check-input cart-item-checkbox"
                                                                value="@item.Id"
                                                                data-id="@item.Id"
-                                                               data-total="@itemTotalInvariant"
+                                                               data-total="@baseTotalInvariant"
                                                                data-has-selections="@(hasProductSelections.ToString().ToLowerInvariant())"
                                                                checked />
                                                     </div>
@@ -181,7 +187,7 @@
                                                     }
                                                 </td>
                                                 <td class="text-end">
-                                                    <strong class="cart-item-total text-danger" data-item-id="@item.Id">@itemTotal.ToString("N0") đ</strong>
+                                                    <strong class="cart-item-total text-danger" data-item-id="@item.Id">@displayTotal.ToString("N0") đ</strong>
                                                 </td>
                                                 <td class="text-center">
                                                     <form asp-controller="Cart" asp-action="Remove" method="post" class="d-inline js-confirm-form"
@@ -195,66 +201,132 @@
                                                     </form>
                                                 </td>
                                             </tr>
-                                            @if (hasProductSelections)
+                                            if (hasProductSelections || hasExtras)
                                             {
                                                 <tr class="bg-light">
                                                     <td></td>
                                                     <td colspan="4" class="py-0">
                                                         <ul class="list-group list-group-flush selection-list">
-                                                            @foreach (var selection in item.ProductTypeSelections)
+                                                            @if (hasProductSelections)
                                                             {
-                                                                var selectionName = selection.ProductType?.Name ?? "Loại sản phẩm";
-                                                                var selectionTotal = selection.UnitPrice * selection.Quantity;
-                                                                var selectionTotalInvariant = selectionTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                                                                <li class="list-group-item px-0 py-2 cart-selection-item" data-selection-id="@selection.Id" data-parent-id="@item.Id">
-                                                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                                                                        <div class="d-flex align-items-start gap-3">
-                                                                            <div class="form-check mt-1">
-                                                                                <input class="form-check-input cart-selection-checkbox"
-                                                                                       type="checkbox"
-                                                                                       value="@selection.Id"
-                                                                                       data-parent-id="@item.Id"
-                                                                                       data-total="@selectionTotalInvariant"
-                                                                                       checked />
-                                                                            </div>
-                                                                            <div>
-                                                                                <div class="fw-semibold">@selectionName</div>
-                                                                                <div class="text-muted small">Đơn giá: @selection.UnitPrice.ToString("N0") đ</div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="d-flex align-items-center gap-2 selection-actions">
-                                                                            <form asp-controller="Cart" asp-action="UpdateProductTypeQuantity" method="post" class="d-flex align-items-center gap-2">
-                                                                                @Html.AntiForgeryToken()
-                                                                                <input type="hidden" name="selectionId" value="@selection.Id" />
-                                                                                <div class="input-group input-group-sm" style="width: 130px;">
-                                                                                    <button type="button" class="btn btn-outline-secondary"
-                                                                                            onclick="this.closest('form').querySelector('input[type=number]').stepDown(); this.closest('form').submit();">
-                                                                                        <i class="fas fa-minus"></i>
-                                                                                    </button>
-                                                                                    <input type="number" name="quantity" value="@selection.Quantity" min="1" class="form-control text-center"
-                                                                                           onchange="this.form.submit()" />
-                                                                                    <button type="button" class="btn btn-outline-secondary"
-                                                                                            onclick="this.closest('form').querySelector('input[type=number]').stepUp(); this.closest('form').submit();">
-                                                                                        <i class="fas fa-plus"></i>
-                                                                                    </button>
+                                                                foreach (var selection in item.ProductTypeSelections)
+                                                                {
+                                                                    var selectionName = selection.ProductType?.Name ?? "Loại sản phẩm";
+                                                                    var selectionTotal = selection.UnitPrice * selection.Quantity;
+                                                                    var selectionTotalInvariant = selectionTotal.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                                                    <li class="list-group-item px-0 py-2 cart-selection-item" data-selection-id="@selection.Id" data-parent-id="@item.Id">
+                                                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                                                            <div class="d-flex align-items-start gap-3">
+                                                                                <div class="form-check mt-1">
+                                                                                    <input class="form-check-input cart-selection-checkbox"
+                                                                                           type="checkbox"
+                                                                                           value="@selection.Id"
+                                                                                           data-parent-id="@item.Id"
+                                                                                           data-total="@selectionTotalInvariant"
+                                                                                           checked />
                                                                                 </div>
-                                                                            </form>
-                                                                            <form asp-controller="Cart" asp-action="RemoveProductType" method="post"
-                                                                                  class="js-confirm-form"
-                                                                                  data-confirm-message="Bạn có chắc muốn xóa loại sản phẩm này?"
-                                                                                  data-confirm-button-class="btn-danger">
-                                                                                @Html.AntiForgeryToken()
-                                                                                <input type="hidden" name="selectionId" value="@selection.Id" />
-                                                                                <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Xóa loại sản phẩm">
-                                                                                    <i class="fas fa-times"></i>
-                                                                                </button>
-                                                                            </form>
+                                                                                <div>
+                                                                                    <div class="fw-semibold">@selectionName</div>
+                                                                                    <div class="text-muted small">Đơn giá: @selection.UnitPrice.ToString("N0") đ</div>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="d-flex align-items-center gap-2 selection-actions">
+                                                                                <form asp-controller="Cart" asp-action="UpdateProductTypeQuantity" method="post" class="d-flex align-items-center gap-2">
+                                                                                    @Html.AntiForgeryToken()
+                                                                                    <input type="hidden" name="selectionId" value="@selection.Id" />
+                                                                                    <div class="input-group input-group-sm" style="width: 130px;">
+                                                                                        <button type="button" class="btn btn-outline-secondary"
+                                                                                                onclick="this.closest('form').querySelector('input[type=number]').stepDown(); this.closest('form').submit();">
+                                                                                            <i class="fas fa-minus"></i>
+                                                                                        </button>
+                                                                                        <input type="number" name="quantity" value="@selection.Quantity" min="1" class="form-control text-center"
+                                                                                               onchange="this.form.submit()" />
+                                                                                        <button type="button" class="btn btn-outline-secondary"
+                                                                                                onclick="this.closest('form').querySelector('input[type=number]').stepUp(); this.closest('form').submit();">
+                                                                                            <i class="fas fa-plus"></i>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </form>
+                                                                                <form asp-controller="Cart" asp-action="RemoveProductType" method="post"
+                                                                                      class="js-confirm-form"
+                                                                                      data-confirm-message="Bạn có chắc muốn xóa loại sản phẩm này?"
+                                                                                      data-confirm-button-class="btn-danger">
+                                                                                    @Html.AntiForgeryToken()
+                                                                                    <input type="hidden" name="selectionId" value="@selection.Id" />
+                                                                                    <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Xóa loại sản phẩm">
+                                                                                        <i class="fas fa-times"></i>
+                                                                                    </button>
+                                                                                </form>
+                                                                            </div>
+                                                                            <div class="fw-semibold text-danger selection-total" data-selection-total="@selectionTotalInvariant">
+                                                                                @selectionTotal.ToString("N0") đ
+                                                                            </div>
                                                                         </div>
-                                                                        <div class="fw-semibold text-danger selection-total" data-selection-total="@selectionTotalInvariant">
-                                                                            @selectionTotal.ToString("N0") đ
-                                                                        </div>
-                                                                    </div>
+                                                                    </li>
+                                                                }
+                                                            }
+                                                            @if (hasExtras)
+                                                            {
+                                                                <li class="list-group-item px-0 py-2">
+                                                                    <div class="fw-semibold text-muted small text-uppercase">Sản phẩm bổ sung</div>
                                                                 </li>
+                                                                foreach (var extra in item.ProductExtraSelections)
+                                                                {
+                                                                    var extraName = extra.ProductExtra?.Name ?? "Sản phẩm bổ sung";
+                                                                    var extraTotalValue = extra.UnitPrice * extra.Quantity;
+                                                                    var extraTotalValueInvariant = extraTotalValue.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                                                                    var isSpicy = extra.ProductExtra?.IsSpicy == true;
+                                                                    var isVegetarian = extra.ProductExtra?.IsVegetarian == true;
+                                                                    <li class="list-group-item px-0 py-2 cart-extra-item" data-parent-id="@item.Id" data-total="@extraTotalValueInvariant">
+                                                                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                                                            <div class="d-flex flex-column">
+                                                                                <div class="fw-semibold">@extraName</div>
+                                                                                <div class="text-muted small">Đơn giá: @extra.UnitPrice.ToString("N0") đ</div>
+                                                                                <div class="d-flex gap-2 mt-1">
+                                                                                    @if (isSpicy)
+                                                                                    {
+                                                                                        <span class="badge bg-danger-subtle text-danger">Cay</span>
+                                                                                    }
+                                                                                    @if (isVegetarian)
+                                                                                    {
+                                                                                        <span class="badge bg-success-subtle text-success">Chay</span>
+                                                                                    }
+                                                                                </div>
+                                                                            </div>
+                                                                            <div class="d-flex align-items-center gap-2 selection-actions">
+                                                                                <form asp-controller="Cart" asp-action="UpdateProductExtraQuantity" method="post" class="d-flex align-items-center gap-2">
+                                                                                    @Html.AntiForgeryToken()
+                                                                                    <input type="hidden" name="selectionId" value="@extra.Id" />
+                                                                                    <div class="input-group input-group-sm" style="width: 130px;">
+                                                                                        <button type="button" class="btn btn-outline-secondary"
+                                                                                                onclick="this.closest('form').querySelector('input[type=number]').stepDown(); this.closest('form').submit();">
+                                                                                            <i class="fas fa-minus"></i>
+                                                                                        </button>
+                                                                                        <input type="number" name="quantity" value="@extra.Quantity" min="1" class="form-control text-center"
+                                                                                               onchange="this.form.submit()" />
+                                                                                        <button type="button" class="btn btn-outline-secondary"
+                                                                                                onclick="this.closest('form').querySelector('input[type=number]').stepUp(); this.closest('form').submit();">
+                                                                                            <i class="fas fa-plus"></i>
+                                                                                        </button>
+                                                                                    </div>
+                                                                                </form>
+                                                                                <form asp-controller="Cart" asp-action="RemoveProductExtra" method="post"
+                                                                                      class="js-confirm-form"
+                                                                                      data-confirm-message="Bạn có chắc muốn xóa sản phẩm bổ sung này?"
+                                                                                      data-confirm-button-class="btn-danger">
+                                                                                    @Html.AntiForgeryToken()
+                                                                                    <input type="hidden" name="selectionId" value="@extra.Id" />
+                                                                                    <button type="submit" class="btn btn-outline-danger btn-sm" aria-label="Xóa sản phẩm bổ sung">
+                                                                                        <i class="fas fa-times"></i>
+                                                                                    </button>
+                                                                                </form>
+                                                                            </div>
+                                                                            <div class="fw-semibold text-danger">
+                                                                                @extraTotalValue.ToString("N0") đ
+                                                                            </div>
+                                                                        </div>
+                                                                    </li>
+                                                                }
                                                             }
                                                         </ul>
                                                     </td>
@@ -480,6 +552,16 @@
                 };
             }
 
+            function getItemExtrasTotal(itemId) {
+                let total = 0;
+
+                $('.cart-extra-item[data-parent-id="' + itemId + '"]').each(function () {
+                    total += getNumericValue($(this), 'data-total');
+                });
+
+                return total;
+            }
+
             function getItemSelectionState(checkbox) {
                 const itemId = checkbox.data('id');
                 const hasSelections = itemHasSelections(checkbox);
@@ -493,7 +575,8 @@
                     hasSelections,
                     selectionSubtotal,
                     hasCheckedSelections,
-                    isActive
+                    isActive,
+                    isBaseChecked
                 };
             }
 
@@ -513,6 +596,8 @@
                 checkboxes.each(function () {
                     const checkbox = $(this);
                     const state = getItemSelectionState(checkbox);
+                    const baseTotal = getNumericValue(checkbox, 'data-total');
+                    const extrasTotal = getItemExtrasTotal(state.itemId);
 
                     if (!state.isActive) {
                         updateItemTotalDisplay(state.itemId, 0);
@@ -525,15 +610,25 @@
                             return;
                         }
 
-                        subtotal += state.selectionSubtotal.total;
-                        updateItemTotalDisplay(state.itemId, state.selectionSubtotal.total);
+                        const combinedTotal = state.selectionSubtotal.total + extrasTotal;
+                        subtotal += combinedTotal;
+                        updateItemTotalDisplay(state.itemId, combinedTotal);
+                        if (combinedTotal > 0) {
+                            selectedCount++;
+                        }
                     } else {
-                        const totalValue = getNumericValue(checkbox, 'data-total');
-                        subtotal += totalValue;
-                        updateItemTotalDisplay(state.itemId, totalValue);
-                    }
+                        if (!state.isBaseChecked) {
+                            updateItemTotalDisplay(state.itemId, 0);
+                            return;
+                        }
 
-                    selectedCount++;
+                        const combinedTotal = baseTotal + extrasTotal;
+                        subtotal += combinedTotal;
+                        updateItemTotalDisplay(state.itemId, combinedTotal);
+                        if (combinedTotal > 0) {
+                            selectedCount++;
+                        }
+                    }
                 });
 
                 const hasDiscount = baseDiscount > 0 && totalItemCount > 0 && selectedCount === totalItemCount;

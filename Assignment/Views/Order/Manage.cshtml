@@ -245,6 +245,7 @@
                                                     {
                                                         var itemName = item.Product?.Name ?? item.Combo?.Name ?? "Không xác định";
                                                         var hasSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
+                                                        var hasExtras = item.ProductExtraSelections != null && item.ProductExtraSelections.Any();
                                                         if (hasSelections)
                                                         {
                                                             <li>
@@ -256,11 +257,33 @@
                                                                         <li class="text-muted">@selectionName × @selection.Quantity (@string.Format("{0:N0}đ", selection.UnitPrice))</li>
                                                                     }
                                                                 </ul>
+                                                                @if (hasExtras)
+                                                                {
+                                                                    <ul class="list-unstyled ms-0 mt-1">
+                                                                        @foreach (var extra in item.ProductExtraSelections!)
+                                                                        {
+                                                                            var extraName = extra.ProductExtra?.Name ?? "Sản phẩm bổ sung";
+                                                                            <li class="text-muted">@extraName × @extra.Quantity (@string.Format("{0:N0}đ", extra.UnitPrice))</li>
+                                                                        }
+                                                                    </ul>
+                                                                }
                                                             </li>
                                                         }
                                                         else
                                                         {
-                                                            <li>@itemName × @item.Quantity (@string.Format("{0:N0}đ", item.Price))</li>
+                                                            <li>
+                                                                <div>@itemName × @item.Quantity (@string.Format("{0:N0}đ", item.Price))</div>
+                                                                @if (hasExtras)
+                                                                {
+                                                                    <ul class="list-unstyled ms-0 mt-1">
+                                                                        @foreach (var extra in item.ProductExtraSelections!)
+                                                                        {
+                                                                            var extraName = extra.ProductExtra?.Name ?? "Sản phẩm bổ sung";
+                                                                            <li class="text-muted">@extraName × @extra.Quantity (@string.Format("{0:N0}đ", extra.UnitPrice))</li>
+                                                                        }
+                                                                    </ul>
+                                                                }
+                                                            </li>
                                                         }
                                                     }
                                                 </ul>

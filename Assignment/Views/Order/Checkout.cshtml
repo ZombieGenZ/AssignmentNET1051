@@ -11,15 +11,19 @@
     {
         totalPrice = cart.CartItems.Sum(item =>
         {
+            var extrasTotal = item.ProductExtraSelections != null && item.ProductExtraSelections.Any()
+                ? item.ProductExtraSelections.Sum(extra => extra.UnitPrice * extra.Quantity)
+                : 0;
+
             if (item.Product != null && item.ProductTypeSelections != null && item.ProductTypeSelections.Any())
             {
-                return item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+                return item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity) + extrasTotal;
             }
 
             var unitPrice = item.Product != null
                 ? PriceCalculator.GetProductFinalPrice(item.Product)
                 : PriceCalculator.GetComboFinalPrice(item.Combo);
-            return unitPrice * item.Quantity;
+            return unitPrice * item.Quantity + extrasTotal;
         });
     }
     int payNowValue = (int)PaymentType.PayNow;
@@ -136,6 +140,7 @@
                                 @foreach (var item in cart.CartItems)
                                 {
                                     var hasProductSelections = item.Product != null && item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
+                                    var hasExtras = item.ProductExtraSelections != null && item.ProductExtraSelections.Any();
                                     double itemTotal;
                                     string itemName = "Sản phẩm không xác định";
                                     string itemType = "";
@@ -160,16 +165,20 @@
                                         }
                                     }
 
+                                    var extrasTotal = hasExtras
+                                        ? item.ProductExtraSelections!.Sum(extra => extra.UnitPrice * extra.Quantity)
+                                        : 0;
+
                                     if (hasProductSelections)
                                     {
-                                        itemTotal = item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity);
+                                        itemTotal = item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity) + extrasTotal;
                                     }
                                     else
                                     {
                                         var unitPrice = item.Product != null
                                             ? PriceCalculator.GetProductFinalPrice(item.Product)
                                             : PriceCalculator.GetComboFinalPrice(item.Combo);
-                                        itemTotal = unitPrice * item.Quantity;
+                                        itemTotal = unitPrice * item.Quantity + extrasTotal;
                                     }
 
                                     <li class="list-group-item d-flex justify-content-between align-items-start px-0">
@@ -196,6 +205,20 @@
                                                 else
                                                 {
                                                     <small class="text-muted">@itemType × @item.Quantity</small>
+                                                }
+                                                @if (hasExtras)
+                                                {
+                                                    <ul class="list-unstyled mb-0 mt-2 small">
+                                                        @foreach (var extra in item.ProductExtraSelections!)
+                                                        {
+                                                            var extraName = extra.ProductExtra?.Name ?? "Sản phẩm bổ sung";
+                                                            var extraTotal = extra.UnitPrice * extra.Quantity;
+                                                            <li class="d-flex justify-content-between gap-3">
+                                                                <span>@extraName × @extra.Quantity</span>
+                                                                <span class="text-muted">@extraTotal.ToString("N0") đ</span>
+                                                            </li>
+                                                        }
+                                                    </ul>
                                                 }
                                             </div>
                                         </div>
