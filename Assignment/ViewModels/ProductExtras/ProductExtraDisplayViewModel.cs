@@ -15,5 +15,7 @@ namespace Assignment.ViewModels.ProductExtras
         public bool IsSpicy { get; set; }
         public bool IsVegetarian { get; set; }
         public string Ingredients { get; set; } = string.Empty;
+        public int Stock { get; set; }
+        public int Calories { get; set; }
     }
 }

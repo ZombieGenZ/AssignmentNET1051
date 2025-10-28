@@ -11,5 +11,7 @@ namespace Assignment.ViewModels.Cart
         [Required]
         [MinLength(1)]
         public List<ProductTypeSelectionRequest> Selections { get; set; } = new();
+
+        public List<ProductExtraSelectionRequest> Extras { get; set; } = new();
     }
 }

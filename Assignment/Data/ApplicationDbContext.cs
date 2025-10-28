@@ -26,6 +26,7 @@ namespace Assignment.Data
         public DbSet<Cart> Carts { get; set; }
         public DbSet<CartItem> CartItems { get; set; }
         public DbSet<CartItemProductType> CartItemProductTypes { get; set; }
+        public DbSet<CartItemProductExtra> CartItemProductExtras { get; set; }
         public DbSet<ProductType> ProductTypes { get; set; }
         public DbSet<Voucher> Vouchers { get; set; }
         public DbSet<VoucherUser> VoucherUsers { get; set; }
@@ -34,6 +35,7 @@ namespace Assignment.Data
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
         public DbSet<OrderItemProductType> OrderItemProductTypes { get; set; }
+        public DbSet<OrderItemProductExtra> OrderItemProductExtras { get; set; }
         public DbSet<OrderVoucher> OrderVouchers { get; set; }
         public DbSet<Rating> Ratings { get; set; }
         public DbSet<Reward> Rewards { get; set; }

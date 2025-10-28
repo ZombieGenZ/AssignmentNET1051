@@ -558,6 +558,64 @@ BEGIN
         FOREIGN KEY([ProductTypeId]) REFERENCES [dbo].[ProductTypes]([Id]) ON DELETE CASCADE;
 END;
 
+IF OBJECT_ID(N'dbo.CartItemProductExtras', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[CartItemProductExtras]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        [CartItemId] BIGINT NOT NULL,
+        [ProductExtraId] BIGINT NOT NULL,
+        [Quantity] INT NOT NULL,
+        [UnitPrice] FLOAT NOT NULL,
+        CONSTRAINT [PK_CartItemProductExtras] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_CartItemProductExtras_CartItemId] ON [dbo].[CartItemProductExtras]([CartItemId]);
+    CREATE INDEX [IX_CartItemProductExtras_ProductExtraId] ON [dbo].[CartItemProductExtras]([ProductExtraId]);
+
+    ALTER TABLE [dbo].[CartItemProductExtras] WITH CHECK
+        ADD CONSTRAINT [FK_CartItemProductExtras_CartItems_CartItemId]
+        FOREIGN KEY([CartItemId]) REFERENCES [dbo].[CartItems]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[CartItemProductExtras] WITH CHECK
+        ADD CONSTRAINT [FK_CartItemProductExtras_ProductExtras_ProductExtraId]
+        FOREIGN KEY([ProductExtraId]) REFERENCES [dbo].[ProductExtras]([Id]) ON DELETE CASCADE;
+END;
+
+IF OBJECT_ID(N'dbo.OrderItemProductExtras', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[OrderItemProductExtras]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        [OrderItemId] BIGINT NOT NULL,
+        [ProductExtraId] BIGINT NOT NULL,
+        [Quantity] INT NOT NULL,
+        [UnitPrice] FLOAT NOT NULL,
+        CONSTRAINT [PK_OrderItemProductExtras] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_OrderItemProductExtras_OrderItemId] ON [dbo].[OrderItemProductExtras]([OrderItemId]);
+    CREATE INDEX [IX_OrderItemProductExtras_ProductExtraId] ON [dbo].[OrderItemProductExtras]([ProductExtraId]);
+
+    ALTER TABLE [dbo].[OrderItemProductExtras] WITH CHECK
+        ADD CONSTRAINT [FK_OrderItemProductExtras_OrderItems_OrderItemId]
+        FOREIGN KEY([OrderItemId]) REFERENCES [dbo].[OrderItems]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[OrderItemProductExtras] WITH CHECK
+        ADD CONSTRAINT [FK_OrderItemProductExtras_ProductExtras_ProductExtraId]
+        FOREIGN KEY([ProductExtraId]) REFERENCES [dbo].[ProductExtras]([Id]) ON DELETE CASCADE;
+END;
+
 IF COL_LENGTH(N'dbo.ComboItems', N'ProductTypeId') IS NULL
 BEGIN
     ALTER TABLE [dbo].[ComboItems]

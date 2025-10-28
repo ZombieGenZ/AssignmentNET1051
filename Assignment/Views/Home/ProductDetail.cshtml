@@ -1459,37 +1459,54 @@
 
             @if (Model.ApplicableExtras.Any())
             {
-                <div class="extra-section">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h3 class="mb-0"><i class="fas fa-plus-circle text-primary me-2"></i>Sản phẩm bổ sung phù hợp</h3>
-                        <span class="text-muted">Tùy chọn thêm để tăng hương vị cho món của bạn</span>
+                <div class="type-selection mt-4">
+                    <div class="type-selection-title">
+                        <i class="fas fa-plus-circle"></i>
+                        Sản phẩm bổ sung (tùy chọn)
                     </div>
-                    <div class="row g-4">
+                    <div class="row g-3">
                         @foreach (var extra in Model.ApplicableExtras)
                         {
                             var image = string.IsNullOrWhiteSpace(extra.ImageUrl) ? productImageUrl : extra.ImageUrl;
-                            <div class="col-md-4">
-                                <div class="extra-card h-100">
-                                    <img src="@image" alt="@extra.Name" class="extra-card-image" />
-                                    <h5 class="fw-semibold text-primary">@extra.Name</h5>
-                                    <div class="mb-2">
-                                        @if (extra.DiscountType != Assignment.Enums.DiscountType.None && extra.FinalPrice != extra.Price)
-                                        {
-                                            <span class="extra-old-price">@FormatCurrencyWithSymbol(extra.Price)</span>
-                                        }
-                                        <span class="extra-price">@FormatCurrencyWithSymbol(extra.FinalPrice)</span>
-                                    </div>
-                                    <p class="text-muted small mb-3">@extra.Ingredients</p>
-                                    <div class="extra-badges d-flex flex-wrap gap-2">
-                                        @if (extra.IsSpicy)
-                                        {
-                                            <span class="badge bg-danger-subtle text-danger">Món cay</span>
-                                        }
-                                        @if (extra.IsVegetarian)
-                                        {
-                                            <span class="badge bg-success-subtle text-success">Món chay</span>
-                                        }
-                                    </div>
+                            var checkboxId = $"product-extra-{extra.Id}";
+                            var extraFinalPrice = Convert.ToDouble(extra.FinalPrice);
+                            var isAvailable = extra.Stock > 0;
+                            var stockLabel = isAvailable ? $"Còn {extra.Stock}" : "Không giới hạn";
+                            <div class="col-md-6 col-xl-4">
+                                <div class="type-option extra-option @(isAvailable ? string.Empty : "type-option-disabled")">
+                                    <input type="checkbox"
+                                           class="form-check-input extra-checkbox"
+                                           id="@checkboxId"
+                                           value="@extra.Id"
+                                           data-name="@extra.Name"
+                                           data-price="@extraFinalPrice"
+                                           data-stock="@extra.Stock"
+                                           @(isAvailable ? null : "disabled") />
+                                    <label class="type-option-card" for="@checkboxId">
+                                        <div class="d-flex justify-content-between align-items-start">
+                                            <span class="type-option-name">@extra.Name</span>
+                                            <span class="type-option-price">@FormatCurrencyWithSymbol(extra.FinalPrice)</span>
+                                        </div>
+                                        <div class="type-option-meta">
+                                            <span><i class="fas fa-box-open me-1"></i>@stockLabel</span>
+                                            <span><i class="fas fa-fire me-1"></i>@extra.Calories kcal</span>
+                                        </div>
+                                        <p class="text-muted small mb-2">@extra.Ingredients</p>
+                                        <div class="type-option-badges d-flex flex-wrap gap-2">
+                                            @if (extra.DiscountType != Assignment.Enums.DiscountType.None && extra.FinalPrice != extra.Price)
+                                            {
+                                                <span class="badge bg-warning-subtle text-warning">Giảm từ @FormatCurrencyWithSymbol(extra.Price)</span>
+                                            }
+                                            @if (extra.IsSpicy)
+                                            {
+                                                <span class="badge bg-danger-subtle text-danger">Món cay</span>
+                                            }
+                                            @if (extra.IsVegetarian)
+                                            {
+                                                <span class="badge bg-success-subtle text-success">Món chay</span>
+                                            }
+                                        </div>
+                                    </label>
                                 </div>
                             </div>
                         }
@@ -1507,6 +1524,11 @@
                         <div class="modal-body">
                             <p class="text-muted mb-3">Vui lòng nhập số lượng mong muốn cho mỗi loại sản phẩm đã chọn.</p>
                             <div id="selectedTypeList"></div>
+                            <div id="selectedExtraSection" class="modal-extra-section mt-4 d-none">
+                                <h6 class="modal-section-title">Sản phẩm bổ sung (tùy chọn)</h6>
+                                <p class="text-muted mb-3">Tùy chỉnh số lượng cho từng sản phẩm bổ sung.</p>
+                                <div id="selectedExtraList" class="d-flex flex-column gap-3"></div>
+                            </div>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
@@ -1796,6 +1818,9 @@
 
             const container = $('#selectedTypeList');
             container.empty();
+            const extraContainer = $('#selectedExtraList');
+            const extraSection = $('#selectedExtraSection');
+            extraContainer.empty();
 
             selectedCheckboxes.each(function () {
                 const checkbox = $(this);
@@ -1842,6 +1867,57 @@
                 container.append(item);
             });
 
+            const selectedExtras = $('.extra-checkbox:checked');
+            if (selectedExtras.length > 0) {
+                extraSection.removeClass('d-none');
+                selectedExtras.each(function () {
+                    const checkbox = $(this);
+                    const extraId = Number(checkbox.val());
+                    const extraName = checkbox.data('name');
+                    const extraPrice = Number(checkbox.data('price'));
+                    const extraStock = Number(checkbox.data('stock'));
+                    const maxAttr = extraStock > 0 ? `max="${extraStock}"` : '';
+                    const stockLabel = extraStock > 0 ? `Còn ${extraStock}` : 'Không giới hạn';
+
+                    const item = $(
+                        `<div class="modal-type-item modal-extra-item" data-extra-id="${extraId}">
+                            <div>
+                                <div class="modal-type-name">${extraName}</div>
+                                <div class="modal-type-meta">Giá: ${extraPrice.toLocaleString('vi-VN')} ₫ • ${stockLabel}</div>
+                            </div>
+                            <div class="input-group input-group-sm modal-type-quantity">
+                                <button class="btn btn-outline-secondary quantity-minus" type="button" aria-label="Giảm số lượng">-</button>
+                                <input type="number" class="form-control extra-quantity-input" value="1" min="1" ${maxAttr}>
+                                <button class="btn btn-outline-secondary quantity-plus" type="button" aria-label="Tăng số lượng">+</button>
+                            </div>
+                        </div>`
+                    );
+
+                    item.find('.quantity-minus').on('click', function () {
+                        const input = $(this).siblings('input');
+                        const currentValue = parseInt(input.val(), 10) || 1;
+                        if (currentValue > 1) {
+                            input.val(currentValue - 1);
+                        }
+                    });
+
+                    item.find('.quantity-plus').on('click', function () {
+                        const input = $(this).siblings('input');
+                        const max = parseInt(input.attr('max'), 10);
+                        const currentValue = parseInt(input.val(), 10) || 1;
+                        if (!Number.isNaN(max) && max > 0) {
+                            input.val(Math.min(currentValue + 1, max));
+                        } else {
+                            input.val(currentValue + 1);
+                        }
+                    });
+
+                    extraContainer.append(item);
+                });
+            } else {
+                extraSection.addClass('d-none');
+            }
+
             if (!typeSelectionModal) {
                 typeSelectionModal = new bootstrap.Modal(document.getElementById('typeQuantityModal'));
             }
@@ -1851,6 +1927,7 @@
 
         function submitTypeSelection() {
             const selections = [];
+            const extraSelections = [];
 
             $('#selectedTypeList .modal-type-item').each(function () {
                 const item = $(this);
@@ -1871,12 +1948,31 @@
                 selections.push({ productTypeId: typeId, quantity: quantity });
             });
 
+            $('#selectedExtraList .modal-extra-item').each(function () {
+                const item = $(this);
+                const extraId = Number(item.data('extra-id'));
+                const input = item.find('.extra-quantity-input');
+                let quantity = parseInt(input.val(), 10);
+                const max = parseInt(input.attr('max'), 10);
+
+                if (!Number.isInteger(quantity) || quantity < 1) {
+                    quantity = 1;
+                }
+
+                if (!Number.isNaN(max) && max > 0) {
+                    quantity = Math.min(quantity, max);
+                }
+
+                input.val(quantity);
+                extraSelections.push({ productExtraId: extraId, quantity: quantity });
+            });
+
             if (selections.length === 0) {
                 typeSelectionModal?.hide();
                 return;
             }
 
-            const payload = JSON.stringify({ productId: @product.Id, selections: selections });
+            const payload = JSON.stringify({ productId: @product.Id, selections: selections, extras: extraSelections });
             const token = $('input[name="__RequestVerificationToken"]').first().val();
             const isBuyNow = currentAction === 'buy';
 

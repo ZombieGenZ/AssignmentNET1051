@@ -138,5 +138,16 @@ namespace Assignment.Services
             var discountValue = combo.Discount.HasValue ? (double?)combo.Discount.Value : null;
             return ApplyDiscount(combo.Price, combo.DiscountType, discountValue);
         }
+
+        public static double GetProductExtraFinalPrice(ProductExtra? extra)
+        {
+            if (extra == null)
+            {
+                return 0;
+            }
+
+            var discountValue = extra.Discount.HasValue ? (double?)extra.Discount.Value : null;
+            return ApplyDiscount((double)extra.Price, extra.DiscountType, discountValue);
+        }
     }
 }

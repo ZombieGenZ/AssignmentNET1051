@@ -19,5 +19,6 @@ namespace Assignment.Models
         public virtual Product? Product { get; set; }
 
         public virtual ICollection<OrderItemProductType> ProductTypeSelections { get; set; } = new List<OrderItemProductType>();
+        public virtual ICollection<OrderItemProductExtra> ProductExtraSelections { get; set; } = new List<OrderItemProductExtra>();
     }
 }

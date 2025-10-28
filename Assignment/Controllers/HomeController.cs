@@ -485,24 +485,12 @@ namespace Assignment.Controllers
                 Price = extra.Price,
                 DiscountType = extra.DiscountType,
                 Discount = extra.Discount,
-                FinalPrice = CalculateProductExtraFinalPrice(extra),
+                FinalPrice = Convert.ToDecimal(PriceCalculator.GetProductExtraFinalPrice(extra)),
                 IsSpicy = extra.IsSpicy,
                 IsVegetarian = extra.IsVegetarian,
-                Ingredients = extra.Ingredients
-            };
-        }
-
-        private static decimal CalculateProductExtraFinalPrice(ProductExtra extra)
-        {
-            var basePrice = extra.Price;
-            var discountValue = extra.Discount ?? 0m;
-
-            return extra.DiscountType switch
-            {
-                DiscountType.Percent => Math.Max(0m, basePrice - (basePrice * discountValue / 100m)),
-                DiscountType.FixedAmount => Math.Max(0m, discountValue),
-                DiscountType.Amount => Math.Max(0m, basePrice - discountValue),
-                _ => basePrice
+                Ingredients = extra.Ingredients,
+                Stock = extra.Stock,
+                Calories = extra.Calories
             };
         }
 

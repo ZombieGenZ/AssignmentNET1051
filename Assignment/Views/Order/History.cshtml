@@ -59,6 +59,7 @@
                                     bool isAvailable = true;
                                     string? detailUrl = null;
                                     var hasProductSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
+                                    var hasExtras = item.ProductExtraSelections != null && item.ProductExtraSelections.Any();
 
                                     if (item.Product != null)
                                     {
@@ -90,9 +91,13 @@
                                     }
 
                                     var displayName = isAvailable ? itemName : $"{itemName} (Không khả dụng)";
-                                    var itemTotal = hasProductSelections
+                                    var extrasTotal = hasExtras
+                                        ? item.ProductExtraSelections!.Sum(extra => extra.UnitPrice * extra.Quantity)
+                                        : 0;
+                                    var baseTotal = hasProductSelections
                                         ? item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity)
                                         : item.Price * item.Quantity;
+                                    var itemTotal = baseTotal + extrasTotal;
 
                                     <li class="list-group-item d-flex justify-content-between align-items-start">
                                         <div class="d-flex align-items-start">
@@ -126,6 +131,20 @@
                                                 else
                                                 {
                                                     <small class="text-muted">Số lượng: @item.Quantity</small>
+                                                }
+                                                @if (hasExtras)
+                                                {
+                                                    <ul class="list-unstyled mb-0 mt-2 small">
+                                                        @foreach (var extra in item.ProductExtraSelections!)
+                                                        {
+                                                            var extraName = extra.ProductExtra?.Name ?? "Sản phẩm bổ sung";
+                                                            var extraTotal = extra.UnitPrice * extra.Quantity;
+                                                            <li class="d-flex justify-content-between gap-3">
+                                                                <span>@extraName × @extra.Quantity</span>
+                                                                <span class="text-muted">@extraTotal.ToString("N0") đ</span>
+                                                            </li>
+                                                        }
+                                                    </ul>
                                                 }
                                             </div>
                                         </div>

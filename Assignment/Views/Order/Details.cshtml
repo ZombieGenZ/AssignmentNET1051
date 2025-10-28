@@ -114,9 +114,14 @@
                             {
                                 var itemName = item.Product?.Name ?? item.Combo?.Name ?? "Không xác định";
                                 var hasSelections = item.ProductTypeSelections != null && item.ProductTypeSelections.Any();
-                                var lineTotal = hasSelections
+                                var hasExtras = item.ProductExtraSelections != null && item.ProductExtraSelections.Any();
+                                var extrasTotal = hasExtras
+                                    ? item.ProductExtraSelections!.Sum(extra => extra.UnitPrice * extra.Quantity)
+                                    : 0;
+                                var baseTotal = hasSelections
                                     ? item.ProductTypeSelections.Sum(selection => selection.UnitPrice * selection.Quantity)
                                     : item.Price * item.Quantity;
+                                var lineTotal = baseTotal + extrasTotal;
                                 var totalQuantity = hasSelections
                                     ? item.ProductTypeSelections.Sum(selection => selection.Quantity)
                                     : item.Quantity;
@@ -141,6 +146,20 @@
                                                     <li class="d-flex justify-content-between gap-3">
                                                         <span>@selectionName × @selection.Quantity</span>
                                                         <span class="text-muted">@string.Format("{0:N0}đ", selectionTotal)</span>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        }
+                                        @if (hasExtras)
+                                        {
+                                            <ul class="list-unstyled mb-0 mt-2 small">
+                                                @foreach (var extra in item.ProductExtraSelections!)
+                                                {
+                                                    var extraName = extra.ProductExtra?.Name ?? "Sản phẩm bổ sung";
+                                                    var extraTotal = extra.UnitPrice * extra.Quantity;
+                                                    <li class="d-flex justify-content-between gap-3">
+                                                        <span>@extraName × @extra.Quantity</span>
+                                                        <span class="text-muted">@string.Format("{0:N0}đ", extraTotal)</span>
                                                     </li>
                                                 }
                                             </ul>

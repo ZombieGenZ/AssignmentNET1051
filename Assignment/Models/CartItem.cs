@@ -18,5 +18,6 @@ namespace Assignment.Models
         public long Quantity { get; set; }
 
         public virtual ICollection<CartItemProductType> ProductTypeSelections { get; set; } = new List<CartItemProductType>();
+        public virtual ICollection<CartItemProductExtra> ProductExtraSelections { get; set; } = new List<CartItemProductExtra>();
     }
 }

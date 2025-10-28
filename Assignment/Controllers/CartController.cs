@@ -121,6 +121,8 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Vui lòng chọn ít nhất một loại sản phẩm khả dụng." });
             }
 
+            var normalizedExtras = await NormalizeExtrasAsync(request.ProductId, request.Extras);
+
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null)
@@ -147,6 +149,9 @@ namespace Assignment.Controllers
             await _context.Entry(existingItem)
                 .Collection(ci => ci.ProductTypeSelections)
                 .LoadAsync();
+            await _context.Entry(existingItem)
+                .Collection(ci => ci.ProductExtraSelections)
+                .LoadAsync();
 
             foreach (var selection in normalizedSelections)
             {
@@ -165,6 +170,27 @@ namespace Assignment.Controllers
                         ProductTypeId = selection.ProductType.Id,
                         Quantity = selection.Quantity,
                         UnitPrice = selection.UnitPrice
+                    });
+                }
+            }
+
+            foreach (var extra in normalizedExtras)
+            {
+                var existingExtra = existingItem.ProductExtraSelections
+                    .FirstOrDefault(e => e.ProductExtraId == extra.Extra.Id);
+
+                if (existingExtra != null)
+                {
+                    existingExtra.Quantity += extra.Quantity;
+                    existingExtra.UnitPrice = extra.UnitPrice;
+                }
+                else
+                {
+                    existingItem.ProductExtraSelections.Add(new CartItemProductExtra
+                    {
+                        ProductExtraId = extra.Extra.Id,
+                        Quantity = extra.Quantity,
+                        UnitPrice = extra.UnitPrice
                     });
                 }
             }
@@ -216,6 +242,8 @@ namespace Assignment.Controllers
                 return Json(new { success = false, error = "Vui lòng chọn ít nhất một loại sản phẩm khả dụng." });
             }
 
+            var normalizedExtras = await NormalizeExtrasAsync(request.ProductId, request.Extras);
+
             var cart = await _context.LoadCartWithAvailableItemsAsync(userId);
 
             if (cart == null)
@@ -239,11 +267,20 @@ namespace Assignment.Controllers
             await _context.Entry(existingItem)
                 .Collection(ci => ci.ProductTypeSelections)
                 .LoadAsync();
+            await _context.Entry(existingItem)
+                .Collection(ci => ci.ProductExtraSelections)
+                .LoadAsync();
 
             if (existingItem.ProductTypeSelections.Any())
             {
                 _context.CartItemProductTypes.RemoveRange(existingItem.ProductTypeSelections);
                 existingItem.ProductTypeSelections.Clear();
+            }
+
+            if (existingItem.ProductExtraSelections.Any())
+            {
+                _context.CartItemProductExtras.RemoveRange(existingItem.ProductExtraSelections);
+                existingItem.ProductExtraSelections.Clear();
             }
 
             foreach (var selection in normalizedSelections)
@@ -253,6 +290,16 @@ namespace Assignment.Controllers
                     ProductTypeId = selection.ProductType.Id,
                     Quantity = selection.Quantity,
                     UnitPrice = selection.UnitPrice
+                });
+            }
+
+            foreach (var extra in normalizedExtras)
+            {
+                existingItem.ProductExtraSelections.Add(new CartItemProductExtra
+                {
+                    ProductExtraId = extra.Extra.Id,
+                    Quantity = extra.Quantity,
+                    UnitPrice = extra.UnitPrice
                 });
             }
 
@@ -450,6 +497,51 @@ namespace Assignment.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        public async Task<IActionResult> UpdateProductExtraQuantity(long selectionId, int quantity)
+        {
+            if (quantity < 1)
+            {
+                return BadRequest("Số lượng phải lớn hơn 0");
+            }
+
+            var selection = await _context.CartItemProductExtras
+                .Include(s => s.CartItem)
+                .FirstOrDefaultAsync(s => s.Id == selectionId);
+
+            if (selection == null)
+            {
+                return NotFound();
+            }
+
+            selection.Quantity = quantity;
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Đã cập nhật số lượng sản phẩm bổ sung!";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> RemoveProductExtra(long selectionId)
+        {
+            var selection = await _context.CartItemProductExtras
+                .Include(s => s.CartItem)
+                .FirstOrDefaultAsync(s => s.Id == selectionId);
+
+            if (selection == null)
+            {
+                return NotFound();
+            }
+
+            _context.CartItemProductExtras.Remove(selection);
+            await _context.SaveChangesAsync();
+
+            TempData["Success"] = "Đã xóa sản phẩm bổ sung khỏi giỏ hàng!";
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> Remove(long cartItemId)
         {
             var cartItem = await _context.CartItems.FindAsync(cartItemId);
@@ -542,6 +634,65 @@ namespace Assignment.Controllers
 
                 var unitPrice = PriceCalculator.GetProductTypeFinalPrice(productType);
                 results.Add((productType, totalQuantity, unitPrice));
+            }
+
+            return results;
+        }
+
+        private async Task<List<(ProductExtra Extra, int Quantity, double UnitPrice)>> NormalizeExtrasAsync(long productId, IEnumerable<ProductExtraSelectionRequest>? extras)
+        {
+            var results = new List<(ProductExtra Extra, int Quantity, double UnitPrice)>();
+            if (extras == null)
+            {
+                return results;
+            }
+
+            var groupedExtras = extras
+                .Where(extra => extra != null)
+                .GroupBy(extra => extra.ProductExtraId)
+                .ToList();
+
+            if (!groupedExtras.Any())
+            {
+                return results;
+            }
+
+            var extraIds = groupedExtras.Select(group => group.Key).ToList();
+
+            var applicableExtras = await _context.ProductExtras
+                .Include(extra => extra.ProductExtraProducts)
+                .Where(extra => !extra.IsDeleted && extra.IsPublish && extraIds.Contains(extra.Id))
+                .ToListAsync();
+
+            var applicableMap = applicableExtras
+                .Where(extra => extra.ProductExtraProducts.Any(link => !link.IsDeleted && link.ProductId == productId))
+                .ToDictionary(extra => extra.Id);
+
+            foreach (var grouping in groupedExtras)
+            {
+                if (!applicableMap.TryGetValue(grouping.Key, out var extra))
+                {
+                    continue;
+                }
+
+                var totalQuantity = grouping.Sum(item => Math.Max(item.Quantity, 0));
+                if (totalQuantity <= 0)
+                {
+                    continue;
+                }
+
+                if (extra.Stock > 0)
+                {
+                    totalQuantity = Math.Min(totalQuantity, extra.Stock);
+                }
+
+                if (totalQuantity <= 0)
+                {
+                    continue;
+                }
+
+                var unitPrice = PriceCalculator.GetProductExtraFinalPrice(extra);
+                results.Add((extra, totalQuantity, unitPrice));
             }
 
             return results;
