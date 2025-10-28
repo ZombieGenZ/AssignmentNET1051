@@ -127,7 +127,6 @@
         </div>
         <div class="card-body">
             <div id="alertPlaceholder"></div>
-            @await Html.PartialAsync("_ProductModuleIntegrations")
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3 mb-3">
                 <div class="text-muted small" id="tableStatus">@(canView ? "Đang tải dữ liệu sản phẩm..." : "Bạn không có quyền xem danh sách sản phẩm.")</div>
                 <div class="d-flex gap-2">
@@ -242,15 +241,22 @@
                 <div class="modal-body">
                     <div id="productFormErrors" class="alert alert-danger d-none" role="alert"></div>
                     <div class="row g-3">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <label for="productName" class="form-label">Tên sản phẩm<span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="productName" maxlength="500" required />
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-3">
                             <label for="productCategory" class="form-label">Danh mục<span class="text-danger">*</span></label>
                             <select id="productCategory" class="form-select" required>
                                 <option value="">-- Chọn danh mục --</option>
                             </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label for="productRecipe" class="form-label">Công thức sản phẩm</label>
+                            <select id="productRecipe" class="form-select">
+                                <option value="">-- Không chọn --</option>
+                            </select>
+                            <div class="form-text text-muted" id="productRecipeHelp">Chọn công thức để đồng bộ thông tin chế biến và tồn kho.</div>
                         </div>
                         <div class="col-12">
                             <label for="productDescription" class="form-label">Mô tả<span class="text-danger">*</span></label>
@@ -434,10 +440,13 @@
             let isUploadingImage = false;
             let temporaryImageObjectUrl = null;
             const categorySelect = document.getElementById('productCategory');
+            const recipeSelect = document.getElementById('productRecipe');
             const submitButton = document.getElementById('productSubmitBtn');
             const productPublishCheckbox = document.getElementById('productIsPublish');
             const productPublishHelp = document.getElementById('productPublishHelp');
             const defaultProductPublishHelp = productPublishHelp ? productPublishHelp.textContent.trim() : '';
+            const recipeHelp = document.getElementById('productRecipeHelp');
+            const defaultRecipeHelp = recipeHelp ? recipeHelp.textContent.trim() : '';
             const productTypesContainer = document.getElementById('productTypesContainer');
             const addProductTypeBtn = document.getElementById('addProductTypeBtn');
             const clearProductTypesBtn = document.getElementById('clearProductTypesBtn');
@@ -449,6 +458,9 @@
             let editingProductId = null;
             let deleteProductId = null;
             let cachedCategories = [];
+            let cachedRecipes = [];
+            let recipesLoaded = false;
+            let isLoadingRecipes = false;
             let allProducts = [];
             let filteredProducts = [];
             const selectedProductIds = new Set();
@@ -1861,6 +1873,26 @@
                 }
             }
 
+            function populateRecipes() {
+                if (!recipeSelect) {
+                    return;
+                }
+
+                const previousValue = recipeSelect.value;
+                recipeSelect.innerHTML = '<option value="">-- Không chọn --</option>';
+
+                cachedRecipes.forEach(recipe => {
+                    const option = document.createElement('option');
+                    option.value = recipe.id;
+                    option.textContent = recipe.name;
+                    recipeSelect.appendChild(option);
+                });
+
+                if (previousValue) {
+                    recipeSelect.value = previousValue;
+                }
+            }
+
             function ensureCategoryOption(categoryId, categoryName) {
                 if (!categoryId || !categorySelect) {
                     return;
@@ -1871,6 +1903,19 @@
                     cachedCategories.push({ id: categoryId, name: categoryName });
                     cachedCategories.sort((a, b) => a.name.localeCompare(b.name));
                     populateCategories();
+                }
+            }
+
+            function ensureRecipeOption(recipeId, recipeName) {
+                if (!recipeId || !recipeSelect) {
+                    return;
+                }
+
+                const exists = cachedRecipes.some(recipe => Number(recipe.id) === Number(recipeId));
+                if (!exists && recipeName) {
+                    cachedRecipes.push({ id: recipeId, name: recipeName });
+                    cachedRecipes.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' }));
+                    populateRecipes();
                 }
             }
 
@@ -2196,6 +2241,66 @@
                 }
             }
 
+            async function loadRecipes(showError = true) {
+                if (recipesLoaded || isLoadingRecipes) {
+                    populateRecipes();
+                    return;
+                }
+
+                isLoadingRecipes = true;
+                try {
+                    const response = await fetch('/api/recipes');
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            if (recipeHelp) {
+                                recipeHelp.textContent = 'Bạn không có quyền xem danh sách công thức.';
+                                recipeHelp.classList.remove('text-muted', 'text-danger');
+                                recipeHelp.classList.add('text-warning');
+                            }
+                            recipesLoaded = true;
+                            cachedRecipes = [];
+                            populateRecipes();
+                            return;
+                        }
+
+                        throw new Error('Failed to load recipes');
+                    }
+
+                    const data = await response.json();
+                    cachedRecipes = Array.isArray(data)
+                        ? data
+                            .filter(recipe => recipe && Number.isFinite(Number(recipe.id)))
+                            .map(recipe => ({
+                                id: recipe.id,
+                                name: recipe.name || ''
+                            }))
+                        : [];
+
+                    cachedRecipes.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'vi', { sensitivity: 'base' }));
+                    populateRecipes();
+
+                    if (recipeHelp) {
+                        recipeHelp.textContent = defaultRecipeHelp || 'Chọn công thức để đồng bộ thông tin chế biến và tồn kho.';
+                        recipeHelp.classList.remove('text-warning', 'text-danger');
+                        recipeHelp.classList.add('text-muted');
+                    }
+
+                    recipesLoaded = true;
+                } catch (error) {
+                    if (showError) {
+                        showAlert('Không thể tải danh sách công thức. Vui lòng thử lại sau.', 'danger');
+                    }
+
+                    if (recipeHelp) {
+                        recipeHelp.textContent = 'Không thể tải danh sách công thức.';
+                        recipeHelp.classList.remove('text-muted', 'text-warning');
+                        recipeHelp.classList.add('text-danger');
+                    }
+                } finally {
+                    isLoadingRecipes = false;
+                }
+            }
+
             async function bulkDeleteSelectedProducts(ids = Array.from(selectedProductIds)) {
                 if (!canDelete || !Array.isArray(ids) || ids.length === 0) {
                     return;
@@ -2416,6 +2521,7 @@
                     const ingredientsText = combinedIngredients
                         ? escapeHtml(combinedIngredients)
                         : escapeHtml(product.ingredients ?? '—');
+                    const recipeDisplay = product.recipeName ? escapeHtml(product.recipeName) : '—';
 
                     const allTypes = Array.isArray(product.productTypes) ? product.productTypes : [];
                     const typeCards = allTypes.length > 0
@@ -2513,6 +2619,10 @@
                                 <div>${formatBoolean(product.isVegetarian)}</div>
                             </div>
                             <div class="col-md-4">
+                                <div class="small text-muted">Công thức</div>
+                                <div>${recipeDisplay}</div>
+                            </div>
+                            <div class="col-md-4">
                                 <div class="small text-muted">Xuất bản</div>
                                 <div>${formatBoolean(product.isPublish)}</div>
                             </div>
@@ -2560,6 +2670,14 @@
                 submitButton.disabled = false;
                 submitButton.innerHTML = 'Thêm mới';
                 resetProductImageState();
+                if (recipeSelect) {
+                    recipeSelect.value = '';
+                }
+                if (recipeHelp) {
+                    recipeHelp.textContent = defaultRecipeHelp || 'Chọn công thức để đồng bộ thông tin chế biến và tồn kho.';
+                    recipeHelp.classList.remove('text-warning', 'text-danger');
+                    recipeHelp.classList.add('text-muted');
+                }
                 if (productPublishCheckbox) {
                     productPublishCheckbox.checked = false;
                     productPublishCheckbox.disabled = true;
@@ -2577,6 +2695,10 @@
                 imageInput.value = product.productImageUrl ?? '';
                 setProductImageFromUrl(imageInput.value);
                 categorySelect.value = product.categoryId ?? '';
+                ensureRecipeOption(product.recipeId, product.recipeName);
+                if (recipeSelect) {
+                    recipeSelect.value = product.recipeId ? String(product.recipeId) : '';
+                }
                 const types = Array.isArray(product.productTypes) ? product.productTypes : [];
                 setProductTypes(types);
                 if (productPublishCheckbox) {
@@ -2610,7 +2732,10 @@
             }
 
             async function openCreateModal() {
-                await loadCategories(false);
+                await Promise.all([
+                    loadCategories(false),
+                    loadRecipes(false)
+                ]);
                 resetForm();
                 productModalTitle.textContent = 'Thêm mới sản phẩm';
                 submitButton.innerHTML = 'Thêm mới';
@@ -2639,9 +2764,13 @@
                     }
 
                     const product = await response.json();
-                    await loadCategories(false);
+                    await Promise.all([
+                        loadCategories(false),
+                        loadRecipes(false)
+                    ]);
                     resetForm();
                     ensureCategoryOption(product.categoryId, product.categoryName);
+                    ensureRecipeOption(product.recipeId, product.recipeName);
                     editingProductId = product.id;
                     productModalTitle.textContent = 'Chỉnh sửa sản phẩm';
                     submitButton.innerHTML = 'Lưu thay đổi';
@@ -2708,6 +2837,11 @@
                     productFormErrors.classList.remove('d-none');
                     return;
                 }
+                const recipeIdValue = recipeSelect ? recipeSelect.value.trim() : '';
+                const parsedRecipeId = recipeIdValue ? Number(recipeIdValue) : null;
+                const normalizedRecipeId = parsedRecipeId && Number.isFinite(parsedRecipeId) && parsedRecipeId > 0
+                    ? parsedRecipeId
+                    : null;
                 const priceCandidates = publishedTypes.length > 0 ? publishedTypes : collectedTypes;
                 let representativeType = priceCandidates.reduce((best, current) => {
                     if (!best) {
@@ -2744,6 +2878,7 @@
                     isSpicy: collectedTypes.some(type => type.isSpicy),
                     isVegetarian: collectedTypes.some(type => type.isVegetarian),
                     categoryId: Number(categorySelect.value || 0),
+                    recipeId: normalizedRecipeId,
                     productTypes: collectedTypes.map(type => ({
                         id: type.id && Number.isFinite(type.id) && type.id > 0 ? type.id : null,
                         name: type.name,
@@ -3066,6 +3201,7 @@
 
             updateBulkActionsVisibility();
             loadCategories(false);
+            loadRecipes(false);
             loadProducts();
         })();
     </script>

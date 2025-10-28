@@ -82,6 +82,14 @@ namespace Assignment.Data
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            builder.Entity<Product>(entity =>
+            {
+                entity.HasOne(product => product.Recipe)
+                      .WithMany()
+                      .HasForeignKey(product => product.RecipeId)
+                      .OnDelete(DeleteBehavior.SetNull);
+            });
+
             builder.Entity<RecipeDetail>(entity =>
             {
                 entity.HasOne(detail => detail.Recipe)
