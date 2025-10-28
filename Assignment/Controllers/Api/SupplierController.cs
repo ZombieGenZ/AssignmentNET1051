@@ -1,3 +1,4 @@
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
 using Assignment.Data;
@@ -93,16 +94,9 @@ namespace Assignment.Controllers.Api
                 return ValidationProblem(ModelState);
             }
 
-            var normalizedCode = request.Code!.Trim();
-            if (await _context.Suppliers.AnyAsync(s => s.Code == normalizedCode && !s.IsDeleted, cancellationToken))
-            {
-                ModelState.AddModelError(nameof(request.Code), "Mã nhà cung cấp đã tồn tại.");
-                return ValidationProblem(ModelState);
-            }
-
             var supplier = new Supplier
             {
-                Code = normalizedCode,
+                Code = Guid.NewGuid().ToString("N"),
                 Name = request.Name!.Trim(),
                 ContactName = request.ContactName?.Trim(),
                 PhoneNumber = request.PhoneNumber?.Trim(),
@@ -117,6 +111,15 @@ namespace Assignment.Controllers.Api
             };
 
             _context.Suppliers.Add(supplier);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            supplier.Code = supplier.Id.ToString();
+            supplier.UpdatedAt = DateTime.Now;
+
+            _context.Attach(supplier);
+            _context.Entry(supplier).Property(s => s.Code).IsModified = true;
+            _context.Entry(supplier).Property(s => s.UpdatedAt).IsModified = true;
+
             await _context.SaveChangesAsync(cancellationToken);
 
             return CreatedAtAction(nameof(GetSupplier), new { id = supplier.Id }, MapToResponse(supplier));
@@ -145,14 +148,6 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            var normalizedCode = request.Code!.Trim();
-            if (await _context.Suppliers.AnyAsync(s => s.Id != id && s.Code == normalizedCode && !s.IsDeleted, cancellationToken))
-            {
-                ModelState.AddModelError(nameof(request.Code), "Mã nhà cung cấp đã tồn tại.");
-                return ValidationProblem(ModelState);
-            }
-
-            supplier.Code = normalizedCode;
             supplier.Name = request.Name!.Trim();
             supplier.ContactName = request.ContactName?.Trim();
             supplier.PhoneNumber = request.PhoneNumber?.Trim();
@@ -199,11 +194,6 @@ namespace Assignment.Controllers.Api
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(request.Code))
-            {
-                ModelState.AddModelError(nameof(request.Code), "Vui lòng nhập mã nhà cung cấp.");
-            }
-
             if (string.IsNullOrWhiteSpace(request.Name))
             {
                 ModelState.AddModelError(nameof(request.Name), "Vui lòng nhập tên nhà cung cấp.");
@@ -230,10 +220,6 @@ namespace Assignment.Controllers.Api
 
         public class SupplierRequest
         {
-            [Required]
-            [StringLength(100)]
-            public string? Code { get; set; }
-
             [Required]
             [StringLength(255)]
             public string? Name { get; set; }

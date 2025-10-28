@@ -144,6 +144,16 @@ namespace Assignment.Authorization
                 new PermissionDefinition("ViewInventoryAll", "Xem tất cả tồn kho"),
                 new PermissionDefinition("ViewInventory", "Xem tồn kho được phân quyền"),
             }),
+            new PermissionGroupDefinition("Warehouses", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("GetWarehouseAll", "Xem tất cả kho"),
+                new PermissionDefinition("GetWarehouse", "Xem kho của bản thân"),
+                new PermissionDefinition("CreateWarehouse", "Tạo kho"),
+                new PermissionDefinition("UpdateWarehouseAll", "Sửa tất cả kho"),
+                new PermissionDefinition("UpdateWarehouse", "Sửa kho của bản thân"),
+                new PermissionDefinition("DeleteWarehouseAll", "Xóa tất cả kho"),
+                new PermissionDefinition("DeleteWarehouse", "Xóa kho của bản thân"),
+            }),
             new PermissionGroupDefinition("Suppliers", new List<PermissionDefinition>
             {
                 new PermissionDefinition("GetSupplierAll", "Xem tất cả nhà cung cấp"),

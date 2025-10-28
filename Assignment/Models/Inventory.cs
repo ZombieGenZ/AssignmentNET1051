@@ -13,6 +13,8 @@ namespace Assignment.Models
 
         public long? WarehouseId { get; set; }
 
+        public Warehouse? Warehouse { get; set; }
+
         [Column(TypeName = "decimal(18,4)")]
         [Range(0, double.MaxValue)]
         public decimal CurrentStock { get; set; }

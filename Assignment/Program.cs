@@ -249,6 +249,37 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
+    options.AddPolicy("GetWarehousePolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetWarehouseAll") ||
+            (ctx.User.HasPermission("GetWarehouse") &&
+             ctx.Resource is Warehouse warehouse &&
+             warehouse.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateWarehousePolicy", policy =>
+        policy.RequireClaim("CreateWarehouse")
+    );
+
+    options.AddPolicy("UpdateWarehousePolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("UpdateWarehouseAll") ||
+            (ctx.User.HasPermission("UpdateWarehouse") &&
+             ctx.Resource is Warehouse warehouse &&
+             warehouse.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteWarehousePolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("DeleteWarehouseAll") ||
+            (ctx.User.HasPermission("DeleteWarehouse") &&
+             ctx.Resource is Warehouse warehouse &&
+             warehouse.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
     options.AddPolicy("CreateReceivingPolicy", policy =>
         policy.RequireClaim("CreateReceiving")
     );
@@ -867,6 +898,29 @@ BEGIN
     CREATE UNIQUE INDEX [IX_Suppliers_Code] ON [dbo].[Suppliers]([Code]);
 END;
 
+IF OBJECT_ID(N'dbo.Warehouses', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Warehouses]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [Code] NVARCHAR(100) NOT NULL,
+        [Name] NVARCHAR(255) NOT NULL,
+        [ContactName] NVARCHAR(255) NULL,
+        [PhoneNumber] NVARCHAR(50) NULL,
+        [Email] NVARCHAR(255) NULL,
+        [Address] NVARCHAR(500) NULL,
+        [Notes] NVARCHAR(1000) NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_Warehouses] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE UNIQUE INDEX [IX_Warehouses_Code] ON [dbo].[Warehouses]([Code]);
+END;
+
 IF OBJECT_ID(N'dbo.ReceivingNotes', N'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[ReceivingNotes]
@@ -890,10 +944,27 @@ BEGIN
 
     CREATE INDEX [IX_ReceivingNotes_NoteNumber] ON [dbo].[ReceivingNotes]([NoteNumber]);
     CREATE INDEX [IX_ReceivingNotes_SupplierId] ON [dbo].[ReceivingNotes]([SupplierId]);
+    CREATE INDEX [IX_ReceivingNotes_WarehouseId] ON [dbo].[ReceivingNotes]([WarehouseId]);
 
     ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
         ADD CONSTRAINT [FK_ReceivingNotes_Suppliers_SupplierId]
         FOREIGN KEY([SupplierId]) REFERENCES [dbo].[Suppliers]([Id]) ON DELETE SET NULL;
+
+    ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
+        ADD CONSTRAINT [FK_ReceivingNotes_Warehouses_WarehouseId]
+        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReceivingNotes_WarehouseId' AND object_id = OBJECT_ID(N'dbo.ReceivingNotes'))
+BEGIN
+    CREATE INDEX [IX_ReceivingNotes_WarehouseId] ON [dbo].[ReceivingNotes]([WarehouseId]);
+END;
+
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ReceivingNotes_Warehouses_WarehouseId')
+BEGIN
+    ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
+        ADD CONSTRAINT [FK_ReceivingNotes_Warehouses_WarehouseId]
+        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
 END;
 
 IF OBJECT_ID(N'dbo.ReceivingDetails', N'U') IS NULL
@@ -954,9 +1025,23 @@ BEGIN
     ALTER TABLE [dbo].[Inventories] WITH CHECK
         ADD CONSTRAINT [FK_Inventories_Materials_MaterialId]
         FOREIGN KEY([MaterialId]) REFERENCES [dbo].[Materials]([Id]);
+
+    ALTER TABLE [dbo].[Inventories] WITH CHECK
+        ADD CONSTRAINT [FK_Inventories_Warehouses_WarehouseId]
+        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
 END;";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
+
+    const string ensureInventoryWarehouseForeignKeySql = @"
+IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Inventories_Warehouses_WarehouseId')
+BEGIN
+    ALTER TABLE [dbo].[Inventories] WITH CHECK
+        ADD CONSTRAINT [FK_Inventories_Warehouses_WarehouseId]
+        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
+END;";
+
+    await context.Database.ExecuteSqlRawAsync(ensureInventoryWarehouseForeignKeySql);
 
     const string ensureMaterialDescriptionColumnSql = @"
 IF COL_LENGTH(N'dbo.Materials', N'Description') IS NULL
