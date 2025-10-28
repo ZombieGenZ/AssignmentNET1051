@@ -54,6 +54,7 @@ namespace Assignment.Data
         public DbSet<ReceivingNote> ReceivingNotes { get; set; }
         public DbSet<ReceivingDetail> ReceivingDetails { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
+        public DbSet<Supplier> Suppliers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -106,6 +107,33 @@ namespace Assignment.Data
                       .OnDelete(DeleteBehavior.Cascade);
             });
 
+            builder.Entity<Supplier>(entity =>
+            {
+                entity.HasIndex(supplier => supplier.Code)
+                      .IsUnique();
+
+                entity.Property(supplier => supplier.Code)
+                      .HasMaxLength(100);
+
+                entity.Property(supplier => supplier.Name)
+                      .HasMaxLength(255);
+
+                entity.Property(supplier => supplier.ContactName)
+                      .HasMaxLength(255);
+
+                entity.Property(supplier => supplier.PhoneNumber)
+                      .HasMaxLength(50);
+
+                entity.Property(supplier => supplier.Email)
+                      .HasMaxLength(255);
+
+                entity.Property(supplier => supplier.Address)
+                      .HasMaxLength(500);
+
+                entity.Property(supplier => supplier.Notes)
+                      .HasMaxLength(1000);
+            });
+
             builder.Entity<ReceivingNote>(entity =>
             {
                 entity.HasMany(note => note.Details)
@@ -116,8 +144,10 @@ namespace Assignment.Data
                 entity.Property(note => note.NoteNumber)
                       .HasMaxLength(100);
 
-                entity.Property(note => note.SupplierId)
-                      .HasMaxLength(100);
+                entity.HasOne(note => note.Supplier)
+                      .WithMany()
+                      .HasForeignKey(note => note.SupplierId)
+                      .OnDelete(DeleteBehavior.SetNull);
 
                 entity.Property(note => note.SupplierName)
                       .HasMaxLength(255);

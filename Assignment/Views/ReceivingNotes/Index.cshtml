@@ -95,12 +95,15 @@
                             <input type="date" class="form-control" id="receivingDate" required />
                         </div>
                         <div class="col-md-6">
-                            <label for="receivingSupplierId" class="form-label">Mã nhà cung cấp</label>
-                            <input type="text" class="form-control" id="receivingSupplierId" maxlength="100" placeholder="Không bắt buộc" />
+                            <label for="receivingSupplierSelect" class="form-label">Nhà cung cấp</label>
+                            <select id="receivingSupplierSelect" class="form-select">
+                                <option value="">Chọn nhà cung cấp</option>
+                            </select>
+                            <div class="form-text">Chọn nhà cung cấp đã được tạo trong hệ thống.</div>
                         </div>
                         <div class="col-md-6">
-                            <label for="receivingSupplierName" class="form-label">Tên nhà cung cấp</label>
-                            <input type="text" class="form-control" id="receivingSupplierName" maxlength="255" placeholder="Không bắt buộc" />
+                            <label class="form-label">Thông tin liên hệ</label>
+                            <div class="border rounded p-2 bg-light" id="receivingSupplierInfo">Chưa chọn nhà cung cấp.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="receivingWarehouseId" class="form-label">Kho</label>
@@ -117,11 +120,23 @@
                     </div>
 
                     <div class="mt-4">
-                        <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-2 mb-2">
                             <h6 class="mb-0">Chi tiết phiếu nhập</h6>
-                            <button type="button" class="btn btn-outline-primary btn-sm" id="receivingAddDetailBtn">
-                                <i class="fas fa-plus me-1"></i>Thêm dòng
-                            </button>
+                            <div class="d-flex flex-wrap gap-2">
+                                <a class="btn btn-outline-secondary btn-sm" id="receivingDownloadTemplateLink" href="/api/receiving-notes/details/template">
+                                    <i class="fas fa-file-download me-1"></i>Tải file mẫu
+                                </a>
+                                <input type="file" accept=".xlsx" id="receivingImportInput" class="d-none" />
+                                <button type="button" class="btn btn-outline-primary btn-sm" id="receivingImportBtn">
+                                    <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                </button>
+                                <button type="button" class="btn btn-outline-danger btn-sm" id="receivingClearDetailsBtn">
+                                    <i class="fas fa-trash-can me-1"></i>Xóa tất cả
+                                </button>
+                                <button type="button" class="btn btn-outline-success btn-sm" id="receivingAddDetailBtn">
+                                    <i class="fas fa-plus me-1"></i>Thêm dòng
+                                </button>
+                            </div>
                         </div>
                         <div class="table-responsive">
                             <table class="table table-sm align-middle" id="receivingDetailsTable">
@@ -180,16 +195,21 @@
             const detailTableBody = document.querySelector('#receivingDetailsTable tbody');
             const noteNumberInput = document.getElementById('receivingNoteNumber');
             const dateInput = document.getElementById('receivingDate');
-            const supplierIdInput = document.getElementById('receivingSupplierId');
-            const supplierNameInput = document.getElementById('receivingSupplierName');
+            const supplierSelect = document.getElementById('receivingSupplierSelect');
+            const supplierInfo = document.getElementById('receivingSupplierInfo');
             const warehouseInput = document.getElementById('receivingWarehouseId');
             const statusSelect = document.getElementById('receivingStatus');
             const submitBtn = document.getElementById('receivingSubmitBtn');
             const submitSpinner = document.getElementById('receivingSubmitSpinner');
+            const importBtn = document.getElementById('receivingImportBtn');
+            const importInput = document.getElementById('receivingImportInput');
+            const clearDetailsBtn = document.getElementById('receivingClearDetailsBtn');
             const antiForgeryTokenInput = document.querySelector('#receivingAntiForgeryForm input[name="__RequestVerificationToken"]');
 
             let allNotes = [];
             let filteredNotes = [];
+            let suppliers = [];
+            let suppliersLoadPromise = null;
             let materials = [];
             let materialsLoadPromise = null;
 
@@ -259,7 +279,7 @@
                     <tr>
                         <td class="fw-semibold">${note.noteNumber}</td>
                         <td>${formatDate(note.date)}</td>
-                        <td>${note.supplierName ?? note.supplierId ?? '—'}</td>
+                        <td>${note.supplierName ?? note.supplierCode ?? '—'}</td>
                         <td>${note.warehouseId ?? '—'}</td>
                         <td>${formatStatus(note.status)}</td>
                         <td>${note.isStockApplied ? '<span class="badge bg-success">Đã cập nhật</span>' : '<span class="badge bg-warning text-dark">Chưa áp dụng</span>'}</td>
@@ -287,7 +307,7 @@
                     }
 
                     const numberMatch = note.noteNumber?.toLowerCase().includes(query);
-                    const supplierMatch = note.supplierName?.toLowerCase().includes(query) || note.supplierId?.toLowerCase().includes(query);
+                    const supplierMatch = note.supplierName?.toLowerCase().includes(query) || note.supplierCode?.toLowerCase().includes(query);
                     return numberMatch || supplierMatch;
                 });
 
@@ -371,7 +391,7 @@
                             <div class="mt-2 row g-2">
                                 <div class="col-md-4">
                                     <div class="text-muted small">Nhà cung cấp</div>
-                                    <div class="fw-semibold">${note.supplierName ?? note.supplierId ?? '—'}</div>
+                                    <div class="fw-semibold">${note.supplierName ?? note.supplierCode ?? '—'}</div>
                                 </div>
                                 <div class="col-md-4">
                                     <div class="text-muted small">Kho</div>
@@ -447,6 +467,13 @@
                 }
             }
 
+            function updateDetailToolbarState() {
+                const hasRows = !!detailTableBody?.querySelector('tr[data-detail-row="true"]');
+                if (clearDetailsBtn) {
+                    clearDetailsBtn.disabled = !hasRows;
+                }
+            }
+
             function showDetailPlaceholder(message = 'Chưa có nguyên vật liệu.') {
                 if (!detailTableBody) {
                     return;
@@ -456,6 +483,8 @@
                     <tr data-placeholder="true">
                         <td colspan="5" class="text-center text-muted py-3">${message}</td>
                     </tr>`;
+
+                updateDetailToolbarState();
             }
 
             function resetCreateForm() {
@@ -472,6 +501,12 @@
 
                 warehouseInput?.classList.remove('is-invalid');
 
+                if (supplierSelect) {
+                    supplierSelect.value = '';
+                }
+                populateSupplierSelect();
+                updateSelectedSupplierInfo();
+
                 clearFormErrors();
                 showDetailPlaceholder();
 
@@ -479,7 +514,177 @@
                     addDetailBtn.disabled = true;
                 }
 
+                if (importBtn) {
+                    importBtn.disabled = false;
+                    importBtn.innerHTML = '<i class="fas fa-file-import me-1"></i>Nhập từ file';
+                }
+
+                if (importInput) {
+                    importInput.value = '';
+                }
+
                 setSubmitting(false);
+            }
+
+            function populateSupplierSelect(selectedId = null) {
+                if (!supplierSelect) {
+                    return;
+                }
+
+                const targetValue = selectedId != null ? String(selectedId) : supplierSelect.value;
+                supplierSelect.innerHTML = '<option value="">Chọn nhà cung cấp</option>';
+
+                suppliers.forEach(supplier => {
+                    const option = document.createElement('option');
+                    option.value = supplier.id != null ? String(supplier.id) : '';
+                    const parts = [];
+                    if (supplier.code) {
+                        parts.push(`[${supplier.code}]`);
+                    }
+                    if (supplier.name) {
+                        parts.push(supplier.name);
+                    }
+                    option.textContent = parts.join(' ') || 'Nhà cung cấp';
+                    supplierSelect.appendChild(option);
+                });
+
+                if (targetValue && supplierSelect.querySelector(`option[value="${targetValue}"]`)) {
+                    supplierSelect.value = targetValue;
+                } else {
+                    supplierSelect.value = '';
+                }
+
+                supplierSelect.disabled = suppliers.length === 0;
+            }
+
+            function getSelectedSupplier() {
+                if (!supplierSelect) {
+                    return null;
+                }
+
+                const value = supplierSelect.value;
+                if (!value) {
+                    return null;
+                }
+
+                const id = Number(value);
+                if (!Number.isFinite(id) || id <= 0) {
+                    return null;
+                }
+
+                return suppliers.find(item => Number(item.id) === id) ?? null;
+            }
+
+            function updateSelectedSupplierInfo() {
+                if (!supplierInfo) {
+                    return;
+                }
+
+                supplierInfo.innerHTML = '';
+
+                const supplier = getSelectedSupplier();
+                if (!supplier) {
+                    supplierInfo.textContent = suppliers.length === 0
+                        ? 'Chưa có nhà cung cấp. Vui lòng tạo mới trong module Nhà cung cấp.'
+                        : 'Chưa chọn nhà cung cấp.';
+                    return;
+                }
+
+                const nameParts = [];
+                if (supplier.code) {
+                    nameParts.push(supplier.code);
+                }
+                if (supplier.name) {
+                    nameParts.push(supplier.name);
+                }
+
+                const nameLine = document.createElement('div');
+                nameLine.textContent = nameParts.join(' - ') || 'Nhà cung cấp';
+                supplierInfo.appendChild(nameLine);
+
+                if (supplier.contactName) {
+                    const contactLine = document.createElement('div');
+                    contactLine.textContent = `Liên hệ: ${supplier.contactName}`;
+                    supplierInfo.appendChild(contactLine);
+                }
+
+                if (supplier.phoneNumber) {
+                    const phoneLine = document.createElement('div');
+                    phoneLine.textContent = `Điện thoại: ${supplier.phoneNumber}`;
+                    supplierInfo.appendChild(phoneLine);
+                }
+
+                if (supplier.email) {
+                    const emailLine = document.createElement('div');
+                    emailLine.textContent = `Email: ${supplier.email}`;
+                    supplierInfo.appendChild(emailLine);
+                }
+
+                if (supplier.address) {
+                    const addressLine = document.createElement('div');
+                    addressLine.textContent = `Địa chỉ: ${supplier.address}`;
+                    supplierInfo.appendChild(addressLine);
+                }
+
+                supplierSelect?.classList.remove('is-invalid');
+            }
+
+            async function ensureSuppliersLoaded() {
+                if (Array.isArray(suppliers) && suppliers.length > 0) {
+                    populateSupplierSelect();
+                    updateSelectedSupplierInfo();
+                    return true;
+                }
+
+                if (!suppliersLoadPromise) {
+                    suppliersLoadPromise = (async () => {
+                        try {
+                            const response = await fetch('/api/suppliers');
+                            if (!response.ok) {
+                                if (response.status === 403) {
+                                    throw new Error('Bạn không có quyền xem danh sách nhà cung cấp.');
+                                }
+
+                                throw new Error('Không thể tải danh sách nhà cung cấp.');
+                            }
+
+                            const data = await response.json();
+                            suppliers = Array.isArray(data) ? data : [];
+                            suppliers.sort((a, b) => {
+                                const nameA = (a?.name ?? '').toLowerCase();
+                                const nameB = (b?.name ?? '').toLowerCase();
+                                if (nameA === nameB) {
+                                    return (a?.code ?? '').localeCompare(b?.code ?? '');
+                                }
+                                return nameA.localeCompare(nameB);
+                            });
+
+                            return suppliers.length > 0;
+                        } catch (error) {
+                            suppliers = [];
+                            throw error;
+                        }
+                    })();
+                }
+
+                try {
+                    const hasSuppliers = await suppliersLoadPromise;
+                    populateSupplierSelect();
+                    updateSelectedSupplierInfo();
+                    if (!hasSuppliers) {
+                        showFormErrors('Chưa có nhà cung cấp. Vui lòng tạo nhà cung cấp trước khi lập phiếu nhập.');
+                        supplierSelect?.classList.add('is-invalid');
+                    }
+                    return hasSuppliers;
+                } catch (error) {
+                    showFormErrors(error.message ?? 'Không thể tải danh sách nhà cung cấp.');
+                    populateSupplierSelect();
+                    updateSelectedSupplierInfo();
+                    supplierSelect?.classList.add('is-invalid');
+                    return false;
+                } finally {
+                    suppliersLoadPromise = null;
+                }
             }
 
             function updateDetailRowUnit(row, materialId) {
@@ -600,6 +805,8 @@
 
                 updateDetailRowUnit(row, materialSelect.value ? Number(materialSelect.value) : null);
 
+                updateDetailToolbarState();
+
                 materialSelect.addEventListener('change', () => {
                     materialSelect.classList.remove('is-invalid');
                     updateDetailRowUnit(row, materialSelect.value ? Number(materialSelect.value) : null);
@@ -608,6 +815,56 @@
                 [quantityInput, unitSelect, priceInput].forEach(input => {
                     input.addEventListener('input', () => input.classList.remove('is-invalid'));
                     input.addEventListener('change', () => input.classList.remove('is-invalid'));
+                });
+            }
+
+            function setDetailRows(detailItems = []) {
+                if (!detailTableBody) {
+                    return;
+                }
+
+                if (!Array.isArray(detailItems) || detailItems.length === 0) {
+                    showDetailPlaceholder();
+                    return;
+                }
+
+                detailTableBody.innerHTML = '';
+                detailItems.forEach(detail => addDetailRow(detail));
+            }
+
+            function mergeMaterials(importedMaterials = []) {
+                if (!Array.isArray(importedMaterials) || importedMaterials.length === 0) {
+                    return;
+                }
+
+                const materialMap = new Map();
+                materials.forEach(material => {
+                    if (material?.id != null) {
+                        materialMap.set(Number(material.id), material);
+                    }
+                });
+
+                importedMaterials.forEach(material => {
+                    if (!material || material.id == null) {
+                        return;
+                    }
+
+                    const id = Number(material.id);
+                    const existing = materialMap.get(id) ?? {};
+                    materialMap.set(id, {
+                        ...existing,
+                        ...material
+                    });
+                });
+
+                materials = Array.from(materialMap.values());
+                materials.sort((a, b) => {
+                    const nameA = (a?.name ?? '').toLowerCase();
+                    const nameB = (b?.name ?? '').toLowerCase();
+                    if (nameA === nameB) {
+                        return (a?.code ?? '').localeCompare(b?.code ?? '');
+                    }
+                    return nameA.localeCompare(nameB);
                 });
             }
 
@@ -629,15 +886,7 @@
                             }
 
                             const data = await response.json();
-                            materials = Array.isArray(data) ? data : [];
-                            materials.sort((a, b) => {
-                                const nameA = (a?.name ?? '').toLowerCase();
-                                const nameB = (b?.name ?? '').toLowerCase();
-                                if (nameA === nameB) {
-                                    return (a?.code ?? '').localeCompare(b?.code ?? '');
-                                }
-                                return nameA.localeCompare(nameB);
-                            });
+                            mergeMaterials(Array.isArray(data) ? data : []);
 
                             return materials.length > 0;
                         } catch (error) {
@@ -658,6 +907,83 @@
                     return false;
                 } finally {
                     materialsLoadPromise = null;
+                }
+            }
+
+            async function importDetailsFromFile(file) {
+                if (!file) {
+                    return;
+                }
+
+                clearFormErrors();
+
+                if (importBtn) {
+                    importBtn.disabled = true;
+                    importBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang nhập...';
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                try {
+                    const response = await fetch('/api/receiving-notes/details/import', {
+                        method: 'POST',
+                        headers: {
+                            ...(antiForgeryTokenInput?.value ? { 'RequestVerificationToken': antiForgeryTokenInput.value } : {})
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        if (response.status === 400 || response.status === 422) {
+                            const problem = await response.json().catch(() => null);
+                            const problemErrors = problem?.errors ? Object.values(problem.errors).flat() : [];
+                            if (problemErrors.length > 0) {
+                                showFormErrors(problemErrors);
+                                return;
+                            }
+
+                            if (problem?.message) {
+                                showFormErrors(problem.message);
+                                return;
+                            }
+                        } else if (response.status === 403) {
+                            showFormErrors('Bạn không có quyền nhập chi tiết phiếu nhập từ file.');
+                            return;
+                        }
+
+                        showFormErrors('Không thể nhập chi tiết phiếu nhập từ file. Vui lòng thử lại sau.');
+                        return;
+                    }
+
+                    const result = await response.json();
+                    const importedDetails = Array.isArray(result?.details) ? result.details : [];
+                    const importedMaterials = Array.isArray(result?.materials) ? result.materials : [];
+
+                    if (!importedDetails.length) {
+                        showFormErrors('File không chứa dữ liệu chi tiết hợp lệ.');
+                        return;
+                    }
+
+                    mergeMaterials(importedMaterials);
+                    setDetailRows(importedDetails);
+
+                    if (addDetailBtn) {
+                        addDetailBtn.disabled = false;
+                    }
+
+                    showAlert(`Đã nhập ${importedDetails.length} dòng chi tiết từ file.`, 'success');
+                } catch (error) {
+                    showFormErrors('Có lỗi xảy ra khi nhập chi tiết phiếu nhập. Vui lòng thử lại sau.');
+                } finally {
+                    if (importBtn) {
+                        importBtn.innerHTML = '<i class="fas fa-file-import me-1"></i>Nhập từ file';
+                        importBtn.disabled = false;
+                    }
+
+                    if (importInput) {
+                        importInput.value = '';
+                    }
                 }
             }
 
@@ -685,6 +1011,35 @@
                 if (!detailTableBody.querySelector('tr[data-detail-row="true"]')) {
                     showDetailPlaceholder();
                 }
+
+                updateDetailToolbarState();
+            });
+
+            clearDetailsBtn?.addEventListener('click', () => {
+                if (!detailTableBody) {
+                    return;
+                }
+
+                detailTableBody.innerHTML = '';
+                showDetailPlaceholder();
+            });
+
+            importBtn?.addEventListener('click', () => {
+                if (importBtn.disabled) {
+                    return;
+                }
+
+                importInput?.click();
+            });
+
+            importInput?.addEventListener('change', async event => {
+                const input = event.target;
+                if (!(input instanceof HTMLInputElement) || !input.files || input.files.length === 0) {
+                    return;
+                }
+
+                const file = input.files[0];
+                await importDetailsFromFile(file);
             });
 
             addDetailBtn?.addEventListener('click', async () => {
@@ -708,6 +1063,8 @@
                 resetCreateForm();
                 createModal.show();
                 showDetailPlaceholder('Đang tải danh sách nguyên vật liệu...');
+
+                await ensureSuppliersLoaded();
 
                 const loaded = await ensureMaterialsLoaded();
                 if (loaded) {
@@ -736,6 +1093,10 @@
 
             dateInput?.addEventListener('change', () => dateInput.classList.remove('is-invalid'));
             warehouseInput?.addEventListener('input', () => warehouseInput.classList.remove('is-invalid'));
+            supplierSelect?.addEventListener('change', () => {
+                supplierSelect.classList.remove('is-invalid');
+                updateSelectedSupplierInfo();
+            });
 
             createForm?.addEventListener('submit', async event => {
                 event.preventDefault();
@@ -827,11 +1188,12 @@
                     return;
                 }
 
+                const selectedSupplier = getSelectedSupplier();
+
                 const payload = {
                     noteNumber: noteNumberInput?.value?.trim() || null,
                     date: dateInput.value,
-                    supplierId: supplierIdInput?.value?.trim() || null,
-                    supplierName: supplierNameInput?.value?.trim() || null,
+                    supplierId: selectedSupplier ? Number(selectedSupplier.id) : null,
                     warehouseId,
                     status: Number(statusSelect?.value ?? 0),
                     details

@@ -144,6 +144,16 @@ namespace Assignment.Authorization
                 new PermissionDefinition("ViewInventoryAll", "Xem tất cả tồn kho"),
                 new PermissionDefinition("ViewInventory", "Xem tồn kho được phân quyền"),
             }),
+            new PermissionGroupDefinition("Suppliers", new List<PermissionDefinition>
+            {
+                new PermissionDefinition("GetSupplierAll", "Xem tất cả nhà cung cấp"),
+                new PermissionDefinition("GetSupplier", "Xem nhà cung cấp của bản thân"),
+                new PermissionDefinition("CreateSupplier", "Tạo nhà cung cấp"),
+                new PermissionDefinition("UpdateSupplierAll", "Sửa bất kỳ nhà cung cấp"),
+                new PermissionDefinition("UpdateSupplier", "Sửa nhà cung cấp của bản thân"),
+                new PermissionDefinition("DeleteSupplierAll", "Xóa bất kỳ nhà cung cấp"),
+                new PermissionDefinition("DeleteSupplier", "Xóa nhà cung cấp của bản thân"),
+            }),
         };
 
         private static readonly IReadOnlyCollection<string> _allPermissionKeys = new ReadOnlyCollection<string>(_groups
