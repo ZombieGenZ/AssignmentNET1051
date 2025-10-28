@@ -184,6 +184,14 @@
             const tableBody = document.querySelector('#receivingTable tbody');
             const searchInput = document.getElementById('receivingSearch');
             const alertPlaceholder = document.getElementById('receivingAlert');
+
+            ['receivingDetailModal', 'receivingCreateModal'].forEach(id => {
+                const modal = document.getElementById(id);
+                if (modal && modal.parentElement !== document.body) {
+                    document.body.appendChild(modal);
+                }
+            });
+
             const detailModalEl = document.getElementById('receivingDetailModal');
             const detailModal = detailModalEl ? new bootstrap.Modal(detailModalEl) : null;
             const detailBody = document.getElementById('receivingDetailBody');
