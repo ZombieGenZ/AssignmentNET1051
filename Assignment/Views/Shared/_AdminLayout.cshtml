@@ -15,7 +15,6 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <link href="~/css/admin-layout.css" rel="stylesheet" />
-    <script src="https://kit.fontawesome.com/476445fe42.js" crossorigin="anonymous"></script>
     @await RenderSectionAsync("Styles", required: false)
 </head>
 <body>
@@ -44,15 +43,15 @@
             userDisplayName ??= "Người dùng";
 
             userIdentifier = !string.IsNullOrWhiteSpace(appUser?.Email)
-                ? appUser!.Email!
-                : !string.IsNullOrWhiteSpace(appUser?.UserName)
-                    ? appUser!.UserName!
-                    : userDisplayName;
+            ? appUser!.Email!
+            : !string.IsNullOrWhiteSpace(appUser?.UserName)
+            ? appUser!.UserName!
+            : userDisplayName;
 
             userInitials = string.Concat(userDisplayName
-                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                .Where(s => s.Length > 0)
-                .Select(s => char.ToUpperInvariant(s[0])));
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            .Where(s => s.Length > 0)
+            .Select(s => char.ToUpperInvariant(s[0])));
 
             if (string.IsNullOrWhiteSpace(userInitials))
             {
@@ -60,10 +59,10 @@
             }
 
             userRoles = User.Claims
-                .Where(claim => claim.Type == ClaimTypes.Role)
-                .Select(claim => claim.Value)
-                .Distinct()
-                .ToList();
+            .Where(claim => claim.Type == ClaimTypes.Role)
+            .Select(claim => claim.Value)
+            .Distinct()
+            .ToList();
         }
 
         var primaryRole = userRoles.FirstOrDefault();
@@ -97,7 +96,10 @@
     <div class="admin-shell">
         <aside class="admin-sidebar" id="sidebar">
             <div class="admin-sidebar-header">
-                <a asp-action="Index" asp-controller="Home" class="admin-brand">Quản Lý</a>
+                <a asp-action="Index" asp-controller="Home" class="admin-brand">
+                    <i class="fas fa-layer-group"></i>
+                    Quản Lý
+                </a>
             </div>
             @if (SignInManager.IsSignedIn(User))
             {
@@ -112,11 +114,15 @@
             }
             <nav class="admin-nav">
                 <div class="admin-nav-section">
-                    <span class="admin-nav-title">Chung</span>
-                    <ul class="admin-nav-list">
+                    <span class="admin-nav-title" data-section="general">
+                        Chung
+                        <i class="fas fa-chevron-down"></i>
+                    </span>
+                    <ul class="admin-nav-list" data-list="general">
                         <li class="admin-nav-item">
                             <a asp-action="Index" asp-controller="Home" class="admin-nav-link">
-                                Trang chủ
+                                <i class="fas fa-home"></i>
+                                <span>Trang chủ</span>
                             </a>
                         </li>
                     </ul>
@@ -125,18 +131,22 @@
                 {
                     var overviewLinks = new[]
                     {
-                        (CanAccess: canViewStatistics, Action: "Index", Controller: "Statistics", Label: "Thống kê")
-                    };
+                                (CanAccess: canViewStatistics, Action: "Index", Controller: "Statistics", Label: "Thống kê", Icon: "fa-chart-line")
+                                };
                     if (overviewLinks.Any(link => link.CanAccess))
                     {
                         <div class="admin-nav-section">
-                            <span class="admin-nav-title">Tổng quan</span>
-                            <ul class="admin-nav-list">
+                            <span class="admin-nav-title" data-section="overview">
+                                Tổng quan
+                                <i class="fas fa-chevron-down"></i>
+                            </span>
+                            <ul class="admin-nav-list" data-list="overview">
                                 @foreach (var link in overviewLinks.Where(l => l.CanAccess))
                                 {
                                     <li class="admin-nav-item">
                                         <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
-                                            @link.Label
+                                            <i class="fas @link.Icon"></i>
+                                            <span>@link.Label</span>
                                         </a>
                                     </li>
                                 }
@@ -148,22 +158,26 @@
                 {
                     var productLinks = new[]
                     {
-                        (CanAccess: canManageCategories, Action: "Index", Controller: "Categories", Label: "Danh mục"),
-                        (CanAccess: canManageProducts, Action: "Index", Controller: "Products", Label: "Sản phẩm"),
-                        (CanAccess: canManageProductExtras, Action: "Index", Controller: "ProductExtras", Label: "Sản phẩm bổ sung"),
-                        (CanAccess: canManageRecipes, Action: "Index", Controller: "Recipes", Label: "Công thức sản phẩm"),
-                        (CanAccess: canManageCombos, Action: "Index", Controller: "Combos", Label: "Combo")
-                    };
+                                (CanAccess: canManageCategories, Action: "Index", Controller: "Categories", Label: "Danh mục", Icon: "fa-folder"),
+                                (CanAccess: canManageProducts, Action: "Index", Controller: "Products", Label: "Sản phẩm", Icon: "fa-coffee"),
+                                (CanAccess: canManageProductExtras, Action: "Index", Controller: "ProductExtras", Label: "Sản phẩm bổ sung", Icon: "fa-plus-circle"),
+                                (CanAccess: canManageRecipes, Action: "Index", Controller: "Recipes", Label: "Công thức sản phẩm", Icon: "fa-book"),
+                                (CanAccess: canManageCombos, Action: "Index", Controller: "Combos", Label: "Combo", Icon: "fa-box")
+                                };
                     if (productLinks.Any(link => link.CanAccess))
                     {
                         <div class="admin-nav-section">
-                            <span class="admin-nav-title">Sản phẩm &amp; danh mục</span>
-                            <ul class="admin-nav-list">
+                            <span class="admin-nav-title" data-section="products">
+                                Sản phẩm &amp; danh mục
+                                <i class="fas fa-chevron-down"></i>
+                            </span>
+                            <ul class="admin-nav-list" data-list="products">
                                 @foreach (var link in productLinks.Where(l => l.CanAccess))
                                 {
                                     <li class="admin-nav-item">
                                         <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
-                                            @link.Label
+                                            <i class="fas @link.Icon"></i>
+                                            <span>@link.Label</span>
                                         </a>
                                     </li>
                                 }
@@ -175,21 +189,25 @@
                 {
                     var inventoryLinks = new[]
                     {
-                        (CanAccess: canManageUnits, Action: "Index", Controller: "Units", Label: "Đơn vị &amp; chuyển đổi"),
-                        (CanAccess: canManageMaterials, Action: "Index", Controller: "Materials", Label: "Nguyên vật liệu"),
-                        (CanAccess: canManageInventory, Action: "Index", Controller: "Inventories", Label: "Tồn kho"),
-                        (CanAccess: canManageReceiving, Action: "Index", Controller: "ReceivingNotes", Label: "Nhập kho")
-                    };
+                                (CanAccess: canManageUnits, Action: "Index", Controller: "Units", Label: "Đơn vị &amp; chuyển đổi", Icon: "fa-balance-scale"),
+                                (CanAccess: canManageMaterials, Action: "Index", Controller: "Materials", Label: "Nguyên vật liệu", Icon: "fa-cubes"),
+                                (CanAccess: canManageInventory, Action: "Index", Controller: "Inventories", Label: "Tồn kho", Icon: "fa-warehouse"),
+                                (CanAccess: canManageReceiving, Action: "Index", Controller: "ReceivingNotes", Label: "Nhập kho", Icon: "fa-truck-loading")
+                                };
                     if (inventoryLinks.Any(link => link.CanAccess))
                     {
                         <div class="admin-nav-section">
-                            <span class="admin-nav-title">Kho &amp; nguyên liệu</span>
-                            <ul class="admin-nav-list">
+                            <span class="admin-nav-title" data-section="inventory">
+                                Kho &amp; nguyên liệu
+                                <i class="fas fa-chevron-down"></i>
+                            </span>
+                            <ul class="admin-nav-list" data-list="inventory">
                                 @foreach (var link in inventoryLinks.Where(l => l.CanAccess))
                                 {
                                     <li class="admin-nav-item">
                                         <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
-                                            @link.Label
+                                            <i class="fas @link.Icon"></i>
+                                            <span>@link.Label</span>
                                         </a>
                                     </li>
                                 }
@@ -200,11 +218,15 @@
                 @if (hasSalesGroup)
                 {
                     <div class="admin-nav-section">
-                        <span class="admin-nav-title">Bán hàng</span>
-                        <ul class="admin-nav-list">
+                        <span class="admin-nav-title" data-section="sales">
+                            Bán hàng
+                            <i class="fas fa-chevron-down"></i>
+                        </span>
+                        <ul class="admin-nav-list" data-list="sales">
                             <li class="admin-nav-item">
                                 <a asp-action="Manage" asp-controller="Order" class="admin-nav-link">
-                                    Đơn hàng
+                                    <i class="fas fa-shopping-cart"></i>
+                                    <span>Đơn hàng</span>
                                 </a>
                             </li>
                         </ul>
@@ -214,20 +236,24 @@
                 {
                     var customerLinks = new[]
                     {
-                        (CanAccess: canManageVouchers, Action: "Index", Controller: "Vouchers", Label: "Mã giảm giá"),
-                        (CanAccess: canManageRewards, Action: "Index", Controller: "Rewards", Label: "Vật phẩm đổi thưởng"),
-                        (CanAccess: canManageCustomers, Action: "Index", Controller: "Customers", Label: "Khách hàng")
-                    };
+                                (CanAccess: canManageVouchers, Action: "Index", Controller: "Vouchers", Label: "Mã giảm giá", Icon: "fa-ticket-alt"),
+                                (CanAccess: canManageRewards, Action: "Index", Controller: "Rewards", Label: "Vật phẩm đổi thưởng", Icon: "fa-gift"),
+                                (CanAccess: canManageCustomers, Action: "Index", Controller: "Customers", Label: "Khách hàng", Icon: "fa-users")
+                                };
                     if (customerLinks.Any(link => link.CanAccess))
                     {
                         <div class="admin-nav-section">
-                            <span class="admin-nav-title">Khách hàng &amp; ưu đãi</span>
-                            <ul class="admin-nav-list">
+                            <span class="admin-nav-title" data-section="customers">
+                                Khách hàng &amp; ưu đãi
+                                <i class="fas fa-chevron-down"></i>
+                            </span>
+                            <ul class="admin-nav-list" data-list="customers">
                                 @foreach (var link in customerLinks.Where(l => l.CanAccess))
                                 {
                                     <li class="admin-nav-item">
                                         <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
-                                            @link.Label
+                                            <i class="fas @link.Icon"></i>
+                                            <span>@link.Label</span>
                                         </a>
                                     </li>
                                 }
@@ -238,16 +264,21 @@
                 @if (hasAdminGroup)
                 {
                     <div class="admin-nav-section">
-                        <span class="admin-nav-title">Quản trị hệ thống</span>
-                        <ul class="admin-nav-list">
+                        <span class="admin-nav-title" data-section="admin">
+                            Quản trị hệ thống
+                            <i class="fas fa-chevron-down"></i>
+                        </span>
+                        <ul class="admin-nav-list" data-list="admin">
                             <li class="admin-nav-item">
                                 <a asp-action="Index" asp-controller="RoleManagement" class="admin-nav-link">
-                                    Vai trò
+                                    <i class="fas fa-user-shield"></i>
+                                    <span>Vai trò</span>
                                 </a>
                             </li>
                             <li class="admin-nav-item">
                                 <a asp-action="Index" asp-controller="UserManagement" class="admin-nav-link">
-                                    Người dùng
+                                    <i class="fas fa-user-cog"></i>
+                                    <span>Người dùng</span>
                                 </a>
                             </li>
                         </ul>
@@ -274,11 +305,17 @@
                                 <i class="fas fa-chevron-down" aria-hidden="true"></i>
                             </button>
                             <div class="dropdown-menu-user" id="userDropdown">
-                                <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">Hồ sơ</a>
-                                <a asp-action="Index" asp-controller="Home" class="dropdown-item">Trang chủ</a>
+                                <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">
+                                    <i class="fas fa-user-circle"></i> Hồ sơ
+                                </a>
+                                <a asp-action="Index" asp-controller="Home" class="dropdown-item">
+                                    <i class="fas fa-home"></i> Trang chủ
+                                </a>
                                 <div class="dropdown-divider"></div>
                                 <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
-                                    <button type="submit" class="dropdown-item">Đăng xuất</button>
+                                    <button type="submit" class="dropdown-item">
+                                        <i class="fas fa-sign-out-alt"></i> Đăng xuất
+                                    </button>
                                 </form>
                             </div>
                         </div>
@@ -302,11 +339,10 @@
             const adminNavLinks = document.querySelectorAll('.admin-nav-link');
             const currentPath = window.location.pathname.toLowerCase();
 
+            // Active link highlighting
             adminNavLinks.forEach(link => {
                 const href = link.getAttribute('href');
-                if (!href) {
-                    return;
-                }
+                if (!href) return;
 
                 const linkPath = href.toLowerCase();
                 if (linkPath !== '/' && currentPath.startsWith(linkPath)) {
@@ -316,10 +352,9 @@
                 }
             });
 
+            // Sidebar toggle
             const toggleSidebar = (shouldShow) => {
-                if (!sidebar) {
-                    return;
-                }
+                if (!sidebar) return;
 
                 if (shouldShow) {
                     sidebar.classList.add('open');
@@ -337,6 +372,45 @@
 
             overlay?.addEventListener('click', () => toggleSidebar(false));
 
+            // Collapsible sections
+            const navTitles = document.querySelectorAll('.admin-nav-title');
+
+            // Load saved collapse states from localStorage
+            const loadCollapseStates = () => {
+                navTitles.forEach(title => {
+                    const section = title.getAttribute('data-section');
+                    const list = document.querySelector(`[data-list="${section}"]`);
+                    const isCollapsed = localStorage.getItem(`nav-${section}-collapsed`) === 'true';
+
+                    if (isCollapsed && list) {
+                        title.classList.add('collapsed');
+                        list.classList.add('collapsed');
+                    }
+                });
+            };
+
+            // Toggle section collapse
+            navTitles.forEach(title => {
+                title.addEventListener('click', () => {
+                    const section = title.getAttribute('data-section');
+                    const list = document.querySelector(`[data-list="${section}"]`);
+
+                    if (list) {
+                        const isCollapsed = list.classList.contains('collapsed');
+
+                        title.classList.toggle('collapsed');
+                        list.classList.toggle('collapsed');
+
+                        // Save state to localStorage
+                        localStorage.setItem(`nav-${section}-collapsed`, !isCollapsed);
+                    }
+                });
+            });
+
+            // Initialize collapse states
+            loadCollapseStates();
+
+            // User dropdown
             const userProfileToggle = document.getElementById('userProfileToggle');
             const userDropdown = document.getElementById('userDropdown');
 
