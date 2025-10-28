@@ -45,6 +45,7 @@ namespace Assignment.Controllers.Api
                 .AsNoTracking()
                 .Where(n => !n.IsDeleted)
                 .Include(n => n.Supplier)
+                .Include(n => n.Warehouse)
                 .Include(n => n.Details.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Material)!
                     .ThenInclude(m => m!.Unit)
@@ -69,6 +70,7 @@ namespace Assignment.Controllers.Api
             var note = await _context.ReceivingNotes
                 .AsNoTracking()
                 .Include(n => n.Supplier)
+                .Include(n => n.Warehouse)
                 .Include(n => n.Details.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Material)!
                     .ThenInclude(m => m!.Unit)
@@ -148,6 +150,25 @@ namespace Assignment.Controllers.Api
                 }
             }
 
+            Warehouse? warehouse = null;
+            if (request.WarehouseId.HasValue)
+            {
+                warehouse = await _context.Warehouses
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(w => w.Id == request.WarehouseId && !w.IsDeleted, cancellationToken);
+
+                if (warehouse == null)
+                {
+                    ModelState.AddModelError(nameof(request.WarehouseId), "Kho không tồn tại hoặc đã bị xóa.");
+                    return ValidationProblem(ModelState);
+                }
+
+                if (!User.HasPermission("GetWarehouseAll") && warehouse.CreateBy != CurrentUserId)
+                {
+                    return Forbid();
+                }
+            }
+
             var note = new ReceivingNote
             {
                 NoteNumber = normalizedNoteNumber,
@@ -155,7 +176,8 @@ namespace Assignment.Controllers.Api
                 SupplierId = supplier?.Id,
                 Supplier = supplier,
                 SupplierName = supplier?.Name,
-                WarehouseId = request.WarehouseId,
+                WarehouseId = warehouse?.Id,
+                Warehouse = warehouse,
                 Status = request.Status,
                 CreateBy = CurrentUserId,
                 CreatedAt = DateTime.Now,
@@ -222,6 +244,10 @@ namespace Assignment.Controllers.Api
                 .LoadAsync(cancellationToken);
 
             await _context.Entry(note)
+                .Reference(n => n.Warehouse)
+                .LoadAsync(cancellationToken);
+
+            await _context.Entry(note)
                 .Collection(n => n.Details)
                 .Query()
                 .Include(d => d.Material)!.ThenInclude(m => m!.Unit)
@@ -242,6 +268,7 @@ namespace Assignment.Controllers.Api
                     .ThenInclude(m => m!.Unit)
                 .Include(n => n.Details.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Unit)
+                .Include(n => n.Warehouse)
                 .FirstOrDefaultAsync(n => n.Id == id && !n.IsDeleted, cancellationToken);
 
             if (note == null)
@@ -494,6 +521,11 @@ namespace Assignment.Controllers.Api
             {
                 ModelState.AddModelError(nameof(request.Status), "Trạng thái phiếu nhập không hợp lệ.");
             }
+
+            if (!request.WarehouseId.HasValue)
+            {
+                ModelState.AddModelError(nameof(request.WarehouseId), "Vui lòng chọn kho.");
+            }
         }
 
         private async Task<(bool Success, decimal BaseQuantity)> TryConvertToBaseQuantityAsync(Material material, long fromUnitId, decimal quantity, CancellationToken cancellationToken)
@@ -596,6 +628,8 @@ namespace Assignment.Controllers.Api
                 SupplierCode = note.Supplier?.Code,
                 SupplierName = note.SupplierName ?? note.Supplier?.Name,
                 WarehouseId = note.WarehouseId,
+                WarehouseCode = note.Warehouse?.Code,
+                WarehouseName = note.Warehouse?.Name,
                 Status = note.Status,
                 IsStockApplied = note.IsStockApplied,
                 CompletedAt = note.CompletedAt,
@@ -614,6 +648,8 @@ namespace Assignment.Controllers.Api
             public long? SupplierId { get; set; }
 
             public long? WarehouseId { get; set; }
+            public string? WarehouseCode { get; set; }
+            public string? WarehouseName { get; set; }
 
             [Required]
             public ReceivingNoteStatus Status { get; set; }

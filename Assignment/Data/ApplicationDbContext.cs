@@ -55,6 +55,7 @@ namespace Assignment.Data
         public DbSet<ReceivingDetail> ReceivingDetails { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
         public DbSet<Supplier> Suppliers { get; set; }
+        public DbSet<Warehouse> Warehouses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
@@ -152,6 +153,11 @@ namespace Assignment.Data
                 entity.Property(note => note.SupplierName)
                       .HasMaxLength(255);
 
+                entity.HasOne(note => note.Warehouse)
+                      .WithMany()
+                      .HasForeignKey(note => note.WarehouseId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
                 entity.Property(note => note.Status)
                       .HasConversion<int>();
             });
@@ -176,8 +182,40 @@ namespace Assignment.Data
                       .HasForeignKey(inventory => inventory.MaterialId)
                       .OnDelete(DeleteBehavior.Restrict);
 
+                entity.HasOne(inventory => inventory.Warehouse)
+                      .WithMany()
+                      .HasForeignKey(inventory => inventory.WarehouseId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
                 entity.HasIndex(inventory => new { inventory.MaterialId, inventory.WarehouseId })
                       .IsUnique();
+            });
+
+            builder.Entity<Warehouse>(entity =>
+            {
+                entity.HasIndex(warehouse => warehouse.Code)
+                      .IsUnique();
+
+                entity.Property(warehouse => warehouse.Code)
+                      .HasMaxLength(100);
+
+                entity.Property(warehouse => warehouse.Name)
+                      .HasMaxLength(255);
+
+                entity.Property(warehouse => warehouse.ContactName)
+                      .HasMaxLength(255);
+
+                entity.Property(warehouse => warehouse.PhoneNumber)
+                      .HasMaxLength(50);
+
+                entity.Property(warehouse => warehouse.Email)
+                      .HasMaxLength(255);
+
+                entity.Property(warehouse => warehouse.Address)
+                      .HasMaxLength(500);
+
+                entity.Property(warehouse => warehouse.Notes)
+                      .HasMaxLength(1000);
             });
         }
     }

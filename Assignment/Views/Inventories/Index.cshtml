@@ -114,19 +114,31 @@
                     return;
                 }
 
-                const rows = items.map(item => `
+                const rows = items.map(item => {
+                    const warehouseLabel = (() => {
+                        if (item.warehouseName) {
+                            return item.warehouseCode ? `${item.warehouseName} (${item.warehouseCode})` : item.warehouseName;
+                        }
+                        if (item.warehouseCode) {
+                            return item.warehouseCode;
+                        }
+                        return item.warehouseId ?? '—';
+                    })();
+
+                    return `
                     <tr>
                         <td>
                             <div class="fw-semibold">${item.materialName ?? '—'}</div>
                             ${canViewAll ? `<div class="text-muted small">Mã nguyên liệu: ${item.materialId}</div>` : ''}
                         </td>
-                        <td>${item.warehouseId ?? '—'}</td>
+                        <td>${warehouseLabel}</td>
                         <td class="text-end">${Number(item.currentStock ?? 0).toLocaleString('vi-VN')}</td>
                         <td>${item.baseUnitName ?? '—'}</td>
                         <td class="text-end">${Number(item.minStockLevel ?? 0).toLocaleString('vi-VN')}</td>
                         <td>${formatStatus(Boolean(item.isBelowMinimum))}</td>
                         <td>${formatDate(item.lastUpdated)}</td>
-                    </tr>`);
+                    </tr>`;
+                });
 
                 tableBody.innerHTML = rows.join('');
             }
@@ -146,7 +158,9 @@
                     }
 
                     const materialMatch = (item.materialName ?? '').toLowerCase().includes(query);
-                    const warehouseMatch = item.warehouseId && String(item.warehouseId).toLowerCase().includes(query);
+                    const warehouseMatch = (item.warehouseName ?? '').toLowerCase().includes(query)
+                        || (item.warehouseCode ?? '').toLowerCase().includes(query)
+                        || (item.warehouseId && String(item.warehouseId).toLowerCase().includes(query));
                     return materialMatch || warehouseMatch;
                 });
 
