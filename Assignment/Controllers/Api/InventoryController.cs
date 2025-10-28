@@ -37,6 +37,7 @@ namespace Assignment.Controllers.Api
                 .Where(i => !i.IsDeleted)
                 .Include(i => i.Material)!
                     .ThenInclude(m => m!.Unit);
+            query = query.Include(i => i.Warehouse);
 
             if (!canViewAll)
             {
@@ -85,6 +86,7 @@ namespace Assignment.Controllers.Api
         {
             var material = inventory.Material;
             var unit = material?.Unit;
+            var warehouse = inventory.Warehouse;
             var minStock = material?.MinStockLevel ?? 0m;
             var currentStock = inventory.CurrentStock;
 
@@ -94,6 +96,8 @@ namespace Assignment.Controllers.Api
                 MaterialId = inventory.MaterialId,
                 MaterialName = material?.Name ?? string.Empty,
                 WarehouseId = inventory.WarehouseId,
+                WarehouseCode = warehouse?.Code,
+                WarehouseName = warehouse?.Name,
                 CurrentStock = currentStock,
                 BaseUnitId = material?.UnitId,
                 BaseUnitName = unit?.Name,
@@ -109,6 +113,8 @@ namespace Assignment.Controllers.Api
             public long MaterialId { get; set; }
             public string MaterialName { get; set; } = string.Empty;
             public long? WarehouseId { get; set; }
+            public string? WarehouseCode { get; set; }
+            public string? WarehouseName { get; set; }
             public decimal CurrentStock { get; set; }
             public long? BaseUnitId { get; set; }
             public string? BaseUnitName { get; set; }

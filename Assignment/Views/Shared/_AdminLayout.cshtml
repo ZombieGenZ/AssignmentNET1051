@@ -78,6 +78,7 @@
         var canManageUnits = User.HasAnyPermission("GetUnitAll", "GetUnit");
         var canManageMaterials = User.HasAnyPermission("GetMaterialAll", "GetMaterial");
         var canManageInventory = User.HasAnyPermission("ViewInventoryAll", "ViewInventory");
+        var canManageWarehouses = User.HasAnyPermission("GetWarehouseAll", "GetWarehouse");
         var canManageSuppliers = User.HasAnyPermission("GetSupplierAll", "GetSupplier");
         var canManageReceiving = User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving");
         var canManageRecipes = User.HasAnyPermission("GetRecipeAll", "GetRecipe");
@@ -89,7 +90,7 @@
         var isSuperAdmin = User.HasPermission("superadmin");
 
         var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageRecipes || canManageCombos;
-        var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving || canManageSuppliers;
+        var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving || canManageSuppliers || canManageWarehouses;
         var hasSalesGroup = canManageOrders;
         var hasCustomerGroup = canManageVouchers || canManageRewards || canManageCustomers;
         var hasAdminGroup = isSuperAdmin;
@@ -190,12 +191,13 @@
                 {
                     var inventoryLinks = new[]
                     {
+                                (CanAccess: canManageWarehouses, Action: "Index", Controller: "Warehouses", Label: "Kho", Icon: "fa-warehouse"),
                                 (CanAccess: canManageSuppliers, Action: "Index", Controller: "Suppliers", Label: "Nhà cung cấp", Icon: "fa-handshake"),
                                 (CanAccess: canManageUnits, Action: "Index", Controller: "Units", Label: "Đơn vị &amp; chuyển đổi", Icon: "fa-balance-scale"),
                                 (CanAccess: canManageMaterials, Action: "Index", Controller: "Materials", Label: "Nguyên vật liệu", Icon: "fa-cubes"),
-                                (CanAccess: canManageInventory, Action: "Index", Controller: "Inventories", Label: "Tồn kho", Icon: "fa-warehouse"),
+                                (CanAccess: canManageInventory, Action: "Index", Controller: "Inventories", Label: "Tồn kho", Icon: "fa-boxes-stacked"),
                                 (CanAccess: canManageReceiving, Action: "Index", Controller: "ReceivingNotes", Label: "Nhập kho", Icon: "fa-truck-loading")
-                                };
+                    };
                     if (inventoryLinks.Any(link => link.CanAccess))
                     {
                         <div class="admin-nav-section">

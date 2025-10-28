@@ -22,6 +22,8 @@ namespace Assignment.Models
 
         public long? WarehouseId { get; set; }
 
+        public Warehouse? Warehouse { get; set; }
+
         [Required]
         public ReceivingNoteStatus Status { get; set; } = ReceivingNoteStatus.Draft;
 
