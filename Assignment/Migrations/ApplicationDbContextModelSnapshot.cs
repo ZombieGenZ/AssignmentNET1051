@@ -649,6 +649,9 @@ namespace Assignment.Migrations
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
 
+                    b.Property<long?>("RecipeId")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("TotalEvaluate")
                         .HasColumnType("bigint");
 
@@ -658,6 +661,8 @@ namespace Assignment.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("RecipeId");
 
                     b.ToTable("Products");
                 });
@@ -2261,7 +2266,14 @@ namespace Assignment.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Assignment.Models.Recipe", "Recipe")
+                        .WithMany()
+                        .HasForeignKey("RecipeId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Category");
+
+                    b.Navigation("Recipe");
                 });
 
             modelBuilder.Entity("Assignment.Models.ProductType", b =>
