@@ -239,6 +239,7 @@ body {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 }
 
 .top-header {
@@ -381,6 +382,12 @@ body {
 .content-wrapper {
     flex: 1;
     padding: 1.5rem;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.content-wrapper > main {
+    min-height: 100%;
 }
 
 .overlay {
