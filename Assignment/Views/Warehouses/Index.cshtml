@@ -82,11 +82,7 @@
                 <div class="modal-body">
                     <div id="warehouseFormErrors" class="alert alert-danger d-none" role="alert"></div>
                     <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="warehouseCode" class="form-label">Mã kho<span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="warehouseCode" maxlength="100" required />
-                        </div>
-                        <div class="col-md-8">
+                        <div class="col-12">
                             <label for="warehouseName" class="form-label">Tên kho<span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="warehouseName" maxlength="255" required />
                         </div>
@@ -165,7 +161,6 @@
             const form = document.getElementById('warehouseForm');
             const formErrors = document.getElementById('warehouseFormErrors');
             const submitBtn = document.getElementById('warehouseSubmitBtn');
-            const codeInput = document.getElementById('warehouseCode');
             const nameInput = document.getElementById('warehouseName');
             const contactInput = document.getElementById('warehouseContact');
             const phoneInput = document.getElementById('warehousePhone');
@@ -231,7 +226,7 @@
                 editingId = null;
                 form?.reset();
                 clearFormErrors();
-                [codeInput, nameInput, contactInput, phoneInput, emailInput, addressInput, notesInput].forEach(input => {
+                [nameInput, contactInput, phoneInput, emailInput, addressInput, notesInput].forEach(input => {
                     if (input) {
                         input.classList.remove('is-invalid');
                     }
@@ -374,7 +369,6 @@
                     submitBtn.textContent = 'Cập nhật';
                 }
 
-                if (codeInput) codeInput.value = warehouse.code ?? '';
                 if (nameInput) nameInput.value = warehouse.name ?? '';
                 if (contactInput) contactInput.value = warehouse.contactName ?? '';
                 if (phoneInput) phoneInput.value = warehouse.phoneNumber ?? '';
@@ -394,7 +388,6 @@
                 clearFormErrors();
 
                 const payload = {
-                    code: codeInput?.value?.trim() ?? '',
                     name: nameInput?.value?.trim() ?? '',
                     contactName: contactInput?.value?.trim() || null,
                     phoneNumber: phoneInput?.value?.trim() || null,
@@ -404,12 +397,6 @@
                 };
 
                 const errors = [];
-                if (!payload.code) {
-                    errors.push('Vui lòng nhập mã kho.');
-                    if (codeInput) {
-                        codeInput.classList.add('is-invalid');
-                    }
-                }
                 if (!payload.name) {
                     errors.push('Vui lòng nhập tên kho.');
                     if (nameInput) {

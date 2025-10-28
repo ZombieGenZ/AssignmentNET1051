@@ -95,16 +95,9 @@ namespace Assignment.Controllers.Api
                 return ValidationProblem(ModelState);
             }
 
-            var normalizedCode = request.Code!.Trim();
-            if (await _context.Warehouses.AnyAsync(w => w.Code == normalizedCode && !w.IsDeleted, cancellationToken))
-            {
-                ModelState.AddModelError(nameof(request.Code), "Mã kho đã tồn tại.");
-                return ValidationProblem(ModelState);
-            }
-
             var warehouse = new Warehouse
             {
-                Code = normalizedCode,
+                Code = Guid.NewGuid().ToString("N"),
                 Name = request.Name!.Trim(),
                 ContactName = request.ContactName?.Trim(),
                 PhoneNumber = request.PhoneNumber?.Trim(),
@@ -119,6 +112,15 @@ namespace Assignment.Controllers.Api
             };
 
             _context.Warehouses.Add(warehouse);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            warehouse.Code = warehouse.Id.ToString();
+            warehouse.UpdatedAt = DateTime.Now;
+
+            _context.Attach(warehouse);
+            _context.Entry(warehouse).Property(w => w.Code).IsModified = true;
+            _context.Entry(warehouse).Property(w => w.UpdatedAt).IsModified = true;
+
             await _context.SaveChangesAsync(cancellationToken);
 
             return CreatedAtAction(nameof(GetWarehouse), new { id = warehouse.Id }, MapToResponse(warehouse));
@@ -147,14 +149,6 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            var normalizedCode = request.Code!.Trim();
-            if (await _context.Warehouses.AnyAsync(w => w.Id != id && w.Code == normalizedCode && !w.IsDeleted, cancellationToken))
-            {
-                ModelState.AddModelError(nameof(request.Code), "Mã kho đã tồn tại.");
-                return ValidationProblem(ModelState);
-            }
-
-            warehouse.Code = normalizedCode;
             warehouse.Name = request.Name!.Trim();
             warehouse.ContactName = request.ContactName?.Trim();
             warehouse.PhoneNumber = request.PhoneNumber?.Trim();
@@ -201,11 +195,6 @@ namespace Assignment.Controllers.Api
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(request.Code))
-            {
-                ModelState.AddModelError(nameof(request.Code), "Vui lòng nhập mã kho.");
-            }
-
             if (string.IsNullOrWhiteSpace(request.Name))
             {
                 ModelState.AddModelError(nameof(request.Name), "Vui lòng nhập tên kho.");
@@ -232,10 +221,6 @@ namespace Assignment.Controllers.Api
 
         public class WarehouseRequest
         {
-            [Required]
-            [StringLength(100)]
-            public string? Code { get; set; }
-
             [Required]
             [StringLength(255)]
             public string? Name { get; set; }

@@ -82,11 +82,7 @@
                 <div class="modal-body">
                     <div id="supplierFormErrors" class="alert alert-danger d-none" role="alert"></div>
                     <div class="row g-3">
-                        <div class="col-md-4">
-                            <label for="supplierCode" class="form-label">Mã nhà cung cấp</label>
-                            <input type="text" class="form-control" id="supplierCode" maxlength="100" placeholder="Tự động tạo sau khi lưu" readonly />
-                        </div>
-                        <div class="col-md-8">
+                        <div class="col-12">
                             <label for="supplierName" class="form-label">Tên nhà cung cấp<span class="text-danger">*</span></label>
                             <input type="text" class="form-control" id="supplierName" maxlength="255" required />
                         </div>
@@ -165,7 +161,6 @@
             const form = document.getElementById('supplierForm');
             const formErrors = document.getElementById('supplierFormErrors');
             const submitBtn = document.getElementById('supplierSubmitBtn');
-            const codeInput = document.getElementById('supplierCode');
             const nameInput = document.getElementById('supplierName');
             const contactInput = document.getElementById('supplierContact');
             const phoneInput = document.getElementById('supplierPhone');
@@ -231,11 +226,6 @@
                 editingId = null;
                 form?.reset();
                 clearFormErrors();
-                if (codeInput) {
-                    codeInput.value = '';
-                    codeInput.placeholder = 'Tự động tạo sau khi lưu';
-                    codeInput.classList.remove('is-invalid');
-                }
                 [nameInput, contactInput, phoneInput, emailInput, addressInput, notesInput].forEach(input => {
                     if (input) {
                         input.classList.remove('is-invalid');
@@ -378,10 +368,6 @@
                     submitBtn.textContent = 'Cập nhật';
                 }
 
-                if (codeInput) {
-                    codeInput.value = supplier.code ?? '';
-                    codeInput.placeholder = '';
-                }
                 if (nameInput) nameInput.value = supplier.name ?? '';
                 if (contactInput) contactInput.value = supplier.contactName ?? '';
                 if (phoneInput) phoneInput.value = supplier.phoneNumber ?? '';
