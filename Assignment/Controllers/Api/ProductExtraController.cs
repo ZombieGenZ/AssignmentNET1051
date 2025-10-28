@@ -40,7 +40,9 @@ namespace Assignment.Controllers.Api
             return query
                 .Include(extra => extra.ProductExtraProducts.Where(link => !link.IsDeleted))
                     .ThenInclude(link => link.Product)
-                        .ThenInclude(product => product!.Category);
+                        .ThenInclude(product => product!.Category)
+                .Include(extra => extra.ProductExtraCombos.Where(link => !link.IsDeleted))
+                    .ThenInclude(link => link.Combo);
         }
 
         [HttpGet]
@@ -144,7 +146,7 @@ namespace Assignment.Controllers.Api
             _context.ProductExtras.Add(extra);
             await _context.SaveChangesAsync();
 
-            await UpdateProductAssociationsAsync(extra, request.ApplicableProductIds, now);
+            await UpdateAssociationsAsync(extra, request.ApplicableProductIds, request.ApplicableComboIds, now);
             await _context.SaveChangesAsync();
 
             var created = await BuildQuery()
@@ -190,7 +192,7 @@ namespace Assignment.Controllers.Api
             extra.IsPublish = request.IsPublish;
             extra.UpdatedAt = now;
 
-            await UpdateProductAssociationsAsync(extra, request.ApplicableProductIds, now);
+            await UpdateAssociationsAsync(extra, request.ApplicableProductIds, request.ApplicableComboIds, now);
 
             await _context.SaveChangesAsync();
 
@@ -222,6 +224,16 @@ namespace Assignment.Controllers.Api
             if (extra.ProductExtraProducts != null)
             {
                 foreach (var link in extra.ProductExtraProducts.Where(link => !link.IsDeleted))
+                {
+                    link.IsDeleted = true;
+                    link.DeletedAt = now;
+                    link.UpdatedAt = now;
+                }
+            }
+
+            if (extra.ProductExtraCombos != null)
+            {
+                foreach (var link in extra.ProductExtraCombos.Where(link => !link.IsDeleted))
                 {
                     link.IsDeleted = true;
                     link.DeletedAt = now;
@@ -279,6 +291,16 @@ namespace Assignment.Controllers.Api
                     }
                 }
 
+                if (extra.ProductExtraCombos != null)
+                {
+                    foreach (var link in extra.ProductExtraCombos.Where(link => !link.IsDeleted))
+                    {
+                        link.IsDeleted = true;
+                        link.DeletedAt = now;
+                        link.UpdatedAt = now;
+                    }
+                }
+
                 deleted++;
             }
 
@@ -299,10 +321,15 @@ namespace Assignment.Controllers.Api
             }
 
             using var workbook = new XLWorkbook();
-            var worksheet = workbook.Worksheets.Add("ApplicableProducts");
-            worksheet.Cell(1, 1).Value = "ProductId";
-            worksheet.Cell(2, 1).Value = "1";
-            worksheet.Cell(3, 1).Value = "2";
+            var productSheet = workbook.Worksheets.Add("ApplicableProducts");
+            productSheet.Cell(1, 1).Value = "ProductId";
+            productSheet.Cell(2, 1).Value = "1";
+            productSheet.Cell(3, 1).Value = "2";
+
+            var comboSheet = workbook.Worksheets.Add("ApplicableCombos");
+            comboSheet.Cell(1, 1).Value = "ComboId";
+            comboSheet.Cell(2, 1).Value = "1";
+            comboSheet.Cell(3, 1).Value = "2";
 
             using var stream = new MemoryStream();
             workbook.SaveAs(stream);
@@ -426,6 +453,118 @@ namespace Assignment.Controllers.Api
             }
         }
 
+        [HttpPost("import-combos")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportApplicableCombos([FromForm] IFormFile? file)
+        {
+            if (!User.HasAnyPermission("CreateProductExtra", "UpdateProductExtra", "UpdateProductExtraAll"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách combo." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu combo." });
+                }
+
+                var orderedIds = new List<long>();
+                var seenIds = new HashSet<long>();
+                var invalidEntries = new List<string>();
+
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    var rawValue = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(rawValue))
+                    {
+                        continue;
+                    }
+
+                    if (row.RowNumber() == 1 && string.Equals(rawValue, "ComboId", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    if (!long.TryParse(rawValue, out var comboId) || comboId <= 0)
+                    {
+                        invalidEntries.Add(rawValue);
+                        continue;
+                    }
+
+                    if (seenIds.Add(comboId))
+                    {
+                        orderedIds.Add(comboId);
+                    }
+                }
+
+                if (orderedIds.Count == 0)
+                {
+                    return Ok(new ProductExtraImportResponse
+                    {
+                        InvalidEntries = invalidEntries
+                    });
+                }
+
+                var accessibleIds = await GetAccessibleComboIdsAsync(orderedIds);
+                var accessibleSet = accessibleIds.ToHashSet();
+
+                foreach (var id in orderedIds)
+                {
+                    if (!accessibleSet.Contains(id))
+                    {
+                        invalidEntries.Add(id.ToString());
+                    }
+                }
+
+                var allowedIds = orderedIds
+                    .Where(id => accessibleSet.Contains(id))
+                    .ToList();
+
+                if (allowedIds.Count == 0)
+                {
+                    return Ok(new ProductExtraImportResponse
+                    {
+                        InvalidEntries = invalidEntries
+                    });
+                }
+
+                var options = await GetComboOptionsByIdsAsync(allowedIds);
+                var lookup = options.ToDictionary(option => option.Id, option => option);
+                var orderedOptions = allowedIds
+                    .Where(id => lookup.ContainsKey(id))
+                    .Select(id => lookup[id])
+                    .ToList();
+
+                return Ok(new ProductExtraImportResponse
+                {
+                    Combos = orderedOptions,
+                    InvalidEntries = invalidEntries
+                });
+            }
+            catch (Exception)
+            {
+                return BadRequest(new { message = "File không hợp lệ hoặc bị hỏng." });
+            }
+        }
+
         [HttpGet("product-options")]
         public async Task<IActionResult> GetProductOptions([FromQuery] string? search = null)
         {
@@ -470,9 +609,52 @@ namespace Assignment.Controllers.Api
             return Ok(products);
         }
 
+        [HttpGet("combo-options")]
+        public async Task<IActionResult> GetComboOptions([FromQuery] string? search = null)
+        {
+            var canGetAllCombos = User.HasPermission("GetComboAll");
+            var canGetOwnCombos = User.HasPermission("GetCombo");
+
+            if (!canGetAllCombos && !canGetOwnCombos)
+            {
+                return Forbid();
+            }
+
+            IQueryable<Combo> query = _context.Combos
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted);
+
+            if (!canGetAllCombos)
+            {
+                var currentUserId = CurrentUserId;
+                query = query.Where(c => c.CreateBy == currentUserId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                var term = search.Trim();
+                var like = $"%{term}%";
+                query = query.Where(c => EF.Functions.Like(c.Name, like));
+            }
+
+            var combos = await query
+                .OrderBy(c => c.Name)
+                .Take(50)
+                .Select(c => new ComboOption
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    IsPublish = c.IsPublish
+                })
+                .ToListAsync();
+
+            return Ok(combos);
+        }
+
         private async Task ValidateRequestAsync(ProductExtraRequest request)
         {
             request.ApplicableProductIds ??= new List<long>();
+            request.ApplicableComboIds ??= new List<long>();
 
             if (!ModelState.IsValid)
             {
@@ -520,6 +702,28 @@ namespace Assignment.Controllers.Api
 
                 request.ApplicableProductIds = accessibleProductIds.ToList();
             }
+
+            if (request.ApplicableComboIds != null && request.ApplicableComboIds.Count > 0)
+            {
+                var distinctComboIds = request.ApplicableComboIds
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
+
+                if (distinctComboIds.Count == 0)
+                {
+                    request.ApplicableComboIds.Clear();
+                    return;
+                }
+
+                var accessibleComboIds = await GetAccessibleComboIdsAsync(distinctComboIds);
+                if (accessibleComboIds.Count != distinctComboIds.Count)
+                {
+                    ModelState.AddModelError(nameof(ProductExtraRequest.ApplicableComboIds), "Một số combo không hợp lệ hoặc bạn không có quyền truy cập.");
+                }
+
+                request.ApplicableComboIds = accessibleComboIds.ToList();
+            }
         }
 
         private async Task<HashSet<long>> GetAccessibleProductIdsAsync(IReadOnlyCollection<long> ids)
@@ -550,6 +754,39 @@ namespace Assignment.Controllers.Api
 
             var accessibleIds = await query
                 .Select(p => p.Id)
+                .ToListAsync();
+
+            return accessibleIds.ToHashSet();
+        }
+
+        private async Task<HashSet<long>> GetAccessibleComboIdsAsync(IReadOnlyCollection<long> ids)
+        {
+            if (ids.Count == 0)
+            {
+                return new HashSet<long>();
+            }
+
+            var canGetAllCombos = User.HasPermission("GetComboAll");
+            var canGetOwnCombos = User.HasPermission("GetCombo");
+
+            if (!canGetAllCombos && !canGetOwnCombos)
+            {
+                ModelState.AddModelError(nameof(ProductExtraRequest.ApplicableComboIds), "Bạn không có quyền chọn combo áp dụng.");
+                return new HashSet<long>();
+            }
+
+            IQueryable<Combo> query = _context.Combos
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted && ids.Contains(c.Id));
+
+            if (!canGetAllCombos)
+            {
+                var currentUserId = CurrentUserId;
+                query = query.Where(c => c.CreateBy == currentUserId);
+            }
+
+            var accessibleIds = await query
+                .Select(c => c.Id)
                 .ToListAsync();
 
             return accessibleIds.ToHashSet();
@@ -594,7 +831,50 @@ namespace Assignment.Controllers.Api
             return products;
         }
 
-        private async Task UpdateProductAssociationsAsync(ProductExtra extra, IList<long>? requestedIds, DateTime now)
+        private async Task<List<ComboOption>> GetComboOptionsByIdsAsync(IReadOnlyCollection<long> ids)
+        {
+            if (ids == null || ids.Count == 0)
+            {
+                return new List<ComboOption>();
+            }
+
+            var canGetAllCombos = User.HasPermission("GetComboAll");
+            var canGetOwnCombos = User.HasPermission("GetCombo");
+
+            if (!canGetAllCombos && !canGetOwnCombos)
+            {
+                return new List<ComboOption>();
+            }
+
+            IQueryable<Combo> query = _context.Combos
+                .AsNoTracking()
+                .Where(c => !c.IsDeleted && ids.Contains(c.Id));
+
+            if (!canGetAllCombos)
+            {
+                var currentUserId = CurrentUserId;
+                query = query.Where(c => c.CreateBy == currentUserId);
+            }
+
+            var combos = await query
+                .Select(c => new ComboOption
+                {
+                    Id = c.Id,
+                    Name = c.Name,
+                    IsPublish = c.IsPublish
+                })
+                .ToListAsync();
+
+            return combos;
+        }
+
+        private async Task UpdateAssociationsAsync(ProductExtra extra, IList<long>? productIds, IList<long>? comboIds, DateTime now)
+        {
+            await UpdateProductAssociationsAsync(extra, productIds, now);
+            await UpdateComboAssociationsAsync(extra, comboIds, now);
+        }
+
+        private Task UpdateProductAssociationsAsync(ProductExtra extra, IList<long>? requestedIds, DateTime now)
         {
             extra.ProductExtraProducts ??= new List<ProductExtraProduct>();
 
@@ -621,6 +901,8 @@ namespace Assignment.Controllers.Api
                 if (existingByProductId.TryGetValue(productId, out var link))
                 {
                     link.UpdatedAt = now;
+                    link.IsDeleted = false;
+                    link.DeletedAt = null;
                     continue;
                 }
 
@@ -635,6 +917,55 @@ namespace Assignment.Controllers.Api
                     IsDeleted = false
                 });
             }
+
+            return Task.CompletedTask;
+        }
+
+        private Task UpdateComboAssociationsAsync(ProductExtra extra, IList<long>? requestedIds, DateTime now)
+        {
+            extra.ProductExtraCombos ??= new List<ProductExtraCombo>();
+
+            var validIds = requestedIds?.Where(id => id > 0).Distinct().ToList() ?? new List<long>();
+
+            var existing = extra.ProductExtraCombos
+                .Where(link => !link.IsDeleted)
+                .ToList();
+
+            var existingByComboId = existing.ToDictionary(link => link.ComboId, link => link);
+
+            foreach (var link in existing)
+            {
+                if (!validIds.Contains(link.ComboId))
+                {
+                    link.IsDeleted = true;
+                    link.DeletedAt = now;
+                    link.UpdatedAt = now;
+                }
+            }
+
+            foreach (var comboId in validIds)
+            {
+                if (existingByComboId.TryGetValue(comboId, out var link))
+                {
+                    link.UpdatedAt = now;
+                    link.IsDeleted = false;
+                    link.DeletedAt = null;
+                    continue;
+                }
+
+                extra.ProductExtraCombos.Add(new ProductExtraCombo
+                {
+                    ProductExtraId = extra.Id,
+                    ComboId = comboId,
+                    CreateBy = CurrentUserId,
+                    CreatedAt = now,
+                    UpdatedAt = null,
+                    DeletedAt = null,
+                    IsDeleted = false
+                });
+            }
+
+            return Task.CompletedTask;
         }
 
         private static decimal NormalizePrice(decimal price)
@@ -695,7 +1026,16 @@ namespace Assignment.Controllers.Api
                         CategoryName = link.Product.Category?.Name
                     })
                     .OrderBy(p => p.Name)
-                    .ToList() ?? new List<ProductReference>()
+                    .ToList() ?? new List<ProductReference>(),
+                ApplicableCombos = extra.ProductExtraCombos?
+                    .Where(link => !link.IsDeleted && link.Combo != null)
+                    .Select(link => new ComboReference
+                    {
+                        Id = link.ComboId,
+                        Name = link.Combo!.Name
+                    })
+                    .OrderBy(c => c.Name)
+                    .ToList() ?? new List<ComboReference>()
             };
         }
 
@@ -727,7 +1067,16 @@ namespace Assignment.Controllers.Api
                         CategoryName = link.Product.Category?.Name
                     })
                     .OrderBy(p => p.Name)
-                    .ToList() ?? new List<ProductReference>()
+                    .ToList() ?? new List<ProductReference>(),
+                ApplicableCombos = extra.ProductExtraCombos?
+                    .Where(link => !link.IsDeleted && link.Combo != null)
+                    .Select(link => new ComboReference
+                    {
+                        Id = link.ComboId,
+                        Name = link.Combo!.Name
+                    })
+                    .OrderBy(c => c.Name)
+                    .ToList() ?? new List<ComboReference>()
             };
         }
 
@@ -766,6 +1115,7 @@ namespace Assignment.Controllers.Api
             public bool IsPublish { get; set; }
 
             public List<long> ApplicableProductIds { get; set; } = new();
+            public List<long> ApplicableComboIds { get; set; } = new();
         }
 
         public class ProductExtraListItem
@@ -785,6 +1135,7 @@ namespace Assignment.Controllers.Api
             public DateTime CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
             public List<ProductReference> ApplicableProducts { get; set; } = new();
+            public List<ComboReference> ApplicableCombos { get; set; } = new();
         }
 
         public class ProductExtraDetail : ProductExtraListItem
@@ -799,9 +1150,16 @@ namespace Assignment.Controllers.Api
             public string? CategoryName { get; set; }
         }
 
+        public class ComboReference
+        {
+            public long Id { get; set; }
+            public string Name { get; set; } = string.Empty;
+        }
+
         public class ProductExtraImportResponse
         {
             public List<ProductOption> Products { get; set; } = new();
+            public List<ComboOption> Combos { get; set; } = new();
 
             public List<string> InvalidEntries { get; set; } = new();
         }
@@ -811,6 +1169,13 @@ namespace Assignment.Controllers.Api
             public long Id { get; set; }
             public string Name { get; set; } = string.Empty;
             public string? CategoryName { get; set; }
+            public bool IsPublish { get; set; }
+        }
+
+        public class ComboOption
+        {
+            public long Id { get; set; }
+            public string Name { get; set; } = string.Empty;
             public bool IsPublish { get; set; }
         }
 

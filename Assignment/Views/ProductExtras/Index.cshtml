@@ -202,13 +202,14 @@
                             <th>Tồn kho</th>
                             <th>Calories</th>
                             <th>Trạng thái</th>
-                            <th>Áp dụng</th>
+                            <th>Sản phẩm áp dụng</th>
+                            <th>Combo áp dụng</th>
                             <th style="width: 140px;" class="text-center">Hành động</th>
                         </tr>
                     </thead>
                     <tbody id="productExtrasTableBody">
                         <tr>
-                            <td colspan="@(canBulkManage ? 10 : 9)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
+                            <td colspan="@(canBulkManage ? 11 : 10)" class="text-center py-4 text-muted">@(canView ? "Đang tải dữ liệu..." : "Không có dữ liệu để hiển thị.")</td>
                         </tr>
                     </tbody>
                 </table>
@@ -330,6 +331,29 @@
                             </div>
                             <div class="form-text mt-2">Chọn các sản phẩm áp dụng cho sản phẩm bổ sung.</div>
                         </div>
+                        <div class="col-12">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <label class="form-label mb-0">Combo áp dụng</label>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <input type="file" accept=".xlsx" id="comboOptionsImportInput" class="d-none" />
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="importComboOptionsBtn">
+                                        <i class="fas fa-file-import me-1"></i>Nhập từ file
+                                    </button>
+                                    <button type="button" class="btn btn-outline-danger btn-sm" id="clearComboOptionsBtn">
+                                        <i class="fas fa-trash-can me-1"></i>Xóa tất cả
+                                    </button>
+                                    <button type="button" class="btn btn-outline-success btn-sm" id="addComboOptionBtn">
+                                        <i class="fas fa-plus me-1"></i>Thêm combo
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="product-extra-selection">
+                                <div class="text-muted small mb-2" id="comboOptionsStatus"></div>
+                                <div id="productExtraCombosContainer" class="d-flex flex-column gap-2"></div>
+                                <div id="productExtraCombosEmpty" class="text-muted fst-italic">Chưa chọn combo nào.</div>
+                            </div>
+                            <div class="form-text mt-2">Chọn các combo áp dụng cho sản phẩm bổ sung.</div>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -409,9 +433,10 @@
             const canBulkManage = canDelete || canUpdate;
             const API_BASE_URL = '/api/product-extras';
             const PRODUCT_OPTIONS_URL = `${API_BASE_URL}/product-options`;
+            const COMBO_OPTIONS_URL = `${API_BASE_URL}/combo-options`;
             const IMAGE_UPLOAD_URL = '/api/uploads/images';
             const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
-            const columnCount = @(canBulkManage ? 10 : 9);
+            const columnCount = @(canBulkManage ? 11 : 10);
 
             const tableBody = document.getElementById('productExtrasTableBody');
             const tableStatus = document.getElementById('tableStatus');
@@ -475,6 +500,15 @@
             const clearProductBtn = document.getElementById('clearProductOptionsBtn');
             const importProductBtnInitialHtml = importProductBtn ? importProductBtn.innerHTML : '';
 
+            const combosContainer = document.getElementById('productExtraCombosContainer');
+            const combosEmptyState = document.getElementById('productExtraCombosEmpty');
+            const comboOptionsStatus = document.getElementById('comboOptionsStatus');
+            const addComboBtn = document.getElementById('addComboOptionBtn');
+            const importComboBtn = document.getElementById('importComboOptionsBtn');
+            const importComboInput = document.getElementById('comboOptionsImportInput');
+            const clearComboBtn = document.getElementById('clearComboOptionsBtn');
+            const importComboBtnInitialHtml = importComboBtn ? importComboBtn.innerHTML : '';
+
             if (productExtraModalEl) {
                 productExtraModalEl.addEventListener('hidden.bs.modal', () => {
                     revokeTemporaryImageUrl();
@@ -490,6 +524,7 @@
             let allProductExtras = [];
             let filteredProductExtras = [];
             let productOptions = [];
+            let comboOptions = [];
             const selectedIds = new Set();
             let isUploadingImage = false;
             let temporaryImageObjectUrl = null;
@@ -937,6 +972,72 @@
                 }) ?? null;
             }
 
+            function normalizeComboOption(option) {
+                if (!option) {
+                    return null;
+                }
+
+                const rawId = option.id ?? option.Id;
+                const numericId = Number(rawId);
+                const normalizedId = Number.isFinite(numericId) ? numericId : (rawId ?? null);
+
+                if (normalizedId === null || normalizedId === undefined || normalizedId === '') {
+                    return null;
+                }
+
+                return {
+                    id: normalizedId,
+                    name: option.name ?? option.Name ?? `Combo #${normalizedId}`,
+                    isPublish: Boolean(option.isPublish ?? option.IsPublish)
+                };
+            }
+
+            function mergeComboOptions(options = []) {
+                if (!Array.isArray(options) || options.length === 0) {
+                    return;
+                }
+
+                const normalized = options
+                    .map(normalizeComboOption)
+                    .filter(option => option !== null);
+
+                if (normalized.length === 0) {
+                    return;
+                }
+
+                const map = new Map();
+
+                if (Array.isArray(comboOptions) && comboOptions.length > 0) {
+                    comboOptions.forEach(option => {
+                        if (option && option.id !== undefined && option.id !== null) {
+                            map.set(String(option.id), option);
+                        }
+                    });
+                }
+
+                normalized.forEach(option => {
+                    map.set(String(option.id), option);
+                });
+
+                comboOptions = Array.from(map.values())
+                    .sort((a, b) => a.name.localeCompare(b.name, 'vi'));
+            }
+
+            function findComboOptionById(id) {
+                if (!Array.isArray(comboOptions) || comboOptions.length === 0) {
+                    return null;
+                }
+
+                const numericId = Number(id);
+                return comboOptions.find(option => {
+                    if (Number.isFinite(numericId)) {
+                        return Number(option.id) === numericId;
+                    }
+
+                    return String(option.id) === String(id);
+                }) ?? null;
+            }
+
             function populateProductSelectOptions(selectElement, selectedOption = null) {
                 if (!selectElement) {
                     return;
@@ -1040,6 +1141,108 @@
                 }
             }
 
+            function populateComboSelectOptions(selectElement, selectedOption = null) {
+                if (!selectElement) {
+                    return;
+                }
+
+                const fallbackValue = selectedOption?.id ?? selectElement.value ?? '';
+                const fallbackLabel = selectedOption?.name ?? selectElement.selectedOptions?.[0]?.textContent ?? '';
+                const normalizedFallback = fallbackValue !== null && fallbackValue !== undefined
+                    ? String(fallbackValue)
+                    : '';
+
+                selectElement.innerHTML = '<option value="">-- Chọn combo --</option>';
+
+                if (Array.isArray(comboOptions) && comboOptions.length > 0) {
+                    comboOptions.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = String(option.id);
+                        const status = option.isPublish ? '' : ' - Nháp';
+                        optionElement.textContent = `${option.name}${status}`;
+
+                        if (normalizedFallback && String(option.id) === normalizedFallback) {
+                            optionElement.selected = true;
+                        }
+
+                        selectElement.appendChild(optionElement);
+                    });
+                }
+
+                if (normalizedFallback && selectElement.value !== normalizedFallback) {
+                    const fallbackOption = document.createElement('option');
+                    fallbackOption.value = normalizedFallback;
+                    const label = fallbackLabel || (Number.isFinite(Number(normalizedFallback))
+                        ? `Combo #${normalizedFallback}`
+                        : 'Combo');
+                    fallbackOption.textContent = `${label} (không có trong danh sách)`;
+                    fallbackOption.selected = true;
+                    fallbackOption.dataset.fallback = 'true';
+                    selectElement.appendChild(fallbackOption);
+                }
+            }
+
+            function toggleComboEmptyState() {
+                if (!combosContainer || !combosEmptyState) {
+                    return;
+                }
+
+                const hasRows = Boolean(combosContainer.querySelector('.product-extra-combo-row'));
+                combosEmptyState.classList.toggle('d-none', hasRows);
+            }
+
+            function refreshComboSelectOptions() {
+                if (!combosContainer) {
+                    toggleComboEmptyState();
+                    return;
+                }
+
+                const selects = Array.from(combosContainer.querySelectorAll('.product-extra-combo-select'));
+                const selectedValues = new Set(selects.map(select => select.value).filter(value => value));
+
+                selects.forEach(select => {
+                    const currentValue = select.value;
+                    Array.from(select.options).forEach(option => {
+                        if (!option.value) {
+                            option.disabled = false;
+                            return;
+                        }
+
+                        if (option.dataset.fallback === 'true') {
+                            option.disabled = false;
+                            return;
+                        }
+
+                        option.disabled = option.value !== currentValue && selectedValues.has(option.value);
+                    });
+                });
+
+                toggleComboEmptyState();
+            }
+
+            function updateComboControlStates() {
+                if (addComboBtn) {
+                    const options = Array.isArray(comboOptions) ? comboOptions : [];
+                    const selectedValues = combosContainer
+                        ? new Set(Array.from(combosContainer.querySelectorAll('.product-extra-combo-select'))
+                            .map(select => select.value)
+                            .filter(value => value))
+                        : new Set();
+
+                    const availableOptions = options.filter(option => !selectedValues.has(String(option.id)));
+                    addComboBtn.disabled = availableOptions.length === 0;
+                }
+
+                if (clearComboBtn) {
+                    const hasRows = Boolean(combosContainer?.querySelector('.product-extra-combo-row'));
+                    clearComboBtn.disabled = !hasRows;
+                }
+
+                if (comboOptionsStatus && (!Array.isArray(comboOptions) || comboOptions.length === 0)) {
+                    comboOptionsStatus.classList.remove('text-danger');
+                }
+            }
+
             function createProductRow(productOption = null) {
                 if (!productsContainer) {
                     return null;
@@ -1121,6 +1324,162 @@
 
                 refreshProductSelectOptions();
                 updateProductControlStates();
+            }
+
+            function createComboRow(comboOption = null) {
+                if (!combosContainer) {
+                    return null;
+                }
+
+                const row = document.createElement('div');
+                row.className = 'row g-2 align-items-end product-extra-combo-row';
+
+                const selectCol = document.createElement('div');
+                selectCol.className = 'col';
+                const select = document.createElement('select');
+                select.className = 'form-select product-extra-combo-select';
+                select.required = true;
+                populateComboSelectOptions(select, comboOption);
+                select.addEventListener('change', () => {
+                    refreshComboSelectOptions();
+                });
+                selectCol.appendChild(select);
+
+                const actionCol = document.createElement('div');
+                actionCol.className = 'col-auto';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn btn-outline-danger';
+                removeBtn.innerHTML = '<i class="fas fa-trash"></i>';
+                removeBtn.addEventListener('click', () => {
+                    row.remove();
+                    refreshComboSelectOptions();
+                    updateComboControlStates();
+                });
+                actionCol.appendChild(removeBtn);
+
+                row.appendChild(selectCol);
+                row.appendChild(actionCol);
+
+                return row;
+            }
+
+            function addComboRow(comboOption = null) {
+                if (!combosContainer) {
+                    return;
+                }
+
+                if (!comboOption && (!Array.isArray(comboOptions) || comboOptions.length === 0)) {
+                    showAlert('Không có combo để chọn.', 'warning');
+                    return;
+                }
+
+                const row = createComboRow(comboOption);
+                if (!row) {
+                    return;
+                }
+
+                combosContainer.appendChild(row);
+                refreshComboSelectOptions();
+                updateComboControlStates();
+            }
+
+            function setComboRows(combos = []) {
+                if (!combosContainer) {
+                    return;
+                }
+
+                combosContainer.innerHTML = '';
+
+                if (Array.isArray(combos) && combos.length > 0) {
+                    combos.forEach(combo => {
+                        const normalized = normalizeComboOption(combo);
+                        if (!normalized) {
+                            return;
+                        }
+
+                        const row = createComboRow(normalized);
+                        if (row) {
+                            combosContainer.appendChild(row);
+                        }
+                    });
+                }
+
+                refreshComboSelectOptions();
+                updateComboControlStates();
+            }
+
+            async function importComboOptionsFromFile(file) {
+                if (!file) {
+                    return;
+                }
+
+                const formData = new FormData();
+                formData.append('file', file);
+
+                if (importComboBtn) {
+                    importComboBtn.disabled = true;
+                    importComboBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang nhập...';
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/import-combos`, {
+                        method: 'POST',
+                        headers: {
+                            ...(antiForgeryToken ? { 'RequestVerificationToken': antiForgeryToken } : {})
+                        },
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        const result = await response.json().catch(() => null);
+                        const message = result?.message || 'Không thể nhập combo từ file.';
+                        showAlert(message, 'danger');
+                        return;
+                    }
+
+                    const result = await response.json();
+                    const importedCombos = Array.isArray(result?.combos) ? result.combos : [];
+                    const invalidEntries = Array.isArray(result?.invalidEntries) ? result.invalidEntries : [];
+
+                    if (importedCombos.length === 0) {
+                        let warningMessage = 'Không có combo hợp lệ trong file.';
+                        if (invalidEntries.length > 0) {
+                            warningMessage += ` Bỏ qua ${invalidEntries.length} dòng không hợp lệ.`;
+                        }
+                        showAlert(warningMessage, 'warning');
+                        return;
+                    }
+
+                    mergeComboOptions(importedCombos);
+                    setComboRows(importedCombos);
+
+                    let successMessage = `Đã nhập ${importedCombos.length} combo hợp lệ.`;
+                    if (invalidEntries.length > 0) {
+                        successMessage += ` Bỏ qua ${invalidEntries.length} dòng không hợp lệ.`;
+                    }
+                    showAlert(successMessage, 'success');
+                } catch (error) {
+                    showAlert('Không thể nhập combo từ file. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    if (importComboBtn) {
+                        importComboBtn.disabled = false;
+                        importComboBtn.innerHTML = importComboBtnInitialHtml || '<i class="fas fa-file-import me-1"></i>Nhập từ file';
+                    }
+                    if (importComboInput) {
+                        importComboInput.value = '';
+                    }
+                }
+            }
+
+            function getSelectedComboIds() {
+                if (!combosContainer) {
+                    return [];
+                }
+
+                return Array.from(combosContainer.querySelectorAll('.product-extra-combo-select'))
+                    .map(select => Number(select.value))
+                    .filter(id => Number.isFinite(id) && id > 0);
             }
 
             async function importProductOptionsFromFile(file) {
@@ -1207,6 +1566,9 @@
                     const applicableCount = Array.isArray(extra.applicableProducts) ? extra.applicableProducts.length : 0;
                     const firstProduct = applicableCount > 0 ? extra.applicableProducts[0] : null;
                     const remainingCount = applicableCount > 1 ? applicableCount - 1 : 0;
+                    const comboCount = Array.isArray(extra.applicableCombos) ? extra.applicableCombos.length : 0;
+                    const firstCombo = comboCount > 0 ? extra.applicableCombos[0] : null;
+                    const remainingComboCount = comboCount > 1 ? comboCount - 1 : 0;
                     const statusBadge = extra.isPublish
                         ? '<span class="badge bg-success">Xuất bản</span>'
                         : '<span class="badge bg-secondary">Bản nháp</span>';
@@ -1234,6 +1596,11 @@
                                 ${applicableCount === 0 ? '<span class="text-muted">Chưa áp dụng</span>' : `
                                     <div>${escapeHtml(firstProduct?.name ?? '')}</div>
                                     ${remainingCount > 0 ? `<div class="text-muted small">+${remainingCount} sản phẩm khác</div>` : ''}`}
+                            </td>
+                            <td>
+                                ${comboCount === 0 ? '<span class="text-muted">Chưa áp dụng</span>' : `
+                                    <div>${escapeHtml(firstCombo?.name ?? '')}</div>
+                                    ${remainingComboCount > 0 ? `<div class="text-muted small">+${remainingComboCount} combo khác</div>` : ''}`}
                             </td>
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm" role="group">
@@ -1348,6 +1715,11 @@
                 }
                 refreshProductSelectOptions();
                 updateProductControlStates();
+                if (combosContainer) {
+                    combosContainer.innerHTML = '';
+                }
+                refreshComboSelectOptions();
+                updateComboControlStates();
             }
 
             function fillForm(extra) {
@@ -1366,6 +1738,8 @@
 
                 const products = Array.isArray(extra.applicableProducts) ? extra.applicableProducts : [];
                 setProductRows(products);
+                const combos = Array.isArray(extra.applicableCombos) ? extra.applicableCombos : [];
+                setComboRows(combos);
             }
 
             function syncSelectAllState() {
@@ -1575,6 +1949,69 @@
                 }
             }
 
+            async function loadComboOptions() {
+                if (comboOptionsStatus) {
+                    comboOptionsStatus.textContent = 'Đang tải danh sách combo...';
+                    comboOptionsStatus.classList.remove('text-danger');
+                }
+
+                if (addComboBtn) {
+                    addComboBtn.disabled = true;
+                }
+
+                try {
+                    const url = new URL(COMBO_OPTIONS_URL, window.location.origin);
+
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            comboOptions = [];
+                            if (comboOptionsStatus) {
+                                comboOptionsStatus.textContent = 'Bạn không có quyền xem danh sách combo.';
+                                comboOptionsStatus.classList.add('text-danger');
+                            }
+                            refreshComboSelectOptions();
+                            updateComboControlStates();
+                            return;
+                        }
+
+                        throw new Error('Failed to load combo options');
+                    }
+
+                    const options = await response.json();
+                    comboOptions = Array.isArray(options)
+                        ? options.map(normalizeComboOption).filter(option => option !== null)
+                        : [];
+
+                    if (combosContainer) {
+                        const selects = Array.from(combosContainer.querySelectorAll('.product-extra-combo-select'));
+                        selects.forEach(select => {
+                            const currentValue = select.value;
+                            const matched = currentValue ? findComboOptionById(currentValue) : null;
+                            const fallback = matched ?? (currentValue
+                                ? { id: currentValue, name: select.selectedOptions?.[0]?.textContent ?? '' }
+                                : null);
+                            populateComboSelectOptions(select, fallback);
+                        });
+                    }
+
+                    if (comboOptionsStatus) {
+                        comboOptionsStatus.textContent = comboOptions.length === 0
+                            ? 'Không có combo nào.'
+                            : '';
+                        comboOptionsStatus.classList.remove('text-danger');
+                    }
+                } catch (error) {
+                    if (comboOptionsStatus) {
+                        comboOptionsStatus.textContent = 'Không thể tải danh sách combo.';
+                        comboOptionsStatus.classList.add('text-danger');
+                    }
+                } finally {
+                    refreshComboSelectOptions();
+                    updateComboControlStates();
+                }
+            }
+
             function openCreateModal() {
                 resetForm();
                 productExtraModalTitle.textContent = 'Thêm sản phẩm bổ sung';
@@ -1608,6 +2045,7 @@
 
                     const extra = await response.json();
                     await loadProductOptions();
+                    await loadComboOptions();
                     fillForm(extra);
                     productExtraModal.show();
                 } catch (error) {
@@ -1652,6 +2090,9 @@
                     const productList = Array.isArray(extra.applicableProducts) && extra.applicableProducts.length > 0
                         ? extra.applicableProducts.map(product => `<li>${escapeHtml(product.name)}${product.categoryName ? ` <span class="text-muted">(${escapeHtml(product.categoryName)})</span>` : ''}</li>`).join('')
                         : '<li class="text-muted">Chưa có sản phẩm áp dụng</li>';
+                    const comboList = Array.isArray(extra.applicableCombos) && extra.applicableCombos.length > 0
+                        ? extra.applicableCombos.map(combo => `<li>${escapeHtml(combo.name)}</li>`).join('')
+                        : '<li class="text-muted">Chưa có combo áp dụng</li>';
 
                     detailBody.innerHTML = `
                         <div class="row g-3">
@@ -1688,6 +2129,10 @@
                                     <h6 class="fw-semibold">Sản phẩm áp dụng</h6>
                                     <ul class="mb-0 ps-3">${productList}</ul>
                                 </div>
+                                <div class="mt-3">
+                                    <h6 class="fw-semibold">Combo áp dụng</h6>
+                                    <ul class="mb-0 ps-3">${comboList}</ul>
+                                </div>
                             </div>
                         </div>`;
                 } catch (error) {
@@ -1722,6 +2167,7 @@
                 clearValidationErrors();
 
                 const selectedProductIds = getSelectedProductIds();
+                const selectedComboIds = getSelectedComboIds();
 
                 const payload = {
                     name: nameInput.value.trim(),
@@ -1735,7 +2181,8 @@
                     isPublish: Boolean(isPublishInput.checked),
                     isSpicy: Boolean(isSpicyInput.checked),
                     isVegetarian: Boolean(isVegetarianInput.checked),
-                    applicableProductIds: selectedProductIds
+                    applicableProductIds: selectedProductIds,
+                    applicableComboIds: selectedComboIds
                 };
 
                 submitButton.disabled = true;
@@ -1907,6 +2354,7 @@
             createBtn?.addEventListener('click', () => {
                 openCreateModal();
                 loadProductOptions();
+                loadComboOptions();
             });
             productExtraForm?.addEventListener('submit', submitForm);
             deleteConfirmBtn?.addEventListener('click', async () => {
@@ -1963,8 +2411,34 @@
             });
             addProductBtn?.addEventListener('click', () => addProductRow());
 
+            importComboBtn?.addEventListener('click', () => {
+                importComboInput?.click();
+            });
+            importComboInput?.addEventListener('change', event => {
+                const file = event.target.files ? event.target.files[0] : null;
+                if (file) {
+                    importComboOptionsFromFile(file);
+                }
+            });
+            clearComboBtn?.addEventListener('click', () => {
+                if (!combosContainer) {
+                    return;
+                }
+
+                const hasRows = Boolean(combosContainer.querySelector('.product-extra-combo-row'));
+                if (!hasRows) {
+                    showAlert('Không có combo áp dụng nào để xóa.', 'info');
+                    return;
+                }
+
+                setComboRows([]);
+                showAlert('Đã xóa tất cả combo áp dụng.', 'info');
+            });
+            addComboBtn?.addEventListener('click', () => addComboRow());
+
             loadProductExtras();
             loadProductOptions();
+            loadComboOptions();
         })();
     </script>
 }

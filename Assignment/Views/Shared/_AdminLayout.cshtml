@@ -148,6 +148,24 @@
                     </a>
                 </li>
             }
+            @if (User.HasAnyPermission("ViewInventoryAll", "ViewInventory"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="Inventories" class="sidebar-menu-link">
+                        <i class="fa-solid fa-boxes-stacked"></i>
+                        <span>Tồn kho</span>
+                    </a>
+                </li>
+            }
+            @if (User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving"))
+            {
+                <li class="sidebar-menu-item">
+                    <a asp-action="Index" asp-controller="ReceivingNotes" class="sidebar-menu-link">
+                        <i class="fa-solid fa-truck-loading"></i>
+                        <span>Nhập kho</span>
+                    </a>
+                </li>
+            }
             @if (User.HasAnyPermission("GetRecipeAll", "GetRecipe"))
             {
                 <li class="sidebar-menu-item">

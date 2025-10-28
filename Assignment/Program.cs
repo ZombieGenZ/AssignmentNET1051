@@ -645,6 +645,34 @@ BEGIN
         ADD CONSTRAINT [FK_ProductExtraProducts_Products_ProductId]
         FOREIGN KEY([ProductId]) REFERENCES [dbo].[Products]([Id]) ON DELETE CASCADE;
 END;
+
+IF OBJECT_ID(N'dbo.ProductExtraCombos', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[ProductExtraCombos]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [ProductExtraId] BIGINT NOT NULL,
+        [ComboId] BIGINT NOT NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_ProductExtraCombos] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE INDEX [IX_ProductExtraCombos_ProductExtraId] ON [dbo].[ProductExtraCombos]([ProductExtraId]);
+    CREATE INDEX [IX_ProductExtraCombos_ComboId] ON [dbo].[ProductExtraCombos]([ComboId]);
+    CREATE UNIQUE INDEX [IX_ProductExtraCombos_ProductExtraId_ComboId] ON [dbo].[ProductExtraCombos]([ProductExtraId], [ComboId]);
+
+    ALTER TABLE [dbo].[ProductExtraCombos] WITH CHECK
+        ADD CONSTRAINT [FK_ProductExtraCombos_ProductExtras_ProductExtraId]
+        FOREIGN KEY([ProductExtraId]) REFERENCES [dbo].[ProductExtras]([Id]) ON DELETE CASCADE;
+
+    ALTER TABLE [dbo].[ProductExtraCombos] WITH CHECK
+        ADD CONSTRAINT [FK_ProductExtraCombos_Combos_ComboId]
+        FOREIGN KEY([ComboId]) REFERENCES [dbo].[Combos]([Id]) ON DELETE CASCADE;
+END;
 ";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
