@@ -17,78 +17,6 @@
     <link href="~/css/admin-layout.css" rel="stylesheet" />
     <script src="https://kit.fontawesome.com/476445fe42.js" crossorigin="anonymous"></script>
     @await RenderSectionAsync("Styles", required: false)
-    <style>
-        .user-profile-container {
-            position: relative;
-            display: inline-block;
-        }
-
-        .user-profile {
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-        }
-
-        .dropdown-menu-user {
-            display: none;
-            position: absolute;
-            right: 0;
-            top: 120%;
-            background-color: #fff;
-            min-width: 180px;
-            box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-            border: 1px solid rgba(0,0,0,.125);
-            border-radius: 0.375rem;
-            z-index: 1000;
-            list-style: none;
-            padding: 0.5rem 0;
-        }
-
-            .dropdown-menu-user.show {
-                display: block;
-            }
-
-            .dropdown-menu-user .dropdown-item {
-                display: flex;
-                align-items: center;
-                width: 100%;
-                padding: 0.5rem 1.5rem;
-                clear: both;
-                font-weight: 400;
-                color: #212529;
-                text-align: inherit;
-                white-space: nowrap;
-                background-color: transparent;
-                border: 0;
-                text-decoration: none;
-            }
-
-                .dropdown-menu-user .dropdown-item:hover {
-                    background-color: #f8f9fa;
-                }
-
-                .dropdown-menu-user .dropdown-item i {
-                    margin-right: 10px;
-                    color: #b7b9cc;
-                }
-
-            .dropdown-menu-user .dropdown-divider {
-                height: 0;
-                margin: 0.5rem 0;
-                overflow: hidden;
-                border-top: 1px solid #e3e6f0;
-            }
-
-            .dropdown-menu-user form {
-                padding: 0;
-                margin: 0;
-            }
-
-                .dropdown-menu-user form .dropdown-item {
-                    width: 100%;
-                    text-align: left;
-                }
-    </style>
 </head>
 <body>
     @{
@@ -143,540 +71,283 @@
         {
             primaryRole = "Quản trị viên";
         }
+
+        var canViewStatistics = User.HasPermission("ViewStatistics");
+        var canManageCategories = User.HasAnyPermission("GetCategoryAll", "GetCategory");
+        var canManageProducts = User.HasAnyPermission("GetProductAll", "GetProduct");
+        var canManageProductExtras = User.HasAnyPermission("GetProductExtraAll", "GetProductExtra");
+        var canManageUnits = User.HasAnyPermission("GetUnitAll", "GetUnit");
+        var canManageMaterials = User.HasAnyPermission("GetMaterialAll", "GetMaterial");
+        var canManageInventory = User.HasAnyPermission("ViewInventoryAll", "ViewInventory");
+        var canManageReceiving = User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving");
+        var canManageRecipes = User.HasAnyPermission("GetRecipeAll", "GetRecipe");
+        var canManageCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
+        var canManageVouchers = User.HasAnyPermission("GetVoucherAll", "GetVoucher");
+        var canManageRewards = User.HasAnyPermission("GetRewardAll", "GetReward");
+        var canManageOrders = User.HasPermission("GetOrderAll");
+        var canManageCustomers = User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll");
+        var isSuperAdmin = User.HasPermission("superadmin");
+
+        var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageRecipes || canManageCombos;
+        var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving;
+        var hasSalesGroup = canManageOrders;
+        var hasCustomerGroup = canManageVouchers || canManageRewards || canManageCustomers;
+        var hasAdminGroup = isSuperAdmin;
     }
-    <aside class="sidebar" id="sidebar">
-        <div class="sidebar-header">
-            <a asp-action="Index" asp-controller="Home" class="sidebar-brand">
-                <span class="sidebar-logo">
-                    <i class="fas fa-pepper-hot"></i>
-                </span>
-                <div class="sidebar-brand-text">
-                    <span class="sidebar-brand-title">Quản Lý</span>
-                    <span class="sidebar-brand-subtitle">Admin Center</span>
-                </div>
-            </a>
-            <button class="sidebar-close d-md-none" id="sidebarClose" type="button" aria-label="Đóng menu">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        <div class="sidebar-scroll">
+    <div class="admin-shell">
+        <aside class="admin-sidebar" id="sidebar">
+            <div class="admin-sidebar-header">
+                <a asp-action="Index" asp-controller="Home" class="admin-brand">Quản Lý</a>
+            </div>
             @if (SignInManager.IsSignedIn(User))
             {
-                <section class="sidebar-profile-card">
-                    <div class="sidebar-profile-avatar">@userInitials</div>
-                    <div class="sidebar-profile-body">
-                        <span class="sidebar-profile-name">@userDisplayName</span>
-                        <span class="sidebar-profile-role">@primaryRole</span>
-                        <span class="sidebar-profile-meta">@userIdentifier</span>
+                <section class="admin-profile">
+                    <div class="admin-profile-avatar">@userInitials</div>
+                    <div class="admin-profile-meta">
+                        <span class="admin-profile-name">@userDisplayName</span>
+                        <span class="admin-profile-role">@primaryRole</span>
+                        <span class="admin-profile-identifier">@userIdentifier</span>
                     </div>
-                    <a asp-area="Identity" asp-page="/Account/Manage/Index" class="sidebar-profile-manage" title="Quản lý tài khoản">
-                        <i class="fa-solid fa-gear"></i>
-                    </a>
                 </section>
             }
-            <div class="sidebar-search">
-                <div class="sidebar-search-input">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="search" id="sidebarSearch" placeholder="Tìm kiếm chức năng..." aria-label="Tìm kiếm trong menu" />
-                </div>
-            </div>
-            @{
-                var canViewStatistics = User.HasPermission("ViewStatistics");
-                var canManageCategories = User.HasAnyPermission("GetCategoryAll", "GetCategory");
-                var canManageProducts = User.HasAnyPermission("GetProductAll", "GetProduct");
-                var canManageProductExtras = User.HasAnyPermission("GetProductExtraAll", "GetProductExtra");
-                var canManageUnits = User.HasAnyPermission("GetUnitAll", "GetUnit");
-                var canManageMaterials = User.HasAnyPermission("GetMaterialAll", "GetMaterial");
-                var canManageInventory = User.HasAnyPermission("ViewInventoryAll", "ViewInventory");
-                var canManageReceiving = User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving");
-                var canManageRecipes = User.HasAnyPermission("GetRecipeAll", "GetRecipe");
-                var canManageCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
-                var canManageVouchers = User.HasAnyPermission("GetVoucherAll", "GetVoucher");
-                var canManageRewards = User.HasAnyPermission("GetRewardAll", "GetReward");
-                var canManageOrders = User.HasPermission("GetOrderAll");
-                var canManageCustomers = User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll");
-                var isSuperAdmin = User.HasPermission("superadmin");
-
-                var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageRecipes || canManageCombos;
-                var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving;
-                var hasSalesGroup = canManageOrders;
-                var hasCustomerGroup = canManageVouchers || canManageRewards || canManageCustomers;
-                var hasAdminGroup = isSuperAdmin;
-
-                var quickLinks = new List<(bool CanAccess, string Action, string Controller, string Icon, string Title)>
-                {
-                    (true, "Index", "Home", "fa-solid fa-house", "Trang chủ"),
-                    (canViewStatistics, "Index", "Statistics", "fa-solid fa-chart-line", "Báo cáo nhanh"),
-                    (canManageOrders, "Manage", "Order", "fa-solid fa-receipt", "Đơn hàng"),
-                    (canManageCustomers, "Index", "Customers", "fa-solid fa-user-group", "Khách hàng")
-                };
-            }
-            @if (quickLinks.Any(link => link.CanAccess))
-            {
-                <div class="sidebar-quick-actions">
-                    <span class="sidebar-section-label">Truy cập nhanh</span>
-                    <div class="sidebar-quick-grid">
-                        @foreach (var link in quickLinks.Where(l => l.CanAccess))
-                        {
-                            <a asp-action="@link.Action" asp-controller="@link.Controller" class="sidebar-quick-link">
-                                <span class="sidebar-quick-icon"><i class="@link.Icon"></i></span>
-                                <span class="sidebar-quick-text">@link.Title</span>
+            <nav class="admin-nav">
+                <div class="admin-nav-section">
+                    <span class="admin-nav-title">Chung</span>
+                    <ul class="admin-nav-list">
+                        <li class="admin-nav-item">
+                            <a asp-action="Index" asp-controller="Home" class="admin-nav-link">
+                                Trang chủ
                             </a>
-                        }
-                    </div>
+                        </li>
+                    </ul>
                 </div>
-            }
-            <nav class="sidebar-nav">
-                <span class="sidebar-section-title">Điều hướng chính</span>
-
                 @if (canViewStatistics)
                 {
-                    var overviewGroupId = "sidebar-group-overview";
-                    <div class="sidebar-group open">
-                        <button class="sidebar-group-toggle" type="button" aria-expanded="true" aria-controls="@overviewGroupId">
-                            <span class="sidebar-group-icon"><i class="fa-solid fa-chart-pie"></i></span>
-                            <span class="sidebar-group-title">Tổng quan</span>
-                            <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
-                        </button>
-                        <ul class="sidebar-submenu sidebar-menu" id="@overviewGroupId">
-                            <li class="sidebar-menu-item">
-                                <a asp-action="Index" asp-controller="Statistics" class="sidebar-menu-link">
-                                    <span class="sidebar-icon-wrapper"><i class="fa-solid fa-chart-simple"></i></span>
-                                    <span>Thống kê</span>
-                                </a>
-                            </li>
-                        </ul>
-                    </div>
+                    var overviewLinks = new[]
+                    {
+                        (CanAccess: canViewStatistics, Action: "Index", Controller: "Statistics", Label: "Thống kê")
+                    };
+                    if (overviewLinks.Any(link => link.CanAccess))
+                    {
+                        <div class="admin-nav-section">
+                            <span class="admin-nav-title">Tổng quan</span>
+                            <ul class="admin-nav-list">
+                                @foreach (var link in overviewLinks.Where(l => l.CanAccess))
+                                {
+                                    <li class="admin-nav-item">
+                                        <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
+                                            @link.Label
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
                 }
-
                 @if (hasProductGroup)
                 {
-                    var productGroupId = "sidebar-group-products";
-                    <div class="sidebar-group open">
-                        <button class="sidebar-group-toggle" type="button" aria-expanded="true" aria-controls="@productGroupId">
-                            <span class="sidebar-group-icon"><i class="fa-solid fa-burger"></i></span>
-                            <span class="sidebar-group-title">Sản phẩm &amp; danh mục</span>
-                            <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
-                        </button>
-                        <ul class="sidebar-submenu sidebar-menu" id="@productGroupId">
-                            @if (canManageCategories)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Categories" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-list-ul"></i></span>
-                                        <span>Danh mục</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageProducts)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Products" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-box"></i></span>
-                                        <span>Sản phẩm</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageProductExtras)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="ProductExtras" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-plus"></i></span>
-                                        <span>Sản phẩm bổ sung</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageRecipes)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Recipes" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-bowl-food"></i></span>
-                                        <span>Công thức sản phẩm</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageCombos)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Combos" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-layer-group"></i></span>
-                                        <span>Combo</span>
-                                    </a>
-                                </li>
-                            }
-                        </ul>
-                    </div>
+                    var productLinks = new[]
+                    {
+                        (CanAccess: canManageCategories, Action: "Index", Controller: "Categories", Label: "Danh mục"),
+                        (CanAccess: canManageProducts, Action: "Index", Controller: "Products", Label: "Sản phẩm"),
+                        (CanAccess: canManageProductExtras, Action: "Index", Controller: "ProductExtras", Label: "Sản phẩm bổ sung"),
+                        (CanAccess: canManageRecipes, Action: "Index", Controller: "Recipes", Label: "Công thức sản phẩm"),
+                        (CanAccess: canManageCombos, Action: "Index", Controller: "Combos", Label: "Combo")
+                    };
+                    if (productLinks.Any(link => link.CanAccess))
+                    {
+                        <div class="admin-nav-section">
+                            <span class="admin-nav-title">Sản phẩm &amp; danh mục</span>
+                            <ul class="admin-nav-list">
+                                @foreach (var link in productLinks.Where(l => l.CanAccess))
+                                {
+                                    <li class="admin-nav-item">
+                                        <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
+                                            @link.Label
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
                 }
-
                 @if (hasInventoryGroup)
                 {
-                    var inventoryGroupId = "sidebar-group-inventory";
-                    <div class="sidebar-group open">
-                        <button class="sidebar-group-toggle" type="button" aria-expanded="true" aria-controls="@inventoryGroupId">
-                            <span class="sidebar-group-icon"><i class="fa-solid fa-warehouse"></i></span>
-                            <span class="sidebar-group-title">Kho &amp; nguyên liệu</span>
-                            <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
-                        </button>
-                        <ul class="sidebar-submenu sidebar-menu" id="@inventoryGroupId">
-                            @if (canManageUnits)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Units" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-scale-balanced"></i></span>
-                                        <span>Đơn vị &amp; chuyển đổi</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageMaterials)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Materials" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-puzzle-piece"></i></span>
-                                        <span>Nguyên vật liệu</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageInventory)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Inventories" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-boxes-stacked"></i></span>
-                                        <span>Tồn kho</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageReceiving)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="ReceivingNotes" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-truck-loading"></i></span>
-                                        <span>Nhập kho</span>
-                                    </a>
-                                </li>
-                            }
-                        </ul>
-                    </div>
+                    var inventoryLinks = new[]
+                    {
+                        (CanAccess: canManageUnits, Action: "Index", Controller: "Units", Label: "Đơn vị &amp; chuyển đổi"),
+                        (CanAccess: canManageMaterials, Action: "Index", Controller: "Materials", Label: "Nguyên vật liệu"),
+                        (CanAccess: canManageInventory, Action: "Index", Controller: "Inventories", Label: "Tồn kho"),
+                        (CanAccess: canManageReceiving, Action: "Index", Controller: "ReceivingNotes", Label: "Nhập kho")
+                    };
+                    if (inventoryLinks.Any(link => link.CanAccess))
+                    {
+                        <div class="admin-nav-section">
+                            <span class="admin-nav-title">Kho &amp; nguyên liệu</span>
+                            <ul class="admin-nav-list">
+                                @foreach (var link in inventoryLinks.Where(l => l.CanAccess))
+                                {
+                                    <li class="admin-nav-item">
+                                        <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
+                                            @link.Label
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
                 }
-
                 @if (hasSalesGroup)
                 {
-                    var salesGroupId = "sidebar-group-sales";
-                    <div class="sidebar-group open">
-                        <button class="sidebar-group-toggle" type="button" aria-expanded="true" aria-controls="@salesGroupId">
-                            <span class="sidebar-group-icon"><i class="fa-solid fa-receipt"></i></span>
-                            <span class="sidebar-group-title">Bán hàng</span>
-                            <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
-                        </button>
-                        <ul class="sidebar-submenu sidebar-menu" id="@salesGroupId">
-                            <li class="sidebar-menu-item">
-                                <a asp-action="Manage" asp-controller="Order" class="sidebar-menu-link">
-                                    <span class="sidebar-icon-wrapper"><i class="fa-solid fa-receipt"></i></span>
-                                    <span>Đơn hàng</span>
+                    <div class="admin-nav-section">
+                        <span class="admin-nav-title">Bán hàng</span>
+                        <ul class="admin-nav-list">
+                            <li class="admin-nav-item">
+                                <a asp-action="Manage" asp-controller="Order" class="admin-nav-link">
+                                    Đơn hàng
                                 </a>
                             </li>
                         </ul>
                     </div>
                 }
-
                 @if (hasCustomerGroup)
                 {
-                    var customerGroupId = "sidebar-group-customers";
-                    <div class="sidebar-group open">
-                        <button class="sidebar-group-toggle" type="button" aria-expanded="true" aria-controls="@customerGroupId">
-                            <span class="sidebar-group-icon"><i class="fa-solid fa-gift"></i></span>
-                            <span class="sidebar-group-title">Khách hàng &amp; ưu đãi</span>
-                            <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
-                        </button>
-                        <ul class="sidebar-submenu sidebar-menu" id="@customerGroupId">
-                            @if (canManageVouchers)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Vouchers" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-ticket"></i></span>
-                                        <span>Mã giảm giá</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageRewards)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Rewards" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-trophy"></i></span>
-                                        <span>Vật phẩm đổi thưởng</span>
-                                    </a>
-                                </li>
-                            }
-                            @if (canManageCustomers)
-                            {
-                                <li class="sidebar-menu-item">
-                                    <a asp-action="Index" asp-controller="Customers" class="sidebar-menu-link">
-                                        <span class="sidebar-icon-wrapper"><i class="fa-solid fa-user-check"></i></span>
-                                        <span>Khách hàng</span>
-                                    </a>
-                                </li>
-                            }
-                        </ul>
-                    </div>
+                    var customerLinks = new[]
+                    {
+                        (CanAccess: canManageVouchers, Action: "Index", Controller: "Vouchers", Label: "Mã giảm giá"),
+                        (CanAccess: canManageRewards, Action: "Index", Controller: "Rewards", Label: "Vật phẩm đổi thưởng"),
+                        (CanAccess: canManageCustomers, Action: "Index", Controller: "Customers", Label: "Khách hàng")
+                    };
+                    if (customerLinks.Any(link => link.CanAccess))
+                    {
+                        <div class="admin-nav-section">
+                            <span class="admin-nav-title">Khách hàng &amp; ưu đãi</span>
+                            <ul class="admin-nav-list">
+                                @foreach (var link in customerLinks.Where(l => l.CanAccess))
+                                {
+                                    <li class="admin-nav-item">
+                                        <a asp-action="@link.Action" asp-controller="@link.Controller" class="admin-nav-link">
+                                            @link.Label
+                                        </a>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
                 }
-
                 @if (hasAdminGroup)
                 {
-                    var adminGroupId = "sidebar-group-admin";
-                    <div class="sidebar-group open">
-                        <button class="sidebar-group-toggle" type="button" aria-expanded="true" aria-controls="@adminGroupId">
-                            <span class="sidebar-group-icon"><i class="fa-solid fa-user-shield"></i></span>
-                            <span class="sidebar-group-title">Quản trị hệ thống</span>
-                            <span class="toggle-icon"><i class="fa-solid fa-chevron-down"></i></span>
-                        </button>
-                        <ul class="sidebar-submenu sidebar-menu" id="@adminGroupId">
-                            <li class="sidebar-menu-item">
-                                <a asp-action="Index" asp-controller="RoleManagement" class="sidebar-menu-link">
-                                    <span class="sidebar-icon-wrapper"><i class="fa-solid fa-user-shield"></i></span>
-                                    <span>Vai trò</span>
+                    <div class="admin-nav-section">
+                        <span class="admin-nav-title">Quản trị hệ thống</span>
+                        <ul class="admin-nav-list">
+                            <li class="admin-nav-item">
+                                <a asp-action="Index" asp-controller="RoleManagement" class="admin-nav-link">
+                                    Vai trò
                                 </a>
                             </li>
-                            <li class="sidebar-menu-item">
-                                <a asp-action="Index" asp-controller="UserManagement" class="sidebar-menu-link">
-                                    <span class="sidebar-icon-wrapper"><i class="fa-solid fa-users"></i></span>
-                                    <span>Người dùng</span>
+                            <li class="admin-nav-item">
+                                <a asp-action="Index" asp-controller="UserManagement" class="admin-nav-link">
+                                    Người dùng
                                 </a>
                             </li>
                         </ul>
                     </div>
                 }
             </nav>
-        </div>
-        <div class="sidebar-footer">
-            <div class="sidebar-footer-icon">
-                <i class="fa-solid fa-lightbulb"></i>
-            </div>
-            <div class="sidebar-footer-body">
-                <span class="sidebar-footer-title">Mẹo sử dụng</span>
-                <p>Nhập từ khóa vào ô tìm kiếm để lọc nhanh tính năng bạn cần.</p>
-            </div>
-        </div>
-    </aside>
+        </aside>
 
-    <div class="overlay" id="overlay"></div>
+        <div class="overlay" id="overlay"></div>
 
-    <div class="main-content">
-        <header class="top-header">
-            <button class="header-toggle" id="menuToggle">
-                <i class="fas fa-bars"></i>
-            </button>
-
-            <div class="header-search">
-            </div>
-
-            <div class="header-right">
-                @if (SignInManager.IsSignedIn(User))
-                {
-                    <div class="user-profile-container">
-                        <div class="user-profile" id="userProfileToggle">
-                            <div class="user-avatar">@userInitials</div>
-                            <span class="user-name">@userDisplayName</span>
-                            <i class="fas fa-chevron-down" style="font-size: 0.7rem; color: #858796; margin-left: 5px;"></i>
+        <div class="main-content">
+            <header class="top-header">
+                <button class="header-toggle" id="menuToggle" aria-label="Mở menu">
+                    <i class="fas fa-bars"></i>
+                </button>
+                <div class="header-spacer"></div>
+                <div class="header-right">
+                    @if (SignInManager.IsSignedIn(User))
+                    {
+                        <div class="user-profile-container">
+                            <button class="user-profile" id="userProfileToggle" type="button">
+                                <span class="user-avatar">@userInitials</span>
+                                <span class="user-name">@userDisplayName</span>
+                                <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                            </button>
+                            <div class="dropdown-menu-user" id="userDropdown">
+                                <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">Hồ sơ</a>
+                                <a asp-action="Index" asp-controller="Home" class="dropdown-item">Trang chủ</a>
+                                <div class="dropdown-divider"></div>
+                                <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
+                                    <button type="submit" class="dropdown-item">Đăng xuất</button>
+                                </form>
+                            </div>
                         </div>
-                        <div class="dropdown-menu-user" id="userDropdown">
-                            <a class="dropdown-item" asp-area="Identity" asp-page="/Account/Manage/Index">
-                                <i class="fas fa-user fa-sm fa-fw"></i>
-                                Hồ sơ
-                            </a>
-                            <a asp-action="Index" asp-controller="Home" class="dropdown-item">
-                                <i class="fas fa-cogs fa-sm fa-fw"></i>
-                                Trang chủ
-                            </a>
-                            <div class="dropdown-divider"></div>
-                            <form class="form-inline" asp-area="Identity" asp-page="/Account/Logout" asp-route-returnUrl="@Url.Action("Index", "Home", new { area = "" })">
-                                <button type="submit" class="dropdown-item">
-                                    <i class="fas fa-sign-out-alt fa-sm fa-fw"></i>
-                                    Đăng xuất
-                                </button>
-                            </form>
-                        </div>
-                    </div>
-                }
+                    }
+                </div>
+            </header>
+
+            <div class="content-wrapper">
+                <main role="main">
+                    @RenderBody()
+                </main>
             </div>
-        </header>
-
-        <div class="content-wrapper">
-            @{ var canViewRevenue = User.HasPermission("GetOrderAll"); }
-@*             @if (canViewRevenue)
-            {
-                <section class="dashboard-stats mb-4">
-                    @await Component.InvokeAsync("AdminRevenue")
-                </section>
-            } *@
-
-            @*             <div class="page-header">
-                <h1 class="page-title">Dashboard</h1>
-                <nav aria-label="breadcrumb">
-                    <ol class="breadcrumb">
-                        <li class="breadcrumb-item"><a href="#">Trang chủ</a></li>
-                        <li class="breadcrumb-item active">Dashboard</li>
-                    </ol>
-                </nav>
-            </div> *@
-
-            <main role="main">
-                @RenderBody()
-            </main>
         </div>
-
     </div>
 
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="~/js/admin-bulk-actions.js"></script>
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const menuToggle = document.getElementById('menuToggle');
+        document.addEventListener('DOMContentLoaded', () => {
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('overlay');
-            const sidebarClose = document.getElementById('sidebarClose');
-
-            const toggleSidebar = () => {
-                sidebar?.classList.toggle('active');
-                overlay?.classList.toggle('active');
-            };
-
-            const closeSidebar = () => {
-                sidebar?.classList.remove('active');
-                overlay?.classList.remove('active');
-            };
-
-            menuToggle?.addEventListener('click', toggleSidebar);
-            sidebarClose?.addEventListener('click', closeSidebar);
-            overlay?.addEventListener('click', closeSidebar);
-
-            window.addEventListener('keyup', event => {
-                if (event.key === 'Escape') {
-                    closeSidebar();
-                }
-            });
-
-            const menuLinks = document.querySelectorAll('.sidebar-menu-link');
+            const menuToggle = document.getElementById('menuToggle');
+            const adminNavLinks = document.querySelectorAll('.admin-nav-link');
             const currentPath = window.location.pathname.toLowerCase();
-            let bestMatch = null;
 
-            menuLinks.forEach(link => {
-                const linkHref = link.getAttribute('href');
-                if (!linkHref) return;
-
-                const linkPath = linkHref.toLowerCase();
-
-                if (currentPath.startsWith(linkPath)) {
-                    if (linkPath === '/' && currentPath !== '/') {
-                        return;
-                    }
-
-                    const bestMatchHref = bestMatch ? bestMatch.getAttribute('href').toLowerCase() : '';
-                    if (linkPath.length > bestMatchHref.length) {
-                        bestMatch = link;
-                    }
-                }
-            });
-
-            if (bestMatch) {
-                bestMatch.classList.add('active');
-
-                const activeGroup = bestMatch.closest('.sidebar-group');
-                if (activeGroup) {
-                    activeGroup.classList.add('open');
-                    const activeToggle = activeGroup.querySelector('.sidebar-group-toggle');
-                    activeToggle?.setAttribute('aria-expanded', 'true');
-                    activeGroup.dataset.initialOpen = 'true';
-                }
-            }
-
-            const groupToggles = document.querySelectorAll('.sidebar-group-toggle');
-            const sidebarGroups = document.querySelectorAll('.sidebar-group');
-
-            const updateGroupState = (group, shouldOpen) => {
-                if (!group) {
+            adminNavLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (!href) {
                     return;
                 }
 
-                if (shouldOpen) {
-                    group.classList.add('open');
-                } else {
-                    group.classList.remove('open');
+                const linkPath = href.toLowerCase();
+                if (linkPath !== '/' && currentPath.startsWith(linkPath)) {
+                    link.classList.add('active');
+                } else if (linkPath === '/' && currentPath === '/') {
+                    link.classList.add('active');
+                }
+            });
+
+            const toggleSidebar = (shouldShow) => {
+                if (!sidebar) {
+                    return;
                 }
 
-                const toggle = group.querySelector('.sidebar-group-toggle');
-                toggle?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+                if (shouldShow) {
+                    sidebar.classList.add('open');
+                    overlay?.classList.add('show');
+                } else {
+                    sidebar.classList.remove('open');
+                    overlay?.classList.remove('show');
+                }
             };
 
-            sidebarGroups.forEach(group => {
-                if (!group.dataset.initialOpen) {
-                    group.dataset.initialOpen = group.classList.contains('open') ? 'true' : 'false';
-                }
+            menuToggle?.addEventListener('click', () => {
+                const isOpen = sidebar?.classList.contains('open');
+                toggleSidebar(!isOpen);
             });
 
-            groupToggles.forEach(toggle => {
-                const group = toggle.closest('.sidebar-group');
-                if (group && !group.classList.contains('open')) {
-                    toggle.setAttribute('aria-expanded', 'false');
-                }
-
-                toggle.addEventListener('click', () => {
-                    const currentGroup = toggle.closest('.sidebar-group');
-                    if (!currentGroup) {
-                        return;
-                    }
-
-                    const isOpen = currentGroup.classList.toggle('open');
-                    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
-                    currentGroup.dataset.initialOpen = isOpen ? 'true' : 'false';
-                });
-            });
-
-            const sidebarSearch = document.getElementById('sidebarSearch');
-
-            sidebarSearch?.addEventListener('input', event => {
-                const query = event.target.value.toLowerCase().trim();
-
-                sidebarGroups.forEach(group => {
-                    const menuItems = group.querySelectorAll('.sidebar-menu-item');
-                    let hasMatch = false;
-
-                    menuItems.forEach(item => {
-                        const link = item.querySelector('.sidebar-menu-link');
-                        const text = (link?.textContent || '').toLowerCase().trim();
-
-                        if (!query || text.includes(query)) {
-                            item.style.display = '';
-                            hasMatch = hasMatch || (!!query ? text.includes(query) : true);
-                        } else {
-                            item.style.display = 'none';
-                        }
-                    });
-
-                    if (query) {
-                        group.style.display = hasMatch ? '' : 'none';
-                        updateGroupState(group, hasMatch);
-                    } else {
-                        group.style.display = '';
-                        updateGroupState(group, group.dataset.initialOpen === 'true');
-                    }
-                });
-            });
+            overlay?.addEventListener('click', () => toggleSidebar(false));
 
             const userProfileToggle = document.getElementById('userProfileToggle');
             const userDropdown = document.getElementById('userDropdown');
 
-            if (userProfileToggle) {
-                userProfileToggle.addEventListener('click', function (event) {
-                    event.stopPropagation();
-                    userDropdown.classList.toggle('show');
-                });
-            }
+            userProfileToggle?.addEventListener('click', event => {
+                event.stopPropagation();
+                userDropdown?.classList.toggle('show');
+            });
 
-            window.addEventListener('click', function (event) {
-                if (userDropdown && userDropdown.classList.contains('show')) {
-                    if (!userProfileToggle.contains(event.target)) {
-                        userDropdown.classList.remove('show');
-                    }
+            window.addEventListener('click', event => {
+                if (userDropdown?.classList.contains('show') && !userProfileToggle?.contains(event.target)) {
+                    userDropdown.classList.remove('show');
                 }
             });
         });
@@ -684,4 +355,3 @@
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>
-
