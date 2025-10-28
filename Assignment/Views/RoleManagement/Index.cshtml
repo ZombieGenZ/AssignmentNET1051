@@ -94,48 +94,46 @@
 
 <div class="modal fade" id="roleModal" tabindex="-1" aria-labelledby="roleModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
-        <div class="modal-content">
+        <form id="roleForm" class="modal-content" novalidate>
             <div class="modal-header">
                 <h5 class="modal-title" id="roleModalLabel">Thêm vai trò</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form id="roleForm" novalidate>
-                <div class="modal-body">
-                    <div id="roleFormErrors" class="alert alert-danger d-none" role="alert"></div>
-                    <div class="mb-3">
-                        <label for="roleName" class="form-label">Tên vai trò<span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="roleName" maxlength="100" required />
-                    </div>
-                    <div class="permissions-container">
-                        <h6 class="text-primary mb-3"><i class="fas fa-key me-2"></i>Quyền hạn</h6>
-                        @foreach (var group in permissionsByGroup)
-                        {
-                            <div class="mb-3">
-                                <div class="fw-semibold mb-2">@group.Group</div>
-                                <div class="row g-2">
-                                    @foreach (var permission in group.Permissions)
-                                    {
-                                        var checkboxId = $"permission_{permission.Key.Replace(" ", "_")}";
-                                        <div class="col-12 col-sm-6 col-lg-4" data-permission-item>
-                                            <div class="form-check">
-                                                <input class="form-check-input role-permission" type="checkbox" value="@permission.Key" id="@checkboxId" data-permission-key="@permission.Key" />
-                                                <label class="form-check-label" for="@checkboxId">
-                                                    @permission.DisplayName
-                                                </label>
-                                            </div>
+            <div class="modal-body">
+                <div id="roleFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                <div class="mb-3">
+                    <label for="roleName" class="form-label">Tên vai trò<span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" id="roleName" maxlength="100" required />
+                </div>
+                <div class="permissions-container">
+                    <h6 class="text-primary mb-3"><i class="fas fa-key me-2"></i>Quyền hạn</h6>
+                    @foreach (var group in permissionsByGroup)
+                    {
+                        <div class="mb-3">
+                            <div class="fw-semibold mb-2">@group.Group</div>
+                            <div class="row g-2">
+                                @foreach (var permission in group.Permissions)
+                                {
+                                    var checkboxId = $"permission_{permission.Key.Replace(" ", "_")}";
+                                    <div class="col-12 col-sm-6 col-lg-4" data-permission-item>
+                                        <div class="form-check">
+                                            <input class="form-check-input role-permission" type="checkbox" value="@permission.Key" id="@checkboxId" data-permission-key="@permission.Key" />
+                                            <label class="form-check-label" for="@checkboxId">
+                                                @permission.DisplayName
+                                            </label>
                                         </div>
-                                    }
-                                </div>
+                                    </div>
+                                }
                             </div>
-                        }
-                    </div>
+                        </div>
+                    }
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
-                    <button type="submit" class="btn btn-primary" id="roleSubmitBtn">Lưu</button>
-                </div>
-            </form>
-        </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                <button type="submit" class="btn btn-primary" id="roleSubmitBtn">Lưu</button>
+            </div>
+        </form>
     </div>
 </div>
 
