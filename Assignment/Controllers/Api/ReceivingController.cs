@@ -683,6 +683,8 @@ namespace Assignment.Controllers.Api
             public string? SupplierCode { get; set; }
             public string? SupplierName { get; set; }
             public long? WarehouseId { get; set; }
+            public string? WarehouseCode { get; set; }
+            public string? WarehouseName { get; set; }
             public ReceivingNoteStatus Status { get; set; }
             public bool IsStockApplied { get; set; }
             public DateTime? CompletedAt { get; set; }
