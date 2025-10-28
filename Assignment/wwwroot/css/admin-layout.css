@@ -386,6 +386,10 @@ body {
     -webkit-overflow-scrolling: touch;
 }
 
+body.modal-open .content-wrapper {
+    overflow: hidden;
+}
+
 .content-wrapper > main {
     min-height: 100%;
 }
