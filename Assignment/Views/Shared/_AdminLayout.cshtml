@@ -78,6 +78,7 @@
         var canManageUnits = User.HasAnyPermission("GetUnitAll", "GetUnit");
         var canManageMaterials = User.HasAnyPermission("GetMaterialAll", "GetMaterial");
         var canManageInventory = User.HasAnyPermission("ViewInventoryAll", "ViewInventory");
+        var canManageSuppliers = User.HasAnyPermission("GetSupplierAll", "GetSupplier");
         var canManageReceiving = User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving");
         var canManageRecipes = User.HasAnyPermission("GetRecipeAll", "GetRecipe");
         var canManageCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
@@ -88,7 +89,7 @@
         var isSuperAdmin = User.HasPermission("superadmin");
 
         var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageRecipes || canManageCombos;
-        var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving;
+        var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving || canManageSuppliers;
         var hasSalesGroup = canManageOrders;
         var hasCustomerGroup = canManageVouchers || canManageRewards || canManageCustomers;
         var hasAdminGroup = isSuperAdmin;
@@ -189,6 +190,7 @@
                 {
                     var inventoryLinks = new[]
                     {
+                                (CanAccess: canManageSuppliers, Action: "Index", Controller: "Suppliers", Label: "Nhà cung cấp", Icon: "fa-handshake"),
                                 (CanAccess: canManageUnits, Action: "Index", Controller: "Units", Label: "Đơn vị &amp; chuyển đổi", Icon: "fa-balance-scale"),
                                 (CanAccess: canManageMaterials, Action: "Index", Controller: "Materials", Label: "Nguyên vật liệu", Icon: "fa-cubes"),
                                 (CanAccess: canManageInventory, Action: "Index", Controller: "Inventories", Label: "Tồn kho", Icon: "fa-warehouse"),

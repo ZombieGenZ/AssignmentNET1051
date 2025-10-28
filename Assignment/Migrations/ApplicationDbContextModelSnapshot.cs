@@ -1703,6 +1703,67 @@ namespace Assignment.Migrations
                     b.ToTable("ReceivingDetails");
                 });
 
+            modelBuilder.Entity("Assignment.Models.Supplier", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("ContactName")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("CreateBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("IsDeleted")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Suppliers");
+                });
+
             modelBuilder.Entity("Assignment.Models.ReceivingNote", b =>
                 {
                     b.Property<long>("Id")
@@ -1740,9 +1801,8 @@ namespace Assignment.Migrations
                     b.Property<int>("Status")
                         .HasColumnType("int");
 
-                    b.Property<string>("SupplierId")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
+                    b.Property<long?>("SupplierId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("SupplierName")
                         .HasMaxLength(255)
@@ -1757,6 +1817,8 @@ namespace Assignment.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("NoteNumber");
+
+                    b.HasIndex("SupplierId");
 
                     b.ToTable("ReceivingNotes");
                 });
@@ -2465,7 +2527,14 @@ namespace Assignment.Migrations
 
             modelBuilder.Entity("Assignment.Models.ReceivingNote", b =>
                 {
+                    b.HasOne("Assignment.Models.Supplier", "Supplier")
+                        .WithMany()
+                        .HasForeignKey("SupplierId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Details");
+
+                    b.Navigation("Supplier");
                 });
 
             modelBuilder.Entity("Assignment.Models.Cart", b =>

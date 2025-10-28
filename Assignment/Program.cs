@@ -218,6 +218,37 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
+    options.AddPolicy("GetSupplierPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("GetSupplierAll") ||
+            (ctx.User.HasPermission("GetSupplier") &&
+             ctx.Resource is Supplier supplier &&
+             supplier.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("CreateSupplierPolicy", policy =>
+        policy.RequireClaim("CreateSupplier")
+    );
+
+    options.AddPolicy("UpdateSupplierPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("UpdateSupplierAll") ||
+            (ctx.User.HasPermission("UpdateSupplier") &&
+             ctx.Resource is Supplier supplier &&
+             supplier.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
+    options.AddPolicy("DeleteSupplierPolicy", policy =>
+        policy.RequireAssertion(ctx =>
+            ctx.User.HasPermission("DeleteSupplierAll") ||
+            (ctx.User.HasPermission("DeleteSupplier") &&
+             ctx.Resource is Supplier supplier &&
+             supplier.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
+        )
+    );
+
     options.AddPolicy("CreateReceivingPolicy", policy =>
         policy.RequireClaim("CreateReceiving")
     );
@@ -813,6 +844,29 @@ BEGIN
         FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
 END;
 
+IF OBJECT_ID(N'dbo.Suppliers', N'U') IS NULL
+BEGIN
+    CREATE TABLE [dbo].[Suppliers]
+    (
+        [Id] BIGINT IDENTITY(1,1) NOT NULL,
+        [Code] NVARCHAR(100) NOT NULL,
+        [Name] NVARCHAR(255) NOT NULL,
+        [ContactName] NVARCHAR(255) NULL,
+        [PhoneNumber] NVARCHAR(50) NULL,
+        [Email] NVARCHAR(255) NULL,
+        [Address] NVARCHAR(500) NULL,
+        [Notes] NVARCHAR(1000) NULL,
+        [CreateBy] NVARCHAR(MAX) NULL,
+        [CreatedAt] DATETIME2 NOT NULL,
+        [UpdatedAt] DATETIME2 NULL,
+        [IsDeleted] BIT NOT NULL,
+        [DeletedAt] DATETIME2 NULL,
+        CONSTRAINT [PK_Suppliers] PRIMARY KEY CLUSTERED ([Id] ASC)
+    );
+
+    CREATE UNIQUE INDEX [IX_Suppliers_Code] ON [dbo].[Suppliers]([Code]);
+END;
+
 IF OBJECT_ID(N'dbo.ReceivingNotes', N'U') IS NULL
 BEGIN
     CREATE TABLE [dbo].[ReceivingNotes]
@@ -820,7 +874,7 @@ BEGIN
         [Id] BIGINT IDENTITY(1,1) NOT NULL,
         [NoteNumber] NVARCHAR(100) NOT NULL,
         [Date] DATE NOT NULL,
-        [SupplierId] NVARCHAR(100) NULL,
+        [SupplierId] BIGINT NULL,
         [SupplierName] NVARCHAR(255) NULL,
         [WarehouseId] BIGINT NULL,
         [Status] INT NOT NULL,
@@ -835,6 +889,11 @@ BEGIN
     );
 
     CREATE INDEX [IX_ReceivingNotes_NoteNumber] ON [dbo].[ReceivingNotes]([NoteNumber]);
+    CREATE INDEX [IX_ReceivingNotes_SupplierId] ON [dbo].[ReceivingNotes]([SupplierId]);
+
+    ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
+        ADD CONSTRAINT [FK_ReceivingNotes_Suppliers_SupplierId]
+        FOREIGN KEY([SupplierId]) REFERENCES [dbo].[Suppliers]([Id]) ON DELETE SET NULL;
 END;
 
 IF OBJECT_ID(N'dbo.ReceivingDetails', N'U') IS NULL
