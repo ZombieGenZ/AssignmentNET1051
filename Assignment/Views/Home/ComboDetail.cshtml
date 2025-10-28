@@ -317,44 +317,113 @@
         margin-top: 3rem;
     }
 
-    .extra-card {
-        border: 1px solid #e2e8f0;
-        border-radius: 1rem;
+    .combo-extra-selection {
+        background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(14, 116, 144, 0.08));
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        border-radius: 20px;
         padding: 1.5rem;
-        height: 100%;
-        background-color: #ffffff;
-        transition: box-shadow 0.2s ease, transform 0.2s ease;
+        box-shadow: 0 24px 48px rgba(15, 23, 42, 0.06);
     }
 
-        .extra-card:hover {
-            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
-            transform: translateY(-4px);
+    .combo-extra-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .combo-extra-heading {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 0.35rem;
+    }
+
+    .combo-extra-subtitle {
+        font-size: 0.9rem;
+    }
+
+    .combo-extra-scroll {
+        display: flex;
+        gap: 1.25rem;
+        overflow-x: auto;
+        padding-bottom: 0.5rem;
+        scrollbar-width: thin;
+    }
+
+        .combo-extra-scroll::-webkit-scrollbar {
+            height: 6px;
         }
 
-    .extra-card-image {
+        .combo-extra-scroll::-webkit-scrollbar-thumb {
+            background: rgba(148, 163, 184, 0.45);
+            border-radius: 999px;
+        }
+
+    .combo-extra-card {
+        min-width: 240px;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(226, 232, 240, 0.6);
+        border-radius: 18px;
+        overflow: hidden;
+        box-shadow: 0 16px 32px rgba(15, 23, 42, 0.08);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        display: flex;
+        flex-direction: column;
+    }
+
+        .combo-extra-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 24px 48px rgba(15, 23, 42, 0.12);
+        }
+
+    .combo-extra-media img {
         width: 100%;
-        height: 160px;
-        border-radius: 0.75rem;
+        height: 140px;
         object-fit: cover;
-        margin-bottom: 1rem;
-        background-color: #f1f5f9;
+        display: block;
     }
 
-    .extra-price {
-        font-weight: 600;
+    .combo-extra-body {
+        padding: 1rem 1.1rem 1.25rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
+
+    .combo-extra-name {
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    .combo-extra-price {
+        font-weight: 700;
         color: #ef4444;
-        font-size: 1.05rem;
     }
 
-    .extra-old-price {
-        text-decoration: line-through;
+    .combo-extra-old-price {
+        font-size: 0.85rem;
         color: #94a3b8;
-        margin-right: 0.5rem;
+        text-decoration: line-through;
     }
 
-    .extra-badges .badge {
-        font-weight: 500;
-        border-radius: 999px;
+    .combo-extra-description {
+        font-size: 0.9rem;
+        min-height: 54px;
+    }
+
+    .combo-extra-meta {
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+        color: #475569;
+    }
+
+    .combo-extra-badges {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
     }
 
     .description-section {
@@ -1312,6 +1381,56 @@
                             }
                         </div>
 
+                        @if (Model.ApplicableExtras?.Any() == true)
+                        {
+                            <div class="combo-extra-selection mt-4">
+                                <div class="combo-extra-header">
+                                    <div>
+                                        <h3 class="combo-extra-heading"><i class="fas fa-plus-circle me-2 text-primary"></i>Sản phẩm bổ sung (tùy chọn)</h3>
+                                        <p class="combo-extra-subtitle text-muted mb-0">Chọn thêm topping để nâng cấp combo của bạn.</p>
+                                    </div>
+                                </div>
+                                <div class="combo-extra-scroll">
+                                    @foreach (var extra in Model.ApplicableExtras)
+                                    {
+                                        var image = string.IsNullOrWhiteSpace(extra.ImageUrl) ? comboImageUrl : extra.ImageUrl;
+                                        <div class="combo-extra-card">
+                                            <div class="combo-extra-media">
+                                                <img src="@image" alt="@extra.Name" onerror="this.onerror=null;this.src='@defaultImageUrl';" />
+                                            </div>
+                                            <div class="combo-extra-body">
+                                                <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                                    <h6 class="combo-extra-name mb-0">@extra.Name</h6>
+                                                    <div class="text-end">
+                                                        @if (extra.DiscountType != Assignment.Enums.DiscountType.None && extra.FinalPrice != extra.Price)
+                                                        {
+                                                            <div class="combo-extra-old-price">@extra.Price.ToString("N0") ₫</div>
+                                                        }
+                                                        <div class="combo-extra-price">@extra.FinalPrice.ToString("N0") ₫</div>
+                                                    </div>
+                                                </div>
+                                                <p class="combo-extra-description text-muted mb-3">@extra.Ingredients</p>
+                                                <div class="combo-extra-meta">
+                                                    <span><i class="fas fa-box-open me-1"></i>@(extra.Stock > 0 ? $"Còn {extra.Stock}" : "Không giới hạn")</span>
+                                                    <span><i class="fas fa-fire me-1"></i>@extra.Calories kcal</span>
+                                                </div>
+                                                <div class="combo-extra-badges">
+                                                    @if (extra.IsSpicy)
+                                                    {
+                                                        <span class="badge bg-danger-subtle text-danger">Món cay</span>
+                                                    }
+                                                    @if (extra.IsVegetarian)
+                                                    {
+                                                        <span class="badge bg-success-subtle text-success">Món chay</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            </div>
+                        }
+
                         <div class="detail-actions">
                             <div class="quantity-selector">
                                 <button type="button" class="quantity-btn" onclick="decreaseQuantity()">-</button>
@@ -1397,46 +1516,6 @@
                     </div>
                 }
             </div>
-
-            @if (Model.ApplicableExtras.Any())
-            {
-                <div class="extra-section">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h3 class="mb-0"><i class="fas fa-plus-circle text-primary me-2"></i>Sản phẩm bổ sung đề xuất</h3>
-                        <span class="text-muted">Chọn thêm topping để combo của bạn hoàn hảo hơn</span>
-                    </div>
-                    <div class="row g-4">
-                        @foreach (var extra in Model.ApplicableExtras)
-                        {
-                            var image = string.IsNullOrWhiteSpace(extra.ImageUrl) ? comboImageUrl : extra.ImageUrl;
-                            <div class="col-md-4">
-                                <div class="extra-card h-100">
-                                    <img src="@image" alt="@extra.Name" class="extra-card-image" />
-                                    <h5 class="fw-semibold text-primary">@extra.Name</h5>
-                                    <div class="mb-2">
-                                        @if (extra.DiscountType != Assignment.Enums.DiscountType.None && extra.FinalPrice != extra.Price)
-                                        {
-                                            <span class="extra-old-price">@extra.Price.ToString("N0") ₫</span>
-                                        }
-                                        <span class="extra-price">@extra.FinalPrice.ToString("N0") ₫</span>
-                                    </div>
-                                    <p class="text-muted small mb-3">@extra.Ingredients</p>
-                                    <div class="extra-badges d-flex flex-wrap gap-2">
-                                        @if (extra.IsSpicy)
-                                        {
-                                            <span class="badge bg-danger-subtle text-danger">Món cay</span>
-                                        }
-                                        @if (extra.IsVegetarian)
-                                        {
-                                            <span class="badge bg-success-subtle text-success">Món chay</span>
-                                        }
-                                    </div>
-                                </div>
-                            </div>
-                        }
-                    </div>
-                </div>
-            }
 
             <div class="ratings-section" id="ratings-section">
                 @{
@@ -1621,6 +1700,7 @@
                         </p>
                     </div>
                 }
+            </div>
             </div>
         </div>
     </div>
