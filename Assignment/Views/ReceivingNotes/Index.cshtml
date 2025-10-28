@@ -1,8 +1,43 @@
-@{
+@{ 
     ViewData["Title"] = "Quản lý phiếu nhập kho";
     Layout = "_AdminLayout";
     var canView = ViewData["CanView"] as bool? ?? false;
     var canCreate = ViewData["CanCreate"] as bool? ?? false;
+}
+
+@section Styles {
+    <style>
+        #receivingCreateModal .modal-dialog,
+        #receivingDetailModal .modal-dialog {
+            max-height: calc(100vh - var(--bs-modal-margin) * 2);
+        }
+
+        #receivingCreateModal .modal-content,
+        #receivingDetailModal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: 100%;
+        }
+
+        #receivingCreateModal form {
+            display: flex;
+            flex-direction: column;
+            flex: 1 1 auto;
+            min-height: 0;
+        }
+
+        #receivingCreateModal .modal-body,
+        #receivingDetailModal .modal-body {
+            flex: 1 1 auto;
+            overflow-y: auto;
+            min-height: 0;
+        }
+
+        #receivingCreateModal .modal-footer,
+        #receivingDetailModal .modal-footer {
+            flex-shrink: 0;
+        }
+    </style>
 }
 
 <div class="container-fluid pt-4 px-4" id="receiving-app" data-can-view="@(canView ? "true" : "false")" data-can-create="@(canCreate ? "true" : "false")">
