@@ -13,8 +13,9 @@ namespace Assignment.Models
         [Column(TypeName = "date")]
         public DateTime Date { get; set; } = DateTime.UtcNow.Date;
 
-        [StringLength(100)]
-        public string? SupplierId { get; set; }
+        public long? SupplierId { get; set; }
+
+        public Supplier? Supplier { get; set; }
 
         [StringLength(255)]
         public string? SupplierName { get; set; }

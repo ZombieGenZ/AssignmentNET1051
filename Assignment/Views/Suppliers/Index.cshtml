@@ -1,0 +1,595 @@
+@{
+    ViewData["Title"] = "Quản lý nhà cung cấp";
+    Layout = "_AdminLayout";
+
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+    var canUpdate = ViewData["CanUpdate"] as bool? ?? false;
+    var canDelete = ViewData["CanDelete"] as bool? ?? false;
+    var canView = ViewData["CanView"] as bool? ?? false;
+}
+
+<div class="container-fluid pt-4 px-4" id="supplier-app"
+     data-can-create="@(canCreate ? "true" : "false")"
+     data-can-update="@(canUpdate ? "true" : "false")"
+     data-can-delete="@(canDelete ? "true" : "false")"
+     data-can-view="@(canView ? "true" : "false")">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h4 class="mb-0 text-primary">
+                    <i class="fas fa-people-carry-box me-2"></i>@ViewData["Title"]
+                </h4>
+                <p class="mb-0 text-muted small">Quản lý danh sách nhà cung cấp phục vụ nhập kho.</p>
+            </div>
+            <div class="d-flex flex-column flex-md-row align-items-md-center gap-2 ms-md-auto">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="search" class="form-control" id="supplierSearch" placeholder="Tìm kiếm theo mã, tên, liên hệ" />
+                </div>
+                <button type="button" class="btn btn-outline-secondary" id="supplierRefreshBtn">
+                    <i class="fas fa-rotate-right me-1"></i>Tải lại
+                </button>
+                @if (canCreate)
+                {
+                    <button type="button" class="btn btn-primary" id="supplierCreateBtn">
+                        <i class="fas fa-plus me-1"></i>Thêm nhà cung cấp
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="supplierAlert"></div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="supplierTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 8%;">Mã</th>
+                            <th style="width: 18%;">Tên nhà cung cấp</th>
+                            <th style="width: 15%;">Người liên hệ</th>
+                            <th style="width: 12%;">Điện thoại</th>
+                            <th style="width: 18%;">Email</th>
+                            <th>Địa chỉ</th>
+                            <th style="width: 18%;">Ghi chú</th>
+                            @if (canUpdate || canDelete)
+                            {
+                                <th style="width: 110px;" class="text-center">Hành động</th>
+                            }
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="@(canUpdate || canDelete ? 8 : 7)" class="text-center py-4 text-muted">@(canView ? "Đang tải danh sách nhà cung cấp..." : "Bạn không có quyền xem danh sách nhà cung cấp.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form id="supplierAntiForgeryForm" class="d-none">
+    @Html.AntiForgeryToken()
+</form>
+
+<div class="modal fade" id="supplierModal" tabindex="-1" aria-labelledby="supplierModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="supplierModalLabel">Thêm nhà cung cấp</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <form id="supplierForm" novalidate>
+                <div class="modal-body">
+                    <div id="supplierFormErrors" class="alert alert-danger d-none" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="supplierCode" class="form-label">Mã nhà cung cấp<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="supplierCode" maxlength="100" required />
+                        </div>
+                        <div class="col-md-8">
+                            <label for="supplierName" class="form-label">Tên nhà cung cấp<span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="supplierName" maxlength="255" required />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="supplierContact" class="form-label">Người liên hệ</label>
+                            <input type="text" class="form-control" id="supplierContact" maxlength="255" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="supplierPhone" class="form-label">Điện thoại</label>
+                            <input type="tel" class="form-control" id="supplierPhone" maxlength="50" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="supplierEmail" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="supplierEmail" maxlength="255" />
+                        </div>
+                        <div class="col-md-6">
+                            <label for="supplierAddress" class="form-label">Địa chỉ</label>
+                            <input type="text" class="form-control" id="supplierAddress" maxlength="500" />
+                        </div>
+                        <div class="col-12">
+                            <label for="supplierNotes" class="form-label">Ghi chú</label>
+                            <textarea class="form-control" id="supplierNotes" rows="3" maxlength="1000"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary" id="supplierSubmitBtn">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="supplierDeleteModal" tabindex="-1" aria-labelledby="supplierDeleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="supplierDeleteModalLabel">Xóa nhà cung cấp</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Bạn có chắc chắn muốn xóa nhà cung cấp <strong id="supplierDeleteName"></strong>? Hành động này không thể hoàn tác.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Hủy</button>
+                <button type="button" class="btn btn-danger" id="supplierDeleteConfirmBtn">Xóa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('supplier-app');
+            if (!app) {
+                return;
+            }
+
+            const canView = app.dataset.canView === 'true';
+            const canCreate = app.dataset.canCreate === 'true';
+            const canUpdate = app.dataset.canUpdate === 'true';
+            const canDelete = app.dataset.canDelete === 'true';
+
+            const searchInput = document.getElementById('supplierSearch');
+            const refreshBtn = document.getElementById('supplierRefreshBtn');
+            const createBtn = document.getElementById('supplierCreateBtn');
+            const tableBody = document.querySelector('#supplierTable tbody');
+            const alertPlaceholder = document.getElementById('supplierAlert');
+            const antiForgeryTokenInput = document.querySelector('#supplierAntiForgeryForm input[name="__RequestVerificationToken"]');
+
+            const modalEl = document.getElementById('supplierModal');
+            const modal = modalEl ? new bootstrap.Modal(modalEl) : null;
+            const modalLabel = document.getElementById('supplierModalLabel');
+            const form = document.getElementById('supplierForm');
+            const formErrors = document.getElementById('supplierFormErrors');
+            const submitBtn = document.getElementById('supplierSubmitBtn');
+            const codeInput = document.getElementById('supplierCode');
+            const nameInput = document.getElementById('supplierName');
+            const contactInput = document.getElementById('supplierContact');
+            const phoneInput = document.getElementById('supplierPhone');
+            const emailInput = document.getElementById('supplierEmail');
+            const addressInput = document.getElementById('supplierAddress');
+            const notesInput = document.getElementById('supplierNotes');
+
+            const deleteModalEl = document.getElementById('supplierDeleteModal');
+            const deleteModal = deleteModalEl ? new bootstrap.Modal(deleteModalEl) : null;
+            const deleteNameLabel = document.getElementById('supplierDeleteName');
+            const deleteConfirmBtn = document.getElementById('supplierDeleteConfirmBtn');
+
+            let suppliers = [];
+            let filteredSuppliers = [];
+            let editingId = null;
+
+            function showAlert(message, type = 'success') {
+                if (!alertPlaceholder) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    <div>${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>`;
+
+                alertPlaceholder.appendChild(wrapper);
+            }
+
+            function setLoading(message) {
+                if (!tableBody) {
+                    return;
+                }
+
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="${canUpdate || canDelete ? 8 : 7}" class="text-center py-4 text-muted">${message}</td>
+                    </tr>`;
+            }
+
+            function clearFormErrors() {
+                if (!formErrors) {
+                    return;
+                }
+
+                formErrors.classList.add('d-none');
+                formErrors.innerHTML = '';
+            }
+
+            function showFormErrors(errors) {
+                if (!formErrors) {
+                    return;
+                }
+
+                const messages = Array.isArray(errors) ? errors : [errors];
+                formErrors.innerHTML = messages.filter(Boolean).map(message => `<div>${message}</div>`).join('');
+                formErrors.classList.toggle('d-none', formErrors.innerHTML.trim().length === 0);
+            }
+
+            function resetForm() {
+                editingId = null;
+                form?.reset();
+                clearFormErrors();
+                [codeInput, nameInput, contactInput, phoneInput, emailInput, addressInput, notesInput].forEach(input => {
+                    if (input) {
+                        input.classList.remove('is-invalid');
+                    }
+                });
+            }
+
+            function renderTable(items) {
+                if (!tableBody) {
+                    return;
+                }
+
+                if (!canView) {
+                    setLoading('Bạn không có quyền xem danh sách nhà cung cấp.');
+                    return;
+                }
+
+                if (!Array.isArray(items) || items.length === 0) {
+                    setLoading('Không có nhà cung cấp phù hợp.');
+                    return;
+                }
+
+                tableBody.innerHTML = items.map(supplier => {
+                    const actions = (canUpdate || canDelete)
+                        ? `<td class="text-center">
+                                ${canUpdate ? `<button type="button" class="btn btn-outline-primary btn-sm" data-action="edit" data-id="${supplier.id}">
+                                    <i class="fas fa-pen"></i>
+                                </button>` : ''}
+                                ${canDelete ? `<button type="button" class="btn btn-outline-danger btn-sm ms-1" data-action="delete" data-id="${supplier.id}" data-name="${supplier.name ?? ''}">
+                                    <i class="fas fa-trash"></i>
+                                </button>` : ''}
+                           </td>`
+                        : '';
+
+                    return `
+                        <tr>
+                            <td class="fw-semibold">${supplier.code ?? '—'}</td>
+                            <td>${supplier.name ?? '—'}</td>
+                            <td>${supplier.contactName ?? '—'}</td>
+                            <td>${supplier.phoneNumber ?? '—'}</td>
+                            <td>${supplier.email ?? '—'}</td>
+                            <td>${supplier.address ?? '—'}</td>
+                            <td>${supplier.notes ?? '—'}</td>
+                            ${actions}
+                        </tr>`;
+                }).join('');
+            }
+
+            function applyFilters() {
+                const query = searchInput?.value?.trim().toLowerCase() ?? '';
+                if (!Array.isArray(suppliers)) {
+                    filteredSuppliers = [];
+                    renderTable(filteredSuppliers);
+                    return;
+                }
+
+                filteredSuppliers = suppliers.filter(supplier => {
+                    if (!query) {
+                        return true;
+                    }
+
+                    const codeMatch = supplier.code?.toLowerCase().includes(query);
+                    const nameMatch = supplier.name?.toLowerCase().includes(query);
+                    const contactMatch = supplier.contactName?.toLowerCase().includes(query);
+                    const phoneMatch = supplier.phoneNumber?.toLowerCase().includes(query);
+                    const emailMatch = supplier.email?.toLowerCase().includes(query);
+
+                    return codeMatch || nameMatch || contactMatch || phoneMatch || emailMatch;
+                });
+
+                renderTable(filteredSuppliers);
+            }
+
+            async function loadSuppliers(showSpinner = true) {
+                if (!canView) {
+                    return;
+                }
+
+                if (showSpinner) {
+                    setLoading('Đang tải danh sách nhà cung cấp...');
+                }
+
+                try {
+                    const url = new URL('/api/suppliers', window.location.origin);
+                    const searchValue = searchInput?.value?.trim();
+                    if (searchValue) {
+                        url.searchParams.set('search', searchValue);
+                    }
+
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            setLoading('Bạn không có quyền xem danh sách nhà cung cấp.');
+                            return;
+                        }
+
+                        throw new Error('Failed to load suppliers');
+                    }
+
+                    suppliers = await response.json();
+                    applyFilters();
+                } catch (error) {
+                    setLoading('Không thể tải danh sách nhà cung cấp.');
+                    showAlert('Có lỗi xảy ra khi tải danh sách nhà cung cấp. Vui lòng thử lại sau.', 'danger');
+                }
+            }
+
+            function openCreateModal() {
+                if (!modal || !canCreate) {
+                    return;
+                }
+
+                resetForm();
+                if (modalLabel) {
+                    modalLabel.textContent = 'Thêm nhà cung cấp';
+                }
+                if (submitBtn) {
+                    submitBtn.textContent = 'Thêm mới';
+                }
+                modal.show();
+            }
+
+            function openEditModal(id) {
+                if (!modal || !canUpdate) {
+                    return;
+                }
+
+                const supplier = suppliers.find(item => item.id === id);
+                if (!supplier) {
+                    showAlert('Không tìm thấy nhà cung cấp.', 'warning');
+                    return;
+                }
+
+                resetForm();
+                editingId = id;
+                if (modalLabel) {
+                    modalLabel.textContent = 'Cập nhật nhà cung cấp';
+                }
+                if (submitBtn) {
+                    submitBtn.textContent = 'Cập nhật';
+                }
+
+                if (codeInput) codeInput.value = supplier.code ?? '';
+                if (nameInput) nameInput.value = supplier.name ?? '';
+                if (contactInput) contactInput.value = supplier.contactName ?? '';
+                if (phoneInput) phoneInput.value = supplier.phoneNumber ?? '';
+                if (emailInput) emailInput.value = supplier.email ?? '';
+                if (addressInput) addressInput.value = supplier.address ?? '';
+                if (notesInput) notesInput.value = supplier.notes ?? '';
+
+                modal.show();
+            }
+
+            async function submitForm(event) {
+                event.preventDefault();
+                if (!form || !modal) {
+                    return;
+                }
+
+                clearFormErrors();
+
+                const payload = {
+                    code: codeInput?.value?.trim() ?? '',
+                    name: nameInput?.value?.trim() ?? '',
+                    contactName: contactInput?.value?.trim() || null,
+                    phoneNumber: phoneInput?.value?.trim() || null,
+                    email: emailInput?.value?.trim() || null,
+                    address: addressInput?.value?.trim() || null,
+                    notes: notesInput?.value?.trim() || null
+                };
+
+                const errors = [];
+                if (!payload.code) {
+                    errors.push('Vui lòng nhập mã nhà cung cấp.');
+                    if (codeInput) {
+                        codeInput.classList.add('is-invalid');
+                    }
+                }
+                if (!payload.name) {
+                    errors.push('Vui lòng nhập tên nhà cung cấp.');
+                    if (nameInput) {
+                        nameInput.classList.add('is-invalid');
+                    }
+                }
+
+                if (errors.length > 0) {
+                    showFormErrors(errors);
+                    return;
+                }
+
+                if (submitBtn) {
+                    submitBtn.setAttribute('disabled', 'disabled');
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang lưu...';
+                }
+
+                try {
+                    const isEditing = editingId != null;
+                    const url = isEditing ? `/api/suppliers/${editingId}` : '/api/suppliers';
+                    const method = isEditing ? 'PUT' : 'POST';
+                    const response = await fetch(url, {
+                        method,
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(antiForgeryTokenInput?.value ? { 'RequestVerificationToken': antiForgeryTokenInput.value } : {})
+                        },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (response.ok) {
+                        const supplier = await response.json();
+                        if (isEditing) {
+                            suppliers = suppliers.map(item => item.id === supplier.id ? supplier : item);
+                            showAlert('Cập nhật nhà cung cấp thành công.', 'success');
+                        } else {
+                            suppliers = [supplier, ...suppliers];
+                            showAlert('Thêm nhà cung cấp thành công.', 'success');
+                        }
+
+                        applyFilters();
+                        modal.hide();
+                        return;
+                    }
+
+                    if (response.status === 400 || response.status === 422) {
+                        const problem = await response.json().catch(() => null);
+                        const problemErrors = problem?.errors ? Object.values(problem.errors).flat() : [];
+                        if (problemErrors.length > 0) {
+                            showFormErrors(problemErrors);
+                            return;
+                        }
+
+                        if (problem?.message) {
+                            showFormErrors(problem.message);
+                            return;
+                        }
+                    }
+
+                    if (response.status === 403) {
+                        showFormErrors('Bạn không có quyền thực hiện thao tác này.');
+                        return;
+                    }
+
+                    showFormErrors('Không thể lưu nhà cung cấp. Vui lòng thử lại sau.');
+                } catch (error) {
+                    showFormErrors('Có lỗi xảy ra khi lưu nhà cung cấp. Vui lòng thử lại sau.');
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.innerHTML = editingId != null ? 'Cập nhật' : 'Thêm mới';
+                        submitBtn.removeAttribute('disabled');
+                    }
+                }
+            }
+
+            function confirmDelete(id) {
+                if (!deleteModal || !canDelete) {
+                    return;
+                }
+
+                if (deleteConfirmBtn) {
+                    deleteConfirmBtn.dataset.id = String(id);
+                }
+                deleteModal.show();
+            }
+
+            async function performDelete(id) {
+                if (!canDelete) {
+                    return;
+                }
+
+                if (!Number.isFinite(id) || id <= 0) {
+                    return;
+                }
+
+                if (deleteConfirmBtn) {
+                    deleteConfirmBtn.setAttribute('disabled', 'disabled');
+                    deleteConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Đang xóa...';
+                }
+
+                try {
+                    const response = await fetch(`/api/suppliers/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            ...(antiForgeryTokenInput?.value ? { 'RequestVerificationToken': antiForgeryTokenInput.value } : {})
+                        }
+                    });
+
+                    if (response.status === 204) {
+                        suppliers = suppliers.filter(item => item.id !== id);
+                        applyFilters();
+                        showAlert('Đã xóa nhà cung cấp.', 'success');
+                        deleteModal?.hide();
+                        return;
+                    }
+
+                    if (response.status === 403) {
+                        showAlert('Bạn không có quyền xóa nhà cung cấp này.', 'warning');
+                        return;
+                    }
+
+                    if (response.status === 404) {
+                        showAlert('Nhà cung cấp không tồn tại hoặc đã bị xóa.', 'warning');
+                        return;
+                    }
+
+                    showAlert('Không thể xóa nhà cung cấp. Vui lòng thử lại sau.', 'danger');
+                } catch (error) {
+                    showAlert('Có lỗi xảy ra khi xóa nhà cung cấp. Vui lòng thử lại sau.', 'danger');
+                } finally {
+                    if (deleteConfirmBtn) {
+                        deleteConfirmBtn.innerHTML = 'Xóa';
+                        deleteConfirmBtn.removeAttribute('disabled');
+                        deleteConfirmBtn.removeAttribute('data-id');
+                    }
+                }
+            }
+
+            searchInput?.addEventListener('input', () => applyFilters());
+            refreshBtn?.addEventListener('click', () => loadSuppliers());
+            createBtn?.addEventListener('click', () => openCreateModal());
+            modalEl?.addEventListener('hidden.bs.modal', () => resetForm());
+            form?.addEventListener('submit', submitForm);
+
+            if (tableBody) {
+                tableBody.addEventListener('click', event => {
+                    const target = event.target;
+                    if (!(target instanceof HTMLElement)) {
+                        return;
+                    }
+
+                    const button = target.closest('button');
+                    if (!button) {
+                        return;
+                    }
+
+                    const action = button.dataset.action;
+                    const id = button.dataset.id ? Number(button.dataset.id) : NaN;
+                    if (!Number.isFinite(id) || id <= 0) {
+                        return;
+                    }
+
+                    if (action === 'edit') {
+                        openEditModal(id);
+                    } else if (action === 'delete') {
+                        if (deleteNameLabel) {
+                            deleteNameLabel.textContent = button.dataset.name ?? '';
+                        }
+                        confirmDelete(id);
+                    }
+                });
+            }
+
+            deleteConfirmBtn?.addEventListener('click', () => {
+                const id = deleteConfirmBtn.dataset.id ? Number(deleteConfirmBtn.dataset.id) : NaN;
+                if (Number.isFinite(id) && id > 0) {
+                    performDelete(id);
+                }
+            });
+
+            loadSuppliers();
+        })();
+    </script>
+}

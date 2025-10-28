@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading;
@@ -9,7 +11,9 @@ using Assignment.Data;
 using Assignment.Enums;
 using Assignment.Extensions;
 using Assignment.Models;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,6 +44,7 @@ namespace Assignment.Controllers.Api
             var notes = await _context.ReceivingNotes
                 .AsNoTracking()
                 .Where(n => !n.IsDeleted)
+                .Include(n => n.Supplier)
                 .Include(n => n.Details.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Material)!
                     .ThenInclude(m => m!.Unit)
@@ -63,6 +68,7 @@ namespace Assignment.Controllers.Api
 
             var note = await _context.ReceivingNotes
                 .AsNoTracking()
+                .Include(n => n.Supplier)
                 .Include(n => n.Details.Where(d => !d.IsDeleted))
                     .ThenInclude(d => d.Material)!
                     .ThenInclude(m => m!.Unit)
@@ -123,12 +129,32 @@ namespace Assignment.Controllers.Api
                 return ValidationProblem(ModelState);
             }
 
+            Supplier? supplier = null;
+            if (request.SupplierId.HasValue)
+            {
+                supplier = await _context.Suppliers
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(s => s.Id == request.SupplierId && !s.IsDeleted, cancellationToken);
+
+                if (supplier == null)
+                {
+                    ModelState.AddModelError(nameof(request.SupplierId), "Nhà cung cấp không tồn tại hoặc đã bị xóa.");
+                    return ValidationProblem(ModelState);
+                }
+
+                if (!User.HasPermission("GetSupplierAll") && supplier.CreateBy != CurrentUserId)
+                {
+                    return Forbid();
+                }
+            }
+
             var note = new ReceivingNote
             {
                 NoteNumber = normalizedNoteNumber,
                 Date = request.Date.Date,
-                SupplierId = string.IsNullOrWhiteSpace(request.SupplierId) ? null : request.SupplierId!.Trim(),
-                SupplierName = string.IsNullOrWhiteSpace(request.SupplierName) ? null : request.SupplierName!.Trim(),
+                SupplierId = supplier?.Id,
+                Supplier = supplier,
+                SupplierName = supplier?.Name,
                 WarehouseId = request.WarehouseId,
                 Status = request.Status,
                 CreateBy = CurrentUserId,
@@ -192,6 +218,10 @@ namespace Assignment.Controllers.Api
             await transaction.CommitAsync(cancellationToken);
 
             await _context.Entry(note)
+                .Reference(n => n.Supplier)
+                .LoadAsync(cancellationToken);
+
+            await _context.Entry(note)
                 .Collection(n => n.Details)
                 .Query()
                 .Include(d => d.Material)!.ThenInclude(m => m!.Unit)
@@ -236,6 +266,215 @@ namespace Assignment.Controllers.Api
             await ApplyInventoryAdjustmentsAsync(note, cancellationToken);
 
             return Ok(MapToResponse(note));
+        }
+
+        [HttpGet("details/template")]
+        public IActionResult DownloadDetailsTemplate()
+        {
+            if (!User.HasPermission("CreateReceiving"))
+            {
+                return Forbid();
+            }
+
+            using var workbook = new XLWorkbook();
+            var worksheet = workbook.Worksheets.Add("ReceivingDetails");
+            worksheet.Cell(1, 1).Value = "MaterialId";
+            worksheet.Cell(1, 2).Value = "Quantity";
+            worksheet.Cell(1, 3).Value = "UnitId";
+            worksheet.Cell(1, 4).Value = "UnitPrice";
+            worksheet.Cell(2, 1).Value = "1";
+            worksheet.Cell(2, 2).Value = "10";
+            worksheet.Cell(2, 3).Value = "1";
+            worksheet.Cell(2, 4).Value = "10000";
+
+            using var stream = new MemoryStream();
+            workbook.SaveAs(stream);
+
+            var content = stream.ToArray();
+            const string fileName = "receiving_details_template.xlsx";
+            const string contentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+            return File(content, contentType, fileName);
+        }
+
+        [HttpPost("details/import")]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> ImportDetails([FromForm] IFormFile? file, CancellationToken cancellationToken)
+        {
+            if (!User.HasPermission("CreateReceiving"))
+            {
+                return Forbid();
+            }
+
+            if (file == null || file.Length == 0)
+            {
+                return BadRequest(new { message = "Vui lòng chọn file chứa danh sách chi tiết phiếu nhập." });
+            }
+
+            var extension = Path.GetExtension(file.FileName);
+            if (!string.Equals(extension, ".xlsx", StringComparison.OrdinalIgnoreCase))
+            {
+                return BadRequest(new { message = "Vui lòng sử dụng file Excel (.xlsx)." });
+            }
+
+            try
+            {
+                using var stream = new MemoryStream();
+                await file.CopyToAsync(stream, cancellationToken);
+                stream.Position = 0;
+
+                using var workbook = new XLWorkbook(stream);
+                var worksheet = workbook.Worksheets.FirstOrDefault();
+                if (worksheet == null)
+                {
+                    return BadRequest(new { message = "File không chứa dữ liệu chi tiết phiếu nhập." });
+                }
+
+                var detailRequests = new List<ReceivingDetailRequest>();
+                var errors = new List<string>();
+
+                foreach (var row in worksheet.RowsUsed())
+                {
+                    if (row.RowNumber() == 1)
+                    {
+                        continue;
+                    }
+
+                    var materialRaw = row.Cell(1).GetString()?.Trim();
+                    if (string.IsNullOrWhiteSpace(materialRaw))
+                    {
+                        continue;
+                    }
+
+                    if (!long.TryParse(materialRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var materialId) || materialId <= 0)
+                    {
+                        errors.Add($"Dòng {row.RowNumber()}: Mã nguyên vật liệu không hợp lệ.");
+                        continue;
+                    }
+
+                    decimal quantity;
+                    var quantityCell = row.Cell(2);
+                    if (quantityCell.TryGetValue(out double quantityNumeric))
+                    {
+                        quantity = Convert.ToDecimal(quantityNumeric);
+                    }
+                    else
+                    {
+                        var quantityRaw = quantityCell.GetString()?.Trim();
+                        if (!decimal.TryParse(quantityRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out quantity) || quantity <= 0)
+                        {
+                            errors.Add($"Dòng {row.RowNumber()}: Số lượng không hợp lệ.");
+                            continue;
+                        }
+                    }
+
+                    decimal unitPrice = 0;
+                    var unitPriceCell = row.Cell(4);
+                    if (unitPriceCell.TryGetValue(out double priceNumeric))
+                    {
+                        unitPrice = Convert.ToDecimal(priceNumeric);
+                    }
+                    else
+                    {
+                        var priceRaw = unitPriceCell.GetString()?.Trim();
+                        if (!string.IsNullOrWhiteSpace(priceRaw) && !decimal.TryParse(priceRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out unitPrice))
+                        {
+                            errors.Add($"Dòng {row.RowNumber()}: Đơn giá không hợp lệ.");
+                            continue;
+                        }
+                    }
+
+                    var unitRaw = row.Cell(3).GetString()?.Trim();
+                    if (!long.TryParse(unitRaw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var unitId) || unitId <= 0)
+                    {
+                        errors.Add($"Dòng {row.RowNumber()}: Đơn vị không hợp lệ.");
+                        continue;
+                    }
+
+                    detailRequests.Add(new ReceivingDetailRequest
+                    {
+                        MaterialId = materialId,
+                        Quantity = quantity,
+                        UnitId = unitId,
+                        UnitPrice = unitPrice < 0 ? 0 : unitPrice
+                    });
+                }
+
+                if (errors.Count > 0)
+                {
+                    return BadRequest(new { errors });
+                }
+
+                if (detailRequests.Count == 0)
+                {
+                    return BadRequest(new { message = "Không tìm thấy chi tiết phiếu nhập hợp lệ trong file." });
+                }
+
+                var materialIds = detailRequests.Select(d => d.MaterialId).Distinct().ToList();
+                var unitIds = detailRequests.Select(d => d.UnitId).Distinct().ToList();
+
+                var materials = await _context.Materials
+                    .Where(m => materialIds.Contains(m.Id) && !m.IsDeleted)
+                    .Include(m => m.Unit)
+                    .ToDictionaryAsync(m => m.Id, cancellationToken);
+
+                if (materials.Count != materialIds.Count)
+                {
+                    return BadRequest(new { message = "File chứa nguyên vật liệu không tồn tại trong hệ thống." });
+                }
+
+                var units = await _context.Units
+                    .Where(u => unitIds.Contains(u.Id) && !u.IsDeleted)
+                    .ToDictionaryAsync(u => u.Id, cancellationToken);
+
+                if (units.Count != unitIds.Count)
+                {
+                    return BadRequest(new { message = "File chứa đơn vị không tồn tại trong hệ thống." });
+                }
+
+                var invalidRows = new List<string>();
+                foreach (var detail in detailRequests)
+                {
+                    var material = materials[detail.MaterialId];
+                    var (success, _) = await TryConvertToBaseQuantityAsync(material, detail.UnitId, detail.Quantity, cancellationToken);
+                    if (!success)
+                    {
+                        invalidRows.Add($"Không tìm thấy quy đổi phù hợp cho nguyên vật liệu {material.Name} (ID: {material.Id}).");
+                    }
+                }
+
+                if (invalidRows.Count > 0)
+                {
+                    return BadRequest(new { errors = invalidRows });
+                }
+
+                var detailResponses = detailRequests.Select(detail => new
+                {
+                    materialId = detail.MaterialId,
+                    quantity = detail.Quantity,
+                    unitId = detail.UnitId,
+                    unitPrice = detail.UnitPrice
+                }).ToList();
+
+                var materialResponses = materials.Values.Select(material => new
+                {
+                    id = material.Id,
+                    code = material.Code,
+                    name = material.Name,
+                    unitId = material.UnitId,
+                    unitName = material.Unit?.Name
+                }).ToList();
+
+                return Ok(new
+                {
+                    details = detailResponses,
+                    materials = materialResponses
+                });
+            }
+            catch
+            {
+                return BadRequest(new { message = "Không thể đọc dữ liệu từ file. Vui lòng kiểm tra lại định dạng." });
+            }
         }
 
         private void ValidateRequest(ReceivingNoteRequest request)
@@ -354,7 +593,8 @@ namespace Assignment.Controllers.Api
                 NoteNumber = note.NoteNumber,
                 Date = note.Date,
                 SupplierId = note.SupplierId,
-                SupplierName = note.SupplierName,
+                SupplierCode = note.Supplier?.Code,
+                SupplierName = note.SupplierName ?? note.Supplier?.Name,
                 WarehouseId = note.WarehouseId,
                 Status = note.Status,
                 IsStockApplied = note.IsStockApplied,
@@ -371,11 +611,7 @@ namespace Assignment.Controllers.Api
             [Required]
             public DateTime Date { get; set; }
 
-            [StringLength(100)]
-            public string? SupplierId { get; set; }
-
-            [StringLength(255)]
-            public string? SupplierName { get; set; }
+            public long? SupplierId { get; set; }
 
             public long? WarehouseId { get; set; }
 
@@ -407,7 +643,8 @@ namespace Assignment.Controllers.Api
             public long Id { get; set; }
             public string NoteNumber { get; set; } = string.Empty;
             public DateTime Date { get; set; }
-            public string? SupplierId { get; set; }
+            public long? SupplierId { get; set; }
+            public string? SupplierCode { get; set; }
             public string? SupplierName { get; set; }
             public long? WarehouseId { get; set; }
             public ReceivingNoteStatus Status { get; set; }
