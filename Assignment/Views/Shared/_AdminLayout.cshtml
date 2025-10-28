@@ -1,6 +1,9 @@
 @using Assignment.Extensions
 @using Assignment.Models
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Identity
+@using System.Collections.Generic
+@using System.Linq
+@using System.Security.Claims
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
 <!DOCTYPE html>
@@ -88,6 +91,59 @@
     </style>
 </head>
 <body>
+    @{
+        var userDisplayName = "Người dùng";
+        var userInitials = "?";
+        var userRoles = new List<string>();
+        var userIdentifier = string.Empty;
+
+        if (SignInManager.IsSignedIn(User))
+        {
+            var appUser = await UserManager.GetUserAsync(User);
+
+            userDisplayName = appUser?.FullName;
+
+            if (string.IsNullOrWhiteSpace(userDisplayName))
+            {
+                userDisplayName = appUser?.UserName;
+            }
+
+            if (string.IsNullOrWhiteSpace(userDisplayName))
+            {
+                userDisplayName = appUser?.Email;
+            }
+
+            userDisplayName ??= "Người dùng";
+
+            userIdentifier = !string.IsNullOrWhiteSpace(appUser?.Email)
+                ? appUser!.Email!
+                : !string.IsNullOrWhiteSpace(appUser?.UserName)
+                    ? appUser!.UserName!
+                    : userDisplayName;
+
+            userInitials = string.Concat(userDisplayName
+                .Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Where(s => s.Length > 0)
+                .Select(s => char.ToUpperInvariant(s[0])));
+
+            if (string.IsNullOrWhiteSpace(userInitials))
+            {
+                userInitials = "?";
+            }
+
+            userRoles = User.Claims
+                .Where(claim => claim.Type == ClaimTypes.Role)
+                .Select(claim => claim.Value)
+                .Distinct()
+                .ToList();
+        }
+
+        var primaryRole = userRoles.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(primaryRole))
+        {
+            primaryRole = "Quản trị viên";
+        }
+    }
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <a asp-action="Index" asp-controller="Home" class="sidebar-brand">
@@ -104,31 +160,74 @@
             </button>
         </div>
         <div class="sidebar-scroll">
-            <nav class="sidebar-nav">
-                <span class="sidebar-section-title">Điều hướng</span>
-                @{
-                    var canViewStatistics = User.HasPermission("ViewStatistics");
-                    var canManageCategories = User.HasAnyPermission("GetCategoryAll", "GetCategory");
-                    var canManageProducts = User.HasAnyPermission("GetProductAll", "GetProduct");
-                    var canManageProductExtras = User.HasAnyPermission("GetProductExtraAll", "GetProductExtra");
-                    var canManageUnits = User.HasAnyPermission("GetUnitAll", "GetUnit");
-                    var canManageMaterials = User.HasAnyPermission("GetMaterialAll", "GetMaterial");
-                    var canManageInventory = User.HasAnyPermission("ViewInventoryAll", "ViewInventory");
-                    var canManageReceiving = User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving");
-                    var canManageRecipes = User.HasAnyPermission("GetRecipeAll", "GetRecipe");
-                    var canManageCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
-                    var canManageVouchers = User.HasAnyPermission("GetVoucherAll", "GetVoucher");
-                    var canManageRewards = User.HasAnyPermission("GetRewardAll", "GetReward");
-                    var canManageOrders = User.HasPermission("GetOrderAll");
-                    var canManageCustomers = User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll");
-                    var isSuperAdmin = User.HasPermission("superadmin");
+            @if (SignInManager.IsSignedIn(User))
+            {
+                <section class="sidebar-profile-card">
+                    <div class="sidebar-profile-avatar">@userInitials</div>
+                    <div class="sidebar-profile-body">
+                        <span class="sidebar-profile-name">@userDisplayName</span>
+                        <span class="sidebar-profile-role">@primaryRole</span>
+                        <span class="sidebar-profile-meta">@userIdentifier</span>
+                    </div>
+                    <a asp-area="Identity" asp-page="/Account/Manage/Index" class="sidebar-profile-manage" title="Quản lý tài khoản">
+                        <i class="fa-solid fa-gear"></i>
+                    </a>
+                </section>
+            }
+            <div class="sidebar-search">
+                <div class="sidebar-search-input">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="search" id="sidebarSearch" placeholder="Tìm kiếm chức năng..." aria-label="Tìm kiếm trong menu" />
+                </div>
+            </div>
+            @{
+                var canViewStatistics = User.HasPermission("ViewStatistics");
+                var canManageCategories = User.HasAnyPermission("GetCategoryAll", "GetCategory");
+                var canManageProducts = User.HasAnyPermission("GetProductAll", "GetProduct");
+                var canManageProductExtras = User.HasAnyPermission("GetProductExtraAll", "GetProductExtra");
+                var canManageUnits = User.HasAnyPermission("GetUnitAll", "GetUnit");
+                var canManageMaterials = User.HasAnyPermission("GetMaterialAll", "GetMaterial");
+                var canManageInventory = User.HasAnyPermission("ViewInventoryAll", "ViewInventory");
+                var canManageReceiving = User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving");
+                var canManageRecipes = User.HasAnyPermission("GetRecipeAll", "GetRecipe");
+                var canManageCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
+                var canManageVouchers = User.HasAnyPermission("GetVoucherAll", "GetVoucher");
+                var canManageRewards = User.HasAnyPermission("GetRewardAll", "GetReward");
+                var canManageOrders = User.HasPermission("GetOrderAll");
+                var canManageCustomers = User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll");
+                var isSuperAdmin = User.HasPermission("superadmin");
 
-                    var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageRecipes || canManageCombos;
-                    var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving;
-                    var hasSalesGroup = canManageOrders;
-                    var hasCustomerGroup = canManageVouchers || canManageRewards || canManageCustomers;
-                    var hasAdminGroup = isSuperAdmin;
-                }
+                var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageRecipes || canManageCombos;
+                var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving;
+                var hasSalesGroup = canManageOrders;
+                var hasCustomerGroup = canManageVouchers || canManageRewards || canManageCustomers;
+                var hasAdminGroup = isSuperAdmin;
+
+                var quickLinks = new List<(bool CanAccess, string Action, string Controller, string Icon, string Title)>
+                {
+                    (true, "Index", "Home", "fa-solid fa-house", "Trang chủ"),
+                    (canViewStatistics, "Index", "Statistics", "fa-solid fa-chart-line", "Báo cáo nhanh"),
+                    (canManageOrders, "Manage", "Order", "fa-solid fa-receipt", "Đơn hàng"),
+                    (canManageCustomers, "Index", "Customers", "fa-solid fa-user-group", "Khách hàng")
+                };
+            }
+            @if (quickLinks.Any(link => link.CanAccess))
+            {
+                <div class="sidebar-quick-actions">
+                    <span class="sidebar-section-label">Truy cập nhanh</span>
+                    <div class="sidebar-quick-grid">
+                        @foreach (var link in quickLinks.Where(l => l.CanAccess))
+                        {
+                            <a asp-action="@link.Action" asp-controller="@link.Controller" class="sidebar-quick-link">
+                                <span class="sidebar-quick-icon"><i class="@link.Icon"></i></span>
+                                <span class="sidebar-quick-text">@link.Title</span>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+            <nav class="sidebar-nav">
+                <span class="sidebar-section-title">Điều hướng chính</span>
 
                 @if (canViewStatistics)
                 {
@@ -347,6 +446,15 @@
                 }
             </nav>
         </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-footer-icon">
+                <i class="fa-solid fa-lightbulb"></i>
+            </div>
+            <div class="sidebar-footer-body">
+                <span class="sidebar-footer-title">Mẹo sử dụng</span>
+                <p>Nhập từ khóa vào ô tìm kiếm để lọc nhanh tính năng bạn cần.</p>
+            </div>
+        </div>
     </aside>
 
     <div class="overlay" id="overlay"></div>
@@ -363,34 +471,9 @@
             <div class="header-right">
                 @if (SignInManager.IsSignedIn(User))
                 {
-                    var appUser = await UserManager.GetUserAsync(User);
-                    var userDisplayName = appUser?.FullName;
-
-                    if (string.IsNullOrWhiteSpace(userDisplayName))
-                    {
-                        userDisplayName = appUser?.UserName;
-                    }
-
-                    if (string.IsNullOrWhiteSpace(userDisplayName))
-                    {
-                        userDisplayName = appUser?.Email;
-                    }
-
-                    userDisplayName ??= "Người dùng";
-
-                    var initials = string.Concat(userDisplayName
-                        .Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                        .Where(s => s.Length > 0)
-                        .Select(s => char.ToUpperInvariant(s[0])));
-
-                    if (string.IsNullOrWhiteSpace(initials))
-                    {
-                        initials = "?";
-                    }
-
                     <div class="user-profile-container">
                         <div class="user-profile" id="userProfileToggle">
-                            <div class="user-avatar">@initials</div>
+                            <div class="user-avatar">@userInitials</div>
                             <span class="user-name">@userDisplayName</span>
                             <i class="fas fa-chevron-down" style="font-size: 0.7rem; color: #858796; margin-left: 5px;"></i>
                         </div>
@@ -502,10 +585,33 @@
                     activeGroup.classList.add('open');
                     const activeToggle = activeGroup.querySelector('.sidebar-group-toggle');
                     activeToggle?.setAttribute('aria-expanded', 'true');
+                    activeGroup.dataset.initialOpen = 'true';
                 }
             }
 
             const groupToggles = document.querySelectorAll('.sidebar-group-toggle');
+            const sidebarGroups = document.querySelectorAll('.sidebar-group');
+
+            const updateGroupState = (group, shouldOpen) => {
+                if (!group) {
+                    return;
+                }
+
+                if (shouldOpen) {
+                    group.classList.add('open');
+                } else {
+                    group.classList.remove('open');
+                }
+
+                const toggle = group.querySelector('.sidebar-group-toggle');
+                toggle?.setAttribute('aria-expanded', shouldOpen ? 'true' : 'false');
+            };
+
+            sidebarGroups.forEach(group => {
+                if (!group.dataset.initialOpen) {
+                    group.dataset.initialOpen = group.classList.contains('open') ? 'true' : 'false';
+                }
+            });
 
             groupToggles.forEach(toggle => {
                 const group = toggle.closest('.sidebar-group');
@@ -521,6 +627,38 @@
 
                     const isOpen = currentGroup.classList.toggle('open');
                     toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                    currentGroup.dataset.initialOpen = isOpen ? 'true' : 'false';
+                });
+            });
+
+            const sidebarSearch = document.getElementById('sidebarSearch');
+
+            sidebarSearch?.addEventListener('input', event => {
+                const query = event.target.value.toLowerCase().trim();
+
+                sidebarGroups.forEach(group => {
+                    const menuItems = group.querySelectorAll('.sidebar-menu-item');
+                    let hasMatch = false;
+
+                    menuItems.forEach(item => {
+                        const link = item.querySelector('.sidebar-menu-link');
+                        const text = (link?.textContent || '').toLowerCase().trim();
+
+                        if (!query || text.includes(query)) {
+                            item.style.display = '';
+                            hasMatch = hasMatch || (!!query ? text.includes(query) : true);
+                        } else {
+                            item.style.display = 'none';
+                        }
+                    });
+
+                    if (query) {
+                        group.style.display = hasMatch ? '' : 'none';
+                        updateGroupState(group, hasMatch);
+                    } else {
+                        group.style.display = '';
+                        updateGroupState(group, group.dataset.initialOpen === 'true');
+                    }
                 });
             });
 
