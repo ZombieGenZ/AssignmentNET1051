@@ -1033,6 +1033,44 @@ END;";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
 
+    const string ensureReceivingSupplierColumnTypeSql = @"
+IF EXISTS (SELECT 1
+           FROM sys.columns c
+           JOIN sys.types t ON c.user_type_id = t.user_type_id
+           WHERE c.object_id = OBJECT_ID(N'dbo.ReceivingNotes')
+             AND c.name = 'SupplierId'
+             AND t.name IN ('nvarchar', 'varchar', 'nchar', 'char'))
+BEGIN
+    IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ReceivingNotes_Suppliers_SupplierId')
+    BEGIN
+        ALTER TABLE [dbo].[ReceivingNotes]
+            DROP CONSTRAINT [FK_ReceivingNotes_Suppliers_SupplierId];
+    END;
+
+    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReceivingNotes_SupplierId' AND object_id = OBJECT_ID(N'dbo.ReceivingNotes'))
+    BEGIN
+        DROP INDEX [IX_ReceivingNotes_SupplierId] ON [dbo].[ReceivingNotes];
+    END;
+
+    UPDATE [dbo].[ReceivingNotes]
+    SET [SupplierId] = NULL
+    WHERE TRY_CONVERT(BIGINT, [SupplierId]) IS NULL AND [SupplierId] IS NOT NULL;
+
+    ALTER TABLE [dbo].[ReceivingNotes]
+        ALTER COLUMN [SupplierId] BIGINT NULL;
+
+    CREATE INDEX [IX_ReceivingNotes_SupplierId] ON [dbo].[ReceivingNotes]([SupplierId]);
+
+    IF OBJECT_ID(N'dbo.Suppliers', N'U') IS NOT NULL
+    BEGIN
+        ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
+            ADD CONSTRAINT [FK_ReceivingNotes_Suppliers_SupplierId]
+            FOREIGN KEY([SupplierId]) REFERENCES [dbo].[Suppliers]([Id]) ON DELETE SET NULL;
+    END;
+END;";
+
+    await context.Database.ExecuteSqlRawAsync(ensureReceivingSupplierColumnTypeSql);
+
     const string ensureInventoryWarehouseForeignKeySql = @"
 IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Inventories_Warehouses_WarehouseId')
 BEGIN
