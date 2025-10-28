@@ -1176,6 +1176,36 @@ BEGIN
         ADD CONSTRAINT [FK_RecipeSteps_Recipes_RecipeId]
         FOREIGN KEY([RecipeId]) REFERENCES [dbo].[Recipes]([Id]) ON DELETE CASCADE;
 END;
+
+IF COL_LENGTH(N'dbo.Products', N'RecipeId') IS NULL
+BEGIN
+    ALTER TABLE [dbo].[Products]
+        ADD [RecipeId] BIGINT NULL;
+END;
+
+IF COL_LENGTH(N'dbo.Products', N'RecipeId') IS NOT NULL
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_Products_RecipeId'
+          AND object_id = OBJECT_ID(N'dbo.Products')
+    )
+    BEGIN
+        CREATE INDEX [IX_Products_RecipeId] ON [dbo].[Products]([RecipeId]);
+    END;
+
+    IF NOT EXISTS (
+        SELECT 1
+        FROM sys.foreign_keys
+        WHERE name = N'FK_Products_Recipes_RecipeId'
+    )
+    BEGIN
+        ALTER TABLE [dbo].[Products] WITH CHECK
+            ADD CONSTRAINT [FK_Products_Recipes_RecipeId]
+            FOREIGN KEY([RecipeId]) REFERENCES [dbo].[Recipes]([Id]) ON DELETE SET NULL;
+    END;
+END;
 ";
 
     await context.Database.ExecuteSqlRawAsync(ensureSql);
