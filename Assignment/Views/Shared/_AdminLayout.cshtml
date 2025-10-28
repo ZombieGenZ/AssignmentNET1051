@@ -89,154 +89,168 @@
 </head>
 <body>
     <aside class="sidebar" id="sidebar">
-        <a asp-action="Index" asp-controller="Home" class="sidebar-brand">
-            <i class="fas fa-tachometer-alt"></i>
-            <span>Quản Lý</span>
-        </a>
-        <ul class="sidebar-menu">
-            @if (User.HasPermission("ViewStatistics"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Statistics" class="sidebar-menu-link">
-                        <i class="fa-solid fa-chart-simple"></i>
-                        <span>Thống kê</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Categories" class="sidebar-menu-link">
-                        <i class="fa-solid fa-list-ul"></i>
-                        <span>Danh mục</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetProductAll", "GetProduct"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Products" class="sidebar-menu-link">
-                        <i class="fa-solid fa-box"></i>
-                        <span>Sản phẩm</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetProductExtraAll", "GetProductExtra"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="ProductExtras" class="sidebar-menu-link">
-                        <i class="fa-solid fa-plus"></i>
-                        <span>Sản phẩm bổ sung</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetUnitAll", "GetUnit"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Units" class="sidebar-menu-link">
-                        <i class="fa-solid fa-scale-balanced"></i>
-                        <span>Đơn vị &amp; chuyển đổi</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetMaterialAll", "GetMaterial"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Materials" class="sidebar-menu-link">
-                        <i class="fa-solid fa-warehouse"></i>
-                        <span>Nguyên vật liệu</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("ViewInventoryAll", "ViewInventory"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Inventories" class="sidebar-menu-link">
-                        <i class="fa-solid fa-boxes-stacked"></i>
-                        <span>Tồn kho</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="ReceivingNotes" class="sidebar-menu-link">
-                        <i class="fa-solid fa-truck-loading"></i>
-                        <span>Nhập kho</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetRecipeAll", "GetRecipe"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Recipes" class="sidebar-menu-link">
-                        <i class="fa-solid fa-bowl-food"></i>
-                        <span>Công thức sản phẩm</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetComboAll", "GetCombo"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Combos" class="sidebar-menu-link">
-                        <i class="fa-solid fa-boxes-stacked"></i>
-                        <span>Combo</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetVoucherAll", "GetVoucher"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Vouchers" class="sidebar-menu-link">
-                        <i class="fa-solid fa-ticket"></i>
-                        <span>Mã giảm giá</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("GetRewardAll", "GetReward"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Rewards" class="sidebar-menu-link">
-                        <i class="fa-solid fa-gift"></i>
-                        <span>Vật phẩm đổi thưởng</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasPermission("GetOrderAll"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Manage" asp-controller="Order" class="sidebar-menu-link">
-                        <i class="fa-solid fa-receipt"></i>
-                        <span>Đơn hàng</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasPermission("superadmin"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="RoleManagement" class="sidebar-menu-link">
-                        <i class="fa-solid fa-user-shield"></i>
-                        <span>Vai trò</span>
-                    </a>
-                </li>
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="UserManagement" class="sidebar-menu-link">
-                        <i class="fa-solid fa-users"></i>
-                        <span>Người dùng</span>
-                    </a>
-                </li>
-            }
-            @if (User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll"))
-            {
-                <li class="sidebar-menu-item">
-                    <a asp-action="Index" asp-controller="Customers" class="sidebar-menu-link">
-                        <i class="fa-solid fa-user-check"></i>
-                        <span>Khách hàng</span>
-                    </a>
-                </li>
-            }
-
-        </ul>
+        <div class="sidebar-header">
+            <a asp-action="Index" asp-controller="Home" class="sidebar-brand">
+                <span class="sidebar-logo">
+                    <i class="fas fa-pepper-hot"></i>
+                </span>
+                <div class="sidebar-brand-text">
+                    <span class="sidebar-brand-title">Quản Lý</span>
+                    <span class="sidebar-brand-subtitle">Admin Center</span>
+                </div>
+            </a>
+            <button class="sidebar-close d-md-none" id="sidebarClose" type="button" aria-label="Đóng menu">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="sidebar-scroll">
+            <nav class="sidebar-nav">
+                <span class="sidebar-section-title">Điều hướng</span>
+                <ul class="sidebar-menu">
+                    @if (User.HasPermission("ViewStatistics"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Statistics" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-chart-simple"></i></span>
+                                <span>Thống kê</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetCategoryAll", "GetCategory"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Categories" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-list-ul"></i></span>
+                                <span>Danh mục</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetProductAll", "GetProduct"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Products" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-box"></i></span>
+                                <span>Sản phẩm</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetProductExtraAll", "GetProductExtra"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="ProductExtras" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-plus"></i></span>
+                                <span>Sản phẩm bổ sung</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetUnitAll", "GetUnit"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Units" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-scale-balanced"></i></span>
+                                <span>Đơn vị &amp; chuyển đổi</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetMaterialAll", "GetMaterial"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Materials" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-warehouse"></i></span>
+                                <span>Nguyên vật liệu</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("ViewInventoryAll", "ViewInventory"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Inventories" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-boxes-stacked"></i></span>
+                                <span>Tồn kho</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="ReceivingNotes" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-truck-loading"></i></span>
+                                <span>Nhập kho</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetRecipeAll", "GetRecipe"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Recipes" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-bowl-food"></i></span>
+                                <span>Công thức sản phẩm</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetComboAll", "GetCombo"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Combos" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-boxes-stacked"></i></span>
+                                <span>Combo</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetVoucherAll", "GetVoucher"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Vouchers" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-ticket"></i></span>
+                                <span>Mã giảm giá</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("GetRewardAll", "GetReward"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Rewards" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-gift"></i></span>
+                                <span>Vật phẩm đổi thưởng</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasPermission("GetOrderAll"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Manage" asp-controller="Order" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-receipt"></i></span>
+                                <span>Đơn hàng</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasPermission("superadmin"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="RoleManagement" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-user-shield"></i></span>
+                                <span>Vai trò</span>
+                            </a>
+                        </li>
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="UserManagement" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-users"></i></span>
+                                <span>Người dùng</span>
+                            </a>
+                        </li>
+                    }
+                    @if (User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll"))
+                    {
+                        <li class="sidebar-menu-item">
+                            <a asp-action="Index" asp-controller="Customers" class="sidebar-menu-link">
+                                <span class="sidebar-icon-wrapper"><i class="fa-solid fa-user-check"></i></span>
+                                <span>Khách hàng</span>
+                            </a>
+                        </li>
+                    }
+                </ul>
+            </nav>
+        </div>
     </aside>
 
     <div class="overlay" id="overlay"></div>
@@ -340,15 +354,26 @@
             const menuToggle = document.getElementById('menuToggle');
             const sidebar = document.getElementById('sidebar');
             const overlay = document.getElementById('overlay');
+            const sidebarClose = document.getElementById('sidebarClose');
 
-            menuToggle.addEventListener('click', function () {
-                sidebar.classList.toggle('active');
-                overlay.classList.toggle('active');
-            });
+            const toggleSidebar = () => {
+                sidebar?.classList.toggle('active');
+                overlay?.classList.toggle('active');
+            };
 
-            overlay.addEventListener('click', function () {
-                sidebar.classList.remove('active');
-                overlay.classList.remove('active');
+            const closeSidebar = () => {
+                sidebar?.classList.remove('active');
+                overlay?.classList.remove('active');
+            };
+
+            menuToggle?.addEventListener('click', toggleSidebar);
+            sidebarClose?.addEventListener('click', closeSidebar);
+            overlay?.addEventListener('click', closeSidebar);
+
+            window.addEventListener('keyup', event => {
+                if (event.key === 'Escape') {
+                    closeSidebar();
+                }
             });
 
             const menuLinks = document.querySelectorAll('.sidebar-menu-link');
