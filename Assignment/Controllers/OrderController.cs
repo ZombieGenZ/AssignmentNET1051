@@ -254,7 +254,40 @@ namespace Assignment.Controllers
             order.TotalBill = priceAfterDiscount + order.Vat;
 
             _context.Orders.Add(order);
-            _context.CartItems.RemoveRange(filteredItems);
+
+            var cartItemIdsToRemove = filteredItems
+                .Select(item => item.Id)
+                .Distinct()
+                .ToList();
+
+            if (cartItemIdsToRemove.Count > 0)
+            {
+                var trackedItemsToRemove = cart.CartItems?
+                    .Where(ci => cartItemIdsToRemove.Contains(ci.Id))
+                    .ToList() ?? new List<CartItem>();
+
+                if (trackedItemsToRemove.Count < cartItemIdsToRemove.Count)
+                {
+                    var missingIds = cartItemIdsToRemove
+                        .Except(trackedItemsToRemove.Select(ci => ci.Id))
+                        .ToList();
+
+                    if (missingIds.Count > 0)
+                    {
+                        var additionalItems = await _context.CartItems
+                            .Where(ci => missingIds.Contains(ci.Id))
+                            .ToListAsync();
+
+                        trackedItemsToRemove.AddRange(additionalItems);
+                    }
+                }
+
+                if (trackedItemsToRemove.Count > 0)
+                {
+                    _context.CartItems.RemoveRange(trackedItemsToRemove);
+                }
+            }
+
             await _context.SaveChangesAsync();
 
             if (order.PaymentType == PaymentType.PayNow && order.PaymentMethod == PaymentMethodType.Bank)

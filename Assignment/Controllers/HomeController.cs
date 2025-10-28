@@ -6,6 +6,7 @@ using Assignment.ViewModels;
 using Assignment.ViewModels.Combos;
 using Assignment.ViewModels.Products;
 using Assignment.ViewModels.Ratings;
+using Assignment.ViewModels.ProductExtras;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -207,7 +208,8 @@ namespace Assignment.Controllers
             var viewModel = new ProductDetailViewModel
             {
                 Product = product,
-                CanDeleteRating = User.HasClaim("DeleteEvaluate", "true")
+                CanDeleteRating = User.HasClaim("DeleteEvaluate", "true"),
+                ApplicableExtras = await GetProductExtrasForProductAsync(product.Id)
             };
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -354,7 +356,8 @@ namespace Assignment.Controllers
             var viewModel = new ComboDetailViewModel
             {
                 Combo = combo,
-                CanDeleteRating = User.HasClaim("DeleteEvaluate", "true")
+                CanDeleteRating = User.HasClaim("DeleteEvaluate", "true"),
+                ApplicableExtras = await GetProductExtrasForComboAsync(combo.Id)
             };
 
             var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -440,6 +443,67 @@ namespace Assignment.Controllers
                 .ToListAsync();
 
             return View(viewModel);
+        }
+
+        private async Task<IReadOnlyList<ProductExtraDisplayViewModel>> GetProductExtrasForProductAsync(long productId)
+        {
+            var extras = await _context.ProductExtras
+                .AsNoTracking()
+                .Include(extra => extra.ProductExtraProducts)
+                .Where(extra => !extra.IsDeleted && extra.IsPublish &&
+                    extra.ProductExtraProducts.Any(link => !link.IsDeleted && link.ProductId == productId))
+                .OrderBy(extra => extra.Name)
+                .ToListAsync();
+
+            return extras
+                .Select(MapProductExtraToDisplay)
+                .ToList();
+        }
+
+        private async Task<IReadOnlyList<ProductExtraDisplayViewModel>> GetProductExtrasForComboAsync(long comboId)
+        {
+            var extras = await _context.ProductExtras
+                .AsNoTracking()
+                .Include(extra => extra.ProductExtraCombos)
+                .Where(extra => !extra.IsDeleted && extra.IsPublish &&
+                    extra.ProductExtraCombos.Any(link => !link.IsDeleted && link.ComboId == comboId))
+                .OrderBy(extra => extra.Name)
+                .ToListAsync();
+
+            return extras
+                .Select(MapProductExtraToDisplay)
+                .ToList();
+        }
+
+        private static ProductExtraDisplayViewModel MapProductExtraToDisplay(ProductExtra extra)
+        {
+            return new ProductExtraDisplayViewModel
+            {
+                Id = extra.Id,
+                Name = extra.Name,
+                ImageUrl = extra.ImageUrl,
+                Price = extra.Price,
+                DiscountType = extra.DiscountType,
+                Discount = extra.Discount,
+                FinalPrice = CalculateProductExtraFinalPrice(extra),
+                IsSpicy = extra.IsSpicy,
+                IsVegetarian = extra.IsVegetarian,
+                Ingredients = extra.Ingredients
+            };
+        }
+
+        private static decimal CalculateProductExtraFinalPrice(ProductExtra extra)
+        {
+            var basePrice = extra.Price;
+            var discountValue = extra.Discount ?? 0m;
+
+            return extra.DiscountType switch
+            {
+                DiscountType.Percent => Math.Max(0m, basePrice - (basePrice * discountValue / 100m)),
+                DiscountType.FixedAmount => Math.Max(0m, discountValue),
+                DiscountType.Amount => Math.Max(0m, basePrice - discountValue),
+                _ => basePrice
+            };
         }
 
         public IActionResult Privacy()

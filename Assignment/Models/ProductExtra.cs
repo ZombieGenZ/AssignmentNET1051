@@ -53,5 +53,6 @@ namespace Assignment.Models
         public bool IsPublish { get; set; } = false;
 
         public virtual ICollection<ProductExtraProduct> ProductExtraProducts { get; set; } = new List<ProductExtraProduct>();
+        public virtual ICollection<ProductExtraCombo> ProductExtraCombos { get; set; } = new List<ProductExtraCombo>();
     }
 }

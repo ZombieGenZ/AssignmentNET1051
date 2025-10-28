@@ -1,5 +1,6 @@
 using Assignment.Models;
 using Assignment.ViewModels.Ratings;
+using Assignment.ViewModels.ProductExtras;
 using System.Collections.Generic;
 
 namespace Assignment.ViewModels.Combos
@@ -14,5 +15,6 @@ namespace Assignment.ViewModels.Combos
         public IEnumerable<RatingDisplayViewModel> Ratings { get; set; } = new List<RatingDisplayViewModel>();
         public IDictionary<int, int> RatingCounts { get; set; } = new Dictionary<int, int>();
         public int? SelectedRatingFilter { get; set; }
+        public IEnumerable<ProductExtraDisplayViewModel> ApplicableExtras { get; set; } = new List<ProductExtraDisplayViewModel>();
     }
 }

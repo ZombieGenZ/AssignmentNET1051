@@ -1,0 +1,324 @@
+@{
+    ViewData["Title"] = "Quản lý phiếu nhập kho";
+    Layout = "_AdminLayout";
+    var canView = ViewData["CanView"] as bool? ?? false;
+    var canCreate = ViewData["CanCreate"] as bool? ?? false;
+}
+
+<div class="container-fluid pt-4 px-4" id="receiving-app" data-can-view="@(canView ? "true" : "false")" data-can-create="@(canCreate ? "true" : "false")">
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex flex-column flex-md-row justify-content-between align-items-md-center gap-3">
+            <div>
+                <h4 class="mb-1 text-primary">
+                    <i class="fas fa-truck-loading me-2"></i>@ViewData["Title"]
+                </h4>
+                <p class="mb-0 text-muted">
+                    Theo dõi trạng thái phiếu nhập và cập nhật tồn kho theo từng đợt nhập hàng.
+                </p>
+            </div>
+            <div class="d-flex flex-column flex-md-row align-items-md-center gap-2 ms-md-auto">
+                <div class="input-group">
+                    <span class="input-group-text"><i class="fas fa-search"></i></span>
+                    <input type="search" class="form-control" id="receivingSearch" placeholder="Tìm kiếm theo mã phiếu hoặc nhà cung cấp" />
+                </div>
+                @if (canCreate)
+                {
+                    <button type="button" class="btn btn-primary" id="receivingCreateBtn" disabled>
+                        <i class="fas fa-plus me-1"></i>Tạo phiếu nhập
+                    </button>
+                }
+            </div>
+        </div>
+        <div class="card-body">
+            <div id="receivingAlert"></div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle" id="receivingTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Mã phiếu</th>
+                            <th>Ngày lập</th>
+                            <th>Nhà cung cấp</th>
+                            <th>Kho</th>
+                            <th>Trạng thái</th>
+                            <th>Áp dụng tồn</th>
+                            <th class="text-center" style="width: 120px;">Chi tiết</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td colspan="7" class="text-center py-4 text-muted">@(canView ? "Đang tải danh sách phiếu nhập..." : "Bạn không có quyền xem danh sách phiếu nhập.")</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="receivingDetailModal" tabindex="-1" aria-labelledby="receivingDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="receivingDetailModalLabel">Chi tiết phiếu nhập</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Đóng"></button>
+            </div>
+            <div class="modal-body">
+                <div id="receivingDetailBody" class="d-flex justify-content-center py-4 text-muted">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        (() => {
+            const app = document.getElementById('receiving-app');
+            if (!app) {
+                return;
+            }
+
+            const tableBody = document.querySelector('#receivingTable tbody');
+            const searchInput = document.getElementById('receivingSearch');
+            const alertPlaceholder = document.getElementById('receivingAlert');
+            const detailModalEl = document.getElementById('receivingDetailModal');
+            const detailModal = detailModalEl ? new bootstrap.Modal(detailModalEl) : null;
+            const detailBody = document.getElementById('receivingDetailBody');
+            const canView = app.dataset.canView === 'true';
+
+            let allNotes = [];
+            let filteredNotes = [];
+
+            function showAlert(message, type = 'danger') {
+                if (!alertPlaceholder) {
+                    return;
+                }
+
+                const wrapper = document.createElement('div');
+                wrapper.className = `alert alert-${type} alert-dismissible fade show`;
+                wrapper.role = 'alert';
+                wrapper.innerHTML = `
+                    <div>${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Đóng"></button>`;
+
+                alertPlaceholder.appendChild(wrapper);
+            }
+
+            function setLoading(message) {
+                if (!tableBody) {
+                    return;
+                }
+
+                tableBody.innerHTML = `
+                    <tr>
+                        <td colspan="7" class="text-center py-4 text-muted">${message}</td>
+                    </tr>`;
+            }
+
+            function formatDate(value) {
+                if (!value) {
+                    return '—';
+                }
+                const date = new Date(value);
+                if (Number.isNaN(date.getTime())) {
+                    return '—';
+                }
+                return date.toLocaleString('vi-VN');
+            }
+
+            const statusLabels = {
+                Draft: '<span class="badge bg-secondary">Bản nháp</span>',
+                Completed: '<span class="badge bg-success">Hoàn thành</span>',
+                Cancelled: '<span class="badge bg-danger">Đã hủy</span>'
+            };
+
+            function formatStatus(status) {
+                return statusLabels[status] ?? '<span class="badge bg-secondary">Không xác định</span>';
+            }
+
+            function renderTable(items) {
+                if (!tableBody) {
+                    return;
+                }
+
+                if (!canView) {
+                    setLoading('Bạn không có quyền xem danh sách phiếu nhập.');
+                    return;
+                }
+
+                if (!Array.isArray(items) || items.length === 0) {
+                    setLoading('Không tìm thấy phiếu nhập phù hợp.');
+                    return;
+                }
+
+                const rows = items.map(note => `
+                    <tr>
+                        <td class="fw-semibold">${note.noteNumber}</td>
+                        <td>${formatDate(note.date)}</td>
+                        <td>${note.supplierName ?? note.supplierId ?? '—'}</td>
+                        <td>${note.warehouseId ?? '—'}</td>
+                        <td>${formatStatus(note.status)}</td>
+                        <td>${note.isStockApplied ? '<span class="badge bg-success">Đã cập nhật</span>' : '<span class="badge bg-warning text-dark">Chưa áp dụng</span>'}</td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-outline-primary btn-sm" data-id="${note.id}" data-action="detail">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </td>
+                    </tr>`);
+
+                tableBody.innerHTML = rows.join('');
+            }
+
+            function applyFilters() {
+                if (!Array.isArray(allNotes)) {
+                    filteredNotes = [];
+                    renderTable(filteredNotes);
+                    return;
+                }
+
+                const query = searchInput?.value?.trim().toLowerCase() ?? '';
+                filteredNotes = allNotes.filter(note => {
+                    if (!query) {
+                        return true;
+                    }
+
+                    const numberMatch = note.noteNumber?.toLowerCase().includes(query);
+                    const supplierMatch = note.supplierName?.toLowerCase().includes(query) || note.supplierId?.toLowerCase().includes(query);
+                    return numberMatch || supplierMatch;
+                });
+
+                renderTable(filteredNotes);
+            }
+
+            async function loadReceivingNotes() {
+                if (!canView) {
+                    return;
+                }
+
+                setLoading('Đang tải danh sách phiếu nhập...');
+
+                try {
+                    const response = await fetch('/api/receiving-notes');
+                    if (!response.ok) {
+                        if (response.status === 403) {
+                            setLoading('Bạn không có quyền xem danh sách phiếu nhập.');
+                            return;
+                        }
+                        throw new Error('Failed to load receiving notes');
+                    }
+
+                    const data = await response.json();
+                    allNotes = Array.isArray(data) ? data : [];
+                    applyFilters();
+                } catch (error) {
+                    setLoading('Không thể tải danh sách phiếu nhập.');
+                    showAlert('Có lỗi xảy ra khi tải danh sách phiếu nhập. Vui lòng thử lại sau.');
+                }
+            }
+
+            async function openDetailModal(id) {
+                if (!detailModal || !detailBody) {
+                    return;
+                }
+
+                detailBody.innerHTML = `
+                    <div class="py-4 text-center text-muted">
+                        <div class="spinner-border text-primary" role="status"></div>
+                    </div>`;
+                detailModal.show();
+
+                try {
+                    const response = await fetch(`/api/receiving-notes/${id}`);
+                    if (!response.ok) {
+                        if (response.status === 404) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Phiếu nhập không tồn tại hoặc đã bị xóa.</div>';
+                        } else if (response.status === 403) {
+                            detailBody.innerHTML = '<div class="alert alert-warning mb-0">Bạn không có quyền xem phiếu nhập này.</div>';
+                        } else {
+                            throw new Error('Failed to load receiving note detail');
+                        }
+                        return;
+                    }
+
+                    const note = await response.json();
+                    const details = Array.isArray(note.details) && note.details.length > 0
+                        ? note.details.map(detail => `
+                            <tr>
+                                <td>${detail.materialName ?? '—'}</td>
+                                <td class="text-end">${Number(detail.quantity ?? 0).toLocaleString('vi-VN')}</td>
+                                <td>${detail.unitName ?? '—'}</td>
+                                <td class="text-end">${Number(detail.unitPrice ?? 0).toLocaleString('vi-VN')}</td>
+                                <td class="text-end">${Number(detail.baseQuantity ?? 0).toLocaleString('vi-VN')}</td>
+                            </tr>`).join('')
+                        : '<tr><td colspan="5" class="text-center text-muted py-3">Không có chi tiết phiếu nhập.</td></tr>';
+
+                    detailBody.innerHTML = `
+                        <div class="mb-3">
+                            <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                <div>
+                                    <h5 class="mb-1 text-primary">Phiếu nhập #${note.noteNumber}</h5>
+                                    <div class="text-muted small">Ngày lập: ${formatDate(note.date)}</div>
+                                </div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    ${formatStatus(note.status)}
+                                    ${note.isStockApplied ? '<span class="badge bg-success">Đã cập nhật tồn</span>' : '<span class="badge bg-warning text-dark">Chưa áp dụng tồn</span>'}
+                                </div>
+                            </div>
+                            <div class="mt-2 row g-2">
+                                <div class="col-md-4">
+                                    <div class="text-muted small">Nhà cung cấp</div>
+                                    <div class="fw-semibold">${note.supplierName ?? note.supplierId ?? '—'}</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-muted small">Kho</div>
+                                    <div class="fw-semibold">${note.warehouseId ?? '—'}</div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="text-muted small">Hoàn tất lúc</div>
+                                    <div class="fw-semibold">${formatDate(note.completedAt)}</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="table-responsive">
+                            <table class="table table-sm table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Nguyên vật liệu</th>
+                                        <th class="text-end">Số lượng nhập</th>
+                                        <th>Đơn vị</th>
+                                        <th class="text-end">Đơn giá</th>
+                                        <th class="text-end">Quy đổi</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${details}
+                                </tbody>
+                            </table>
+                        </div>`;
+                } catch (error) {
+                    detailBody.innerHTML = '<div class="alert alert-danger mb-0">Không thể tải chi tiết phiếu nhập.</div>';
+                }
+            }
+
+            tableBody?.addEventListener('click', event => {
+                const button = event.target.closest('button[data-action="detail"]');
+                if (!button) {
+                    return;
+                }
+
+                const id = Number(button.dataset.id);
+                if (Number.isFinite(id)) {
+                    openDetailModal(id);
+                }
+            });
+
+            searchInput?.addEventListener('input', () => applyFilters());
+
+            loadReceivingNotes();
+        })();
+    </script>
+}

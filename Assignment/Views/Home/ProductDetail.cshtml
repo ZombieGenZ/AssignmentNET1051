@@ -1101,6 +1101,50 @@
         margin-top: 2.5rem;
     }
 
+    .extra-section {
+        margin-top: 3rem;
+    }
+
+    .extra-card {
+        border: 1px solid #e2e8f0;
+        border-radius: 1rem;
+        padding: 1.5rem;
+        height: 100%;
+        background-color: #ffffff;
+        transition: box-shadow 0.2s ease, transform 0.2s ease;
+    }
+
+        .extra-card:hover {
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+            transform: translateY(-4px);
+        }
+
+    .extra-card-image {
+        width: 100%;
+        height: 160px;
+        border-radius: 0.75rem;
+        object-fit: cover;
+        margin-bottom: 1rem;
+        background-color: #f1f5f9;
+    }
+
+    .extra-price {
+        font-weight: 600;
+        color: #ef4444;
+        font-size: 1.05rem;
+    }
+
+    .extra-old-price {
+        text-decoration: line-through;
+        color: #94a3b8;
+        margin-right: 0.5rem;
+    }
+
+    .extra-badges .badge {
+        font-weight: 500;
+        border-radius: 999px;
+    }
+
     .description-section {
         padding: 1.75rem;
         background: #f8fafc;
@@ -1412,6 +1456,46 @@
                     </div>
                 </div>
             </div>
+
+            @if (Model.ApplicableExtras.Any())
+            {
+                <div class="extra-section">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h3 class="mb-0"><i class="fas fa-plus-circle text-primary me-2"></i>Sản phẩm bổ sung phù hợp</h3>
+                        <span class="text-muted">Tùy chọn thêm để tăng hương vị cho món của bạn</span>
+                    </div>
+                    <div class="row g-4">
+                        @foreach (var extra in Model.ApplicableExtras)
+                        {
+                            var image = string.IsNullOrWhiteSpace(extra.ImageUrl) ? productImageUrl : extra.ImageUrl;
+                            <div class="col-md-4">
+                                <div class="extra-card h-100">
+                                    <img src="@image" alt="@extra.Name" class="extra-card-image" />
+                                    <h5 class="fw-semibold text-primary">@extra.Name</h5>
+                                    <div class="mb-2">
+                                        @if (extra.DiscountType != Assignment.Enums.DiscountType.None && extra.FinalPrice != extra.Price)
+                                        {
+                                            <span class="extra-old-price">@FormatCurrencyWithSymbol(extra.Price)</span>
+                                        }
+                                        <span class="extra-price">@FormatCurrencyWithSymbol(extra.FinalPrice)</span>
+                                    </div>
+                                    <p class="text-muted small mb-3">@extra.Ingredients</p>
+                                    <div class="extra-badges d-flex flex-wrap gap-2">
+                                        @if (extra.IsSpicy)
+                                        {
+                                            <span class="badge bg-danger-subtle text-danger">Món cay</span>
+                                        }
+                                        @if (extra.IsVegetarian)
+                                        {
+                                            <span class="badge bg-success-subtle text-success">Món chay</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
 
             <div class="modal fade" id="typeQuantityModal" tabindex="-1" aria-labelledby="typeQuantityModalLabel" aria-hidden="true">
                 <div class="modal-dialog modal-dialog-centered">
