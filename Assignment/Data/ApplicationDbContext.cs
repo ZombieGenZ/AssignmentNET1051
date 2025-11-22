@@ -48,9 +48,6 @@ namespace Assignment.Data
         public DbSet<Unit> Units { get; set; }
         public DbSet<ConversionUnit> ConversionUnits { get; set; }
         public DbSet<Material> Materials { get; set; }
-        public DbSet<Recipe> Recipes { get; set; }
-        public DbSet<RecipeDetail> RecipeDetails { get; set; }
-        public DbSet<RecipeStep> RecipeSteps { get; set; }
         public DbSet<ReceivingNote> ReceivingNotes { get; set; }
         public DbSet<ReceivingDetail> ReceivingDetails { get; set; }
         public DbSet<Inventory> Inventories { get; set; }
@@ -72,48 +69,6 @@ namespace Assignment.Data
                       .WithMany(unit => unit.ConvertedFrom)
                       .HasForeignKey(conversion => conversion.ToUnitId)
                       .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            builder.Entity<Recipe>(entity =>
-            {
-                entity.HasOne(recipe => recipe.OutputUnit)
-                      .WithMany()
-                      .HasForeignKey(recipe => recipe.OutputUnitId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            builder.Entity<Product>(entity =>
-            {
-                entity.HasOne(product => product.Recipe)
-                      .WithMany()
-                      .HasForeignKey(product => product.RecipeId)
-                      .OnDelete(DeleteBehavior.SetNull);
-            });
-
-            builder.Entity<RecipeDetail>(entity =>
-            {
-                entity.HasOne(detail => detail.Recipe)
-                      .WithMany(recipe => recipe.Details)
-                      .HasForeignKey(detail => detail.RecipeId)
-                      .OnDelete(DeleteBehavior.Cascade);
-
-                entity.HasOne(detail => detail.Material)
-                      .WithMany()
-                      .HasForeignKey(detail => detail.MaterialId)
-                      .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(detail => detail.Unit)
-                      .WithMany()
-                      .HasForeignKey(detail => detail.UnitId)
-                      .OnDelete(DeleteBehavior.Restrict);
-            });
-
-            builder.Entity<RecipeStep>(entity =>
-            {
-                entity.HasOne(step => step.Recipe)
-                      .WithMany(recipe => recipe.Steps)
-                      .HasForeignKey(step => step.RecipeId)
-                      .OnDelete(DeleteBehavior.Cascade);
             });
 
             builder.Entity<Supplier>(entity =>

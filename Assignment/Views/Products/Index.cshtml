@@ -2611,7 +2611,6 @@
             async function openCreateModal() {
                 await Promise.all([
                     loadCategories(false),
-                    loadRecipes(false)
                 ]);
                 resetForm();
                 productModalTitle.textContent = 'Thêm mới sản phẩm';
@@ -3070,7 +3069,6 @@
 
             updateBulkActionsVisibility();
             loadCategories(false);
-            loadRecipes(false);
             loadProducts();
         })();
     </script>

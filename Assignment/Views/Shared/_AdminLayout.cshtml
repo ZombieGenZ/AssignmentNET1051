@@ -81,7 +81,6 @@
         var canManageWarehouses = User.HasAnyPermission("GetWarehouseAll", "GetWarehouse");
         var canManageSuppliers = User.HasAnyPermission("GetSupplierAll", "GetSupplier");
         var canManageReceiving = User.HasPermission("GetReceivingAll") || User.HasPermission("CreateReceiving");
-        var canManageRecipes = User.HasAnyPermission("GetRecipeAll", "GetRecipe");
         var canManageCombos = User.HasAnyPermission("GetComboAll", "GetCombo");
         var canManageVouchers = User.HasAnyPermission("GetVoucherAll", "GetVoucher");
         var canManageRewards = User.HasAnyPermission("GetRewardAll", "GetReward");
@@ -89,7 +88,7 @@
         var canManageCustomers = User.HasAnyPermission("ViewCustomerAll", "ViewTopUserAll");
         var isSuperAdmin = User.HasPermission("superadmin");
 
-        var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageRecipes || canManageCombos;
+        var hasProductGroup = canManageCategories || canManageProducts || canManageProductExtras || canManageCombos;
         var hasInventoryGroup = canManageUnits || canManageMaterials || canManageInventory || canManageReceiving || canManageSuppliers || canManageWarehouses;
         var hasSalesGroup = canManageOrders;
         var hasCustomerGroup = canManageVouchers || canManageRewards || canManageCustomers;
@@ -163,7 +162,6 @@
                                 (CanAccess: canManageCategories, Action: "Index", Controller: "Categories", Label: "Danh mục", Icon: "fa-folder"),
                                 (CanAccess: canManageProducts, Action: "Index", Controller: "Products", Label: "Sản phẩm", Icon: "fa-coffee"),
                                 (CanAccess: canManageProductExtras, Action: "Index", Controller: "ProductExtras", Label: "Sản phẩm bổ sung", Icon: "fa-plus-circle"),
-                                (CanAccess: canManageRecipes, Action: "Index", Controller: "Recipes", Label: "Công thức sản phẩm", Icon: "fa-book"),
                                 (CanAccess: canManageCombos, Action: "Index", Controller: "Combos", Label: "Combo", Icon: "fa-box")
                                 };
                     if (productLinks.Any(link => link.CanAccess))
