@@ -134,37 +134,6 @@ builder.Services.AddAuthorization(options =>
         )
     );
 
-    options.AddPolicy("GetUnitPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("GetUnitAll") ||
-            (ctx.User.HasPermission("GetUnit") &&
-             ctx.Resource is Unit unit &&
-             unit.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("CreateUnitPolicy", policy =>
-        policy.RequireClaim("CreateUnit")
-    );
-
-    options.AddPolicy("UpdateUnitPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("UpdateUnitAll") ||
-            (ctx.User.HasPermission("UpdateUnit") &&
-             ctx.Resource is Unit unit &&
-             unit.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("DeleteUnitPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("DeleteUnitAll") ||
-            (ctx.User.HasPermission("DeleteUnit") &&
-             ctx.Resource is Unit unit &&
-             unit.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
     options.AddPolicy("GetProductExtraPolicy", policy =>
         policy.RequireAssertion(ctx =>
             ctx.User.HasPermission("GetProductExtraAll") ||
@@ -193,110 +162,6 @@ builder.Services.AddAuthorization(options =>
             (ctx.User.HasPermission("DeleteProductExtra") &&
              ctx.Resource is ProductExtra extra &&
              extra.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("GetMaterialPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("GetMaterialAll") ||
-            (ctx.User.HasPermission("GetMaterial") &&
-             ctx.Resource is Material material &&
-             material.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("CreateMaterialPolicy", policy =>
-        policy.RequireClaim("CreateMaterial")
-    );
-
-    options.AddPolicy("UpdateMaterialPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("UpdateMaterialAll") ||
-            (ctx.User.HasPermission("UpdateMaterial") &&
-             ctx.Resource is Material material &&
-             material.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("GetSupplierPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("GetSupplierAll") ||
-            (ctx.User.HasPermission("GetSupplier") &&
-             ctx.Resource is Supplier supplier &&
-             supplier.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("CreateSupplierPolicy", policy =>
-        policy.RequireClaim("CreateSupplier")
-    );
-
-    options.AddPolicy("UpdateSupplierPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("UpdateSupplierAll") ||
-            (ctx.User.HasPermission("UpdateSupplier") &&
-             ctx.Resource is Supplier supplier &&
-             supplier.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("DeleteSupplierPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("DeleteSupplierAll") ||
-            (ctx.User.HasPermission("DeleteSupplier") &&
-             ctx.Resource is Supplier supplier &&
-             supplier.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("GetWarehousePolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("GetWarehouseAll") ||
-            (ctx.User.HasPermission("GetWarehouse") &&
-             ctx.Resource is Warehouse warehouse &&
-             warehouse.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("CreateWarehousePolicy", policy =>
-        policy.RequireClaim("CreateWarehouse")
-    );
-
-    options.AddPolicy("UpdateWarehousePolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("UpdateWarehouseAll") ||
-            (ctx.User.HasPermission("UpdateWarehouse") &&
-             ctx.Resource is Warehouse warehouse &&
-             warehouse.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("DeleteWarehousePolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("DeleteWarehouseAll") ||
-            (ctx.User.HasPermission("DeleteWarehouse") &&
-             ctx.Resource is Warehouse warehouse &&
-             warehouse.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
-        )
-    );
-
-    options.AddPolicy("CreateReceivingPolicy", policy =>
-        policy.RequireClaim("CreateReceiving")
-    );
-
-    options.AddPolicy("ViewInventoryPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("ViewInventoryAll") ||
-            ctx.User.HasPermission("ViewInventory")
-        )
-    );
-
-    options.AddPolicy("DeleteMaterialPolicy", policy =>
-        policy.RequireAssertion(ctx =>
-            ctx.User.HasPermission("DeleteMaterialAll") ||
-            (ctx.User.HasPermission("DeleteMaterial") &&
-             ctx.Resource is Material material &&
-             material.CreateBy == ctx.User.FindFirst(ClaimTypes.NameIdentifier)?.Value)
         )
     );
 
@@ -444,7 +309,7 @@ using (var scope = app.Services.CreateScope())
     await EnsureVoucherMinimumRankColumnAsync(dbContext);
     await EnsureProductTypeSelectionTablesAsync(dbContext);
     await EnsureProductExtraTablesAsync(dbContext);
-    await EnsureMaterialManagementTablesAsync(dbContext);
+    await DropObsoleteInventoryTablesAsync(dbContext);
 
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var usersWithoutSecurityStamp = await userManager.Users
@@ -762,297 +627,51 @@ END;
     await context.Database.ExecuteSqlRawAsync(ensureSql);
 }
 
-static async Task EnsureMaterialManagementTablesAsync(ApplicationDbContext context)
+static async Task DropObsoleteInventoryTablesAsync(ApplicationDbContext context)
 {
-    const string ensureSql = @"
-IF OBJECT_ID(N'dbo.Units', N'U') IS NULL
+    const string dropSql = @"
+IF OBJECT_ID(N'dbo.Inventories', N'U') IS NOT NULL
 BEGIN
-    CREATE TABLE [dbo].[Units]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [Name] NVARCHAR(100) NOT NULL,
-        [Description] NVARCHAR(255) NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_Units] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
+    DROP TABLE [dbo].[Inventories];
 END;
 
-IF OBJECT_ID(N'dbo.ConversionUnits', N'U') IS NULL
+IF OBJECT_ID(N'dbo.ReceivingDetails', N'U') IS NOT NULL
 BEGIN
-    CREATE TABLE [dbo].[ConversionUnits]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [FromUnitId] BIGINT NOT NULL,
-        [ToUnitId] BIGINT NOT NULL,
-        [ConversionRate] DECIMAL(18,6) NOT NULL,
-        [Description] NVARCHAR(255) NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_ConversionUnits] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
-
-    CREATE INDEX [IX_ConversionUnits_FromUnitId] ON [dbo].[ConversionUnits]([FromUnitId]);
-    CREATE INDEX [IX_ConversionUnits_ToUnitId] ON [dbo].[ConversionUnits]([ToUnitId]);
-    CREATE UNIQUE INDEX [IX_ConversionUnits_FromUnitId_ToUnitId] ON [dbo].[ConversionUnits]([FromUnitId], [ToUnitId]);
-
-    ALTER TABLE [dbo].[ConversionUnits] WITH CHECK
-        ADD CONSTRAINT [FK_ConversionUnits_Units_FromUnitId]
-        FOREIGN KEY([FromUnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
-
-    ALTER TABLE [dbo].[ConversionUnits] WITH CHECK
-        ADD CONSTRAINT [FK_ConversionUnits_Units_ToUnitId]
-        FOREIGN KEY([ToUnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
+    DROP TABLE [dbo].[ReceivingDetails];
 END;
 
-IF OBJECT_ID(N'dbo.Materials', N'U') IS NULL
+IF OBJECT_ID(N'dbo.ReceivingNotes', N'U') IS NOT NULL
 BEGIN
-    CREATE TABLE [dbo].[Materials]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [Code] NVARCHAR(100) NOT NULL,
-        [Name] NVARCHAR(200) NOT NULL,
-        [UnitId] BIGINT NOT NULL,
-        [MinStockLevel] DECIMAL(18,4) NOT NULL,
-        [Price] DECIMAL(18,2) NOT NULL,
-        [Description] NVARCHAR(500) NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_Materials] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
-
-    CREATE INDEX [IX_Materials_Code] ON [dbo].[Materials]([Code]);
-    CREATE INDEX [IX_Materials_Name] ON [dbo].[Materials]([Name]);
-    CREATE INDEX [IX_Materials_UnitId] ON [dbo].[Materials]([UnitId]);
-
-    ALTER TABLE [dbo].[Materials] WITH CHECK
-        ADD CONSTRAINT [FK_Materials_Units_UnitId]
-        FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]) ON DELETE CASCADE;
+    DROP TABLE [dbo].[ReceivingNotes];
 END;
 
-IF OBJECT_ID(N'dbo.Suppliers', N'U') IS NULL
+IF OBJECT_ID(N'dbo.Materials', N'U') IS NOT NULL
 BEGIN
-    CREATE TABLE [dbo].[Suppliers]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [Code] NVARCHAR(100) NOT NULL,
-        [Name] NVARCHAR(255) NOT NULL,
-        [ContactName] NVARCHAR(255) NULL,
-        [PhoneNumber] NVARCHAR(50) NULL,
-        [Email] NVARCHAR(255) NULL,
-        [Address] NVARCHAR(500) NULL,
-        [Notes] NVARCHAR(1000) NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_Suppliers] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
-
-    CREATE UNIQUE INDEX [IX_Suppliers_Code] ON [dbo].[Suppliers]([Code]);
+    DROP TABLE [dbo].[Materials];
 END;
 
-IF OBJECT_ID(N'dbo.Warehouses', N'U') IS NULL
+IF OBJECT_ID(N'dbo.ConversionUnits', N'U') IS NOT NULL
 BEGIN
-    CREATE TABLE [dbo].[Warehouses]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [Code] NVARCHAR(100) NOT NULL,
-        [Name] NVARCHAR(255) NOT NULL,
-        [ContactName] NVARCHAR(255) NULL,
-        [PhoneNumber] NVARCHAR(50) NULL,
-        [Email] NVARCHAR(255) NULL,
-        [Address] NVARCHAR(500) NULL,
-        [Notes] NVARCHAR(1000) NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_Warehouses] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
-
-    CREATE UNIQUE INDEX [IX_Warehouses_Code] ON [dbo].[Warehouses]([Code]);
+    DROP TABLE [dbo].[ConversionUnits];
 END;
 
-IF OBJECT_ID(N'dbo.ReceivingNotes', N'U') IS NULL
+IF OBJECT_ID(N'dbo.Units', N'U') IS NOT NULL
 BEGIN
-    CREATE TABLE [dbo].[ReceivingNotes]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [NoteNumber] NVARCHAR(100) NOT NULL,
-        [Date] DATE NOT NULL,
-        [SupplierId] BIGINT NULL,
-        [SupplierName] NVARCHAR(255) NULL,
-        [WarehouseId] BIGINT NULL,
-        [Status] INT NOT NULL,
-        [IsStockApplied] BIT NOT NULL,
-        [CompletedAt] DATETIME2 NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_ReceivingNotes] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
-
-    CREATE INDEX [IX_ReceivingNotes_NoteNumber] ON [dbo].[ReceivingNotes]([NoteNumber]);
-    CREATE INDEX [IX_ReceivingNotes_SupplierId] ON [dbo].[ReceivingNotes]([SupplierId]);
-    CREATE INDEX [IX_ReceivingNotes_WarehouseId] ON [dbo].[ReceivingNotes]([WarehouseId]);
-
-    ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
-        ADD CONSTRAINT [FK_ReceivingNotes_Suppliers_SupplierId]
-        FOREIGN KEY([SupplierId]) REFERENCES [dbo].[Suppliers]([Id]) ON DELETE SET NULL;
-
-    ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
-        ADD CONSTRAINT [FK_ReceivingNotes_Warehouses_WarehouseId]
-        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
+    DROP TABLE [dbo].[Units];
 END;
 
-IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReceivingNotes_WarehouseId' AND object_id = OBJECT_ID(N'dbo.ReceivingNotes'))
+IF OBJECT_ID(N'dbo.Suppliers', N'U') IS NOT NULL
 BEGIN
-    CREATE INDEX [IX_ReceivingNotes_WarehouseId] ON [dbo].[ReceivingNotes]([WarehouseId]);
+    DROP TABLE [dbo].[Suppliers];
 END;
 
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ReceivingNotes_Warehouses_WarehouseId')
+IF OBJECT_ID(N'dbo.Warehouses', N'U') IS NOT NULL
 BEGIN
-    ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
-        ADD CONSTRAINT [FK_ReceivingNotes_Warehouses_WarehouseId]
-        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
+    DROP TABLE [dbo].[Warehouses];
 END;
+";
 
-IF OBJECT_ID(N'dbo.ReceivingDetails', N'U') IS NULL
-BEGIN
-    CREATE TABLE [dbo].[ReceivingDetails]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [ReceivingNoteId] BIGINT NOT NULL,
-        [MaterialId] BIGINT NOT NULL,
-        [Quantity] DECIMAL(18,4) NOT NULL,
-        [UnitId] BIGINT NOT NULL,
-        [UnitPrice] DECIMAL(18,2) NOT NULL,
-        [BaseQuantity] DECIMAL(18,4) NOT NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_ReceivingDetails] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
-
-    CREATE INDEX [IX_ReceivingDetails_ReceivingNoteId] ON [dbo].[ReceivingDetails]([ReceivingNoteId]);
-    CREATE INDEX [IX_ReceivingDetails_MaterialId] ON [dbo].[ReceivingDetails]([MaterialId]);
-    CREATE INDEX [IX_ReceivingDetails_UnitId] ON [dbo].[ReceivingDetails]([UnitId]);
-
-    ALTER TABLE [dbo].[ReceivingDetails] WITH CHECK
-        ADD CONSTRAINT [FK_ReceivingDetails_ReceivingNotes_ReceivingNoteId]
-        FOREIGN KEY([ReceivingNoteId]) REFERENCES [dbo].[ReceivingNotes]([Id]) ON DELETE CASCADE;
-
-    ALTER TABLE [dbo].[ReceivingDetails] WITH CHECK
-        ADD CONSTRAINT [FK_ReceivingDetails_Materials_MaterialId]
-        FOREIGN KEY([MaterialId]) REFERENCES [dbo].[Materials]([Id]);
-
-    ALTER TABLE [dbo].[ReceivingDetails] WITH CHECK
-        ADD CONSTRAINT [FK_ReceivingDetails_Units_UnitId]
-        FOREIGN KEY([UnitId]) REFERENCES [dbo].[Units]([Id]);
-END;
-
-IF OBJECT_ID(N'dbo.Inventories', N'U') IS NULL
-BEGIN
-    CREATE TABLE [dbo].[Inventories]
-    (
-        [Id] BIGINT IDENTITY(1,1) NOT NULL,
-        [MaterialId] BIGINT NOT NULL,
-        [WarehouseId] BIGINT NULL,
-        [CurrentStock] DECIMAL(18,4) NOT NULL,
-        [LastUpdated] DATETIME2 NOT NULL,
-        [CreateBy] NVARCHAR(MAX) NULL,
-        [CreatedAt] DATETIME2 NOT NULL,
-        [UpdatedAt] DATETIME2 NULL,
-        [IsDeleted] BIT NOT NULL,
-        [DeletedAt] DATETIME2 NULL,
-        CONSTRAINT [PK_Inventories] PRIMARY KEY CLUSTERED ([Id] ASC)
-    );
-
-    CREATE UNIQUE INDEX [IX_Inventories_MaterialId_WarehouseId] ON [dbo].[Inventories]([MaterialId], [WarehouseId]);
-
-    ALTER TABLE [dbo].[Inventories] WITH CHECK
-        ADD CONSTRAINT [FK_Inventories_Materials_MaterialId]
-        FOREIGN KEY([MaterialId]) REFERENCES [dbo].[Materials]([Id]);
-
-    ALTER TABLE [dbo].[Inventories] WITH CHECK
-        ADD CONSTRAINT [FK_Inventories_Warehouses_WarehouseId]
-        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
-END;";
-
-    await context.Database.ExecuteSqlRawAsync(ensureSql);
-
-    const string ensureReceivingSupplierColumnTypeSql = @"
-IF EXISTS (SELECT 1
-           FROM sys.columns c
-           JOIN sys.types t ON c.user_type_id = t.user_type_id
-           WHERE c.object_id = OBJECT_ID(N'dbo.ReceivingNotes')
-             AND c.name = 'SupplierId'
-             AND t.name IN ('nvarchar', 'varchar', 'nchar', 'char'))
-BEGIN
-    IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_ReceivingNotes_Suppliers_SupplierId')
-    BEGIN
-        ALTER TABLE [dbo].[ReceivingNotes]
-            DROP CONSTRAINT [FK_ReceivingNotes_Suppliers_SupplierId];
-    END;
-
-    IF EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'IX_ReceivingNotes_SupplierId' AND object_id = OBJECT_ID(N'dbo.ReceivingNotes'))
-    BEGIN
-        DROP INDEX [IX_ReceivingNotes_SupplierId] ON [dbo].[ReceivingNotes];
-    END;
-
-    UPDATE [dbo].[ReceivingNotes]
-    SET [SupplierId] = NULL
-    WHERE TRY_CONVERT(BIGINT, [SupplierId]) IS NULL AND [SupplierId] IS NOT NULL;
-
-    ALTER TABLE [dbo].[ReceivingNotes]
-        ALTER COLUMN [SupplierId] BIGINT NULL;
-
-    CREATE INDEX [IX_ReceivingNotes_SupplierId] ON [dbo].[ReceivingNotes]([SupplierId]);
-
-    IF OBJECT_ID(N'dbo.Suppliers', N'U') IS NOT NULL
-    BEGIN
-        ALTER TABLE [dbo].[ReceivingNotes] WITH CHECK
-            ADD CONSTRAINT [FK_ReceivingNotes_Suppliers_SupplierId]
-            FOREIGN KEY([SupplierId]) REFERENCES [dbo].[Suppliers]([Id]) ON DELETE SET NULL;
-    END;
-END;";
-
-    await context.Database.ExecuteSqlRawAsync(ensureReceivingSupplierColumnTypeSql);
-
-    const string ensureInventoryWarehouseForeignKeySql = @"
-IF NOT EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = 'FK_Inventories_Warehouses_WarehouseId')
-BEGIN
-    ALTER TABLE [dbo].[Inventories] WITH CHECK
-        ADD CONSTRAINT [FK_Inventories_Warehouses_WarehouseId]
-        FOREIGN KEY([WarehouseId]) REFERENCES [dbo].[Warehouses]([Id]) ON DELETE SET NULL;
-END;";
-
-    await context.Database.ExecuteSqlRawAsync(ensureInventoryWarehouseForeignKeySql);
-
-    const string ensureMaterialDescriptionColumnSql = @"
-IF COL_LENGTH(N'dbo.Materials', N'Description') IS NULL
-BEGIN
-    ALTER TABLE [dbo].[Materials]
-        ADD [Description] NVARCHAR(500) NULL;
-END;";
-
-    await context.Database.ExecuteSqlRawAsync(ensureMaterialDescriptionColumnSql);
+    await context.Database.ExecuteSqlRawAsync(dropSql);
 }
 
 static async Task EnsureRoleMetadataColumnsAsync(ApplicationDbContext context)
