@@ -630,6 +630,35 @@ END;
 static async Task DropObsoleteInventoryTablesAsync(ApplicationDbContext context)
 {
     const string dropSql = @"
+DECLARE @targetTables TABLE (SchemaName NVARCHAR(128), TableName NVARCHAR(128));
+INSERT INTO @targetTables (SchemaName, TableName)
+VALUES
+    (N'dbo', N'Inventories'),
+    (N'dbo', N'ReceivingDetails'),
+    (N'dbo', N'ReceivingNotes'),
+    (N'dbo', N'Materials'),
+    (N'dbo', N'ConversionUnits'),
+    (N'dbo', N'Units'),
+    (N'dbo', N'Suppliers'),
+    (N'dbo', N'Warehouses');
+
+DECLARE @dropConstraints NVARCHAR(MAX) = N'';
+
+SELECT @dropConstraints = @dropConstraints + N'
+IF EXISTS (SELECT 1 FROM sys.foreign_keys WHERE name = ' + QUOTENAME(fk.name, '''') + N')
+BEGIN
+    ALTER TABLE ' + QUOTENAME(s.name) + N'.' + QUOTENAME(o.name) + N' DROP CONSTRAINT ' + QUOTENAME(fk.name) + N';
+END;'
+FROM sys.foreign_keys fk
+    INNER JOIN sys.objects o ON fk.parent_object_id = o.object_id
+    INNER JOIN sys.schemas s ON o.schema_id = s.schema_id
+    INNER JOIN sys.objects ro ON fk.referenced_object_id = ro.object_id
+    INNER JOIN sys.schemas rs ON ro.schema_id = rs.schema_id
+    INNER JOIN @targetTables tt ON tt.SchemaName = rs.name AND tt.TableName = ro.name;
+
+IF (@dropConstraints <> N'')
+    EXEC sp_executesql @dropConstraints;
+
 IF OBJECT_ID(N'dbo.Inventories', N'U') IS NOT NULL
 BEGIN
     DROP TABLE [dbo].[Inventories];
