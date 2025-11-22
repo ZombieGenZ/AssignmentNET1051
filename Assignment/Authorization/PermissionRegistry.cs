@@ -75,16 +75,6 @@ namespace Assignment.Authorization
                 new PermissionDefinition("DeleteMaterialAll", "Xóa bất kỳ nguyên vật liệu"),
                 new PermissionDefinition("DeleteMaterial", "Xóa nguyên vật liệu của bản thân"),
             }),
-            new PermissionGroupDefinition("Recipes", new List<PermissionDefinition>
-            {
-                new PermissionDefinition("GetRecipeAll", "Xem tất cả công thức"),
-                new PermissionDefinition("GetRecipe", "Xem công thức của bản thân"),
-                new PermissionDefinition("CreateRecipe", "Tạo công thức"),
-                new PermissionDefinition("UpdateRecipeAll", "Sửa bất kỳ công thức"),
-                new PermissionDefinition("UpdateRecipe", "Sửa công thức của bản thân"),
-                new PermissionDefinition("DeleteRecipeAll", "Xóa bất kỳ công thức"),
-                new PermissionDefinition("DeleteRecipe", "Xóa công thức của bản thân"),
-            }),
             new PermissionGroupDefinition("Product Extras", new List<PermissionDefinition>
             {
                 new PermissionDefinition("GetProductExtraAll", "Xem tất cả sản phẩm bổ sung"),
