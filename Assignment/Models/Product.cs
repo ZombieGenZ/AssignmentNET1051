@@ -46,10 +46,6 @@ namespace Assignment.Models
 
         public virtual Category? Category { get; set; }
 
-        public long? RecipeId { get; set; }
-
-        public virtual Recipe? Recipe { get; set; }
-
         public virtual ICollection<ProductType> ProductTypes { get; set; } = new List<ProductType>();
 
         [NotMapped]
