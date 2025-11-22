@@ -47,7 +47,6 @@ namespace Assignment.Controllers.Api
             IQueryable<Product> query = _context.Products
                 .AsNoTracking()
                 .Include(p => p.Category)
-                .Include(p => p.Recipe)
                 .Include(p => p.ProductTypes.Where(pt => !pt.IsDeleted))
                 .Where(p => !p.IsDeleted);
 
@@ -74,7 +73,6 @@ namespace Assignment.Controllers.Api
             var product = await _context.Products
                 .AsNoTracking()
                 .Include(p => p.Category)
-                .Include(p => p.Recipe)
                 .Include(p => p.ProductTypes.Where(pt => !pt.IsDeleted))
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
 
@@ -113,20 +111,11 @@ namespace Assignment.Controllers.Api
                 IsDeleted = false
             };
 
-            var (isRecipeValid, selectedRecipe, recipeError) = await ValidateRecipeSelectionAsync(request.RecipeId);
-            if (!isRecipeValid)
-            {
-                ModelState.AddModelError(nameof(ProductRequest.RecipeId), recipeError ?? "Công thức sản phẩm không hợp lệ.");
-                return ValidationProblem(ModelState);
-            }
-
             if (!TryApplyRequestToProduct(product, request, CurrentUserId, out var applyError))
             {
                 ModelState.AddModelError(nameof(ProductRequest.ProductTypes), applyError ?? "Vui lòng cung cấp ít nhất một loại sản phẩm hợp lệ.");
                 return ValidationProblem(ModelState);
             }
-            product.RecipeId = selectedRecipe?.Id;
-            product.Recipe = selectedRecipe;
             product.RefreshDerivedFields();
 
             _context.Products.Add(product);
@@ -149,7 +138,6 @@ namespace Assignment.Controllers.Api
 
             var product = await _context.Products
                 .Include(p => p.ProductTypes)
-                .Include(p => p.Recipe)
                 .FirstOrDefaultAsync(p => p.Id == id && !p.IsDeleted);
             if (product == null)
             {
@@ -162,13 +150,6 @@ namespace Assignment.Controllers.Api
                 return Forbid();
             }
 
-            var (isRecipeValid, selectedRecipe, recipeError) = await ValidateRecipeSelectionAsync(request.RecipeId);
-            if (!isRecipeValid)
-            {
-                ModelState.AddModelError(nameof(ProductRequest.RecipeId), recipeError ?? "Công thức sản phẩm không hợp lệ.");
-                return ValidationProblem(ModelState);
-            }
-
             if (!TryApplyRequestToProduct(product, request, CurrentUserId, out var applyError))
             {
                 ModelState.AddModelError(nameof(ProductRequest.ProductTypes), applyError ?? "Vui lòng cung cấp ít nhất một loại sản phẩm hợp lệ.");
@@ -176,8 +157,6 @@ namespace Assignment.Controllers.Api
             }
             product.RefreshDerivedFields();
             product.UpdatedAt = DateTime.Now;
-            product.RecipeId = selectedRecipe?.Id;
-            product.Recipe = selectedRecipe;
 
             try
             {
@@ -1020,30 +999,6 @@ namespace Assignment.Controllers.Api
             return $"Không thể xóa sản phẩm \"{productName}\" vì đang được sử dụng trong {combosLabel} {preview}.";
         }
 
-        private async Task<(bool IsValid, Recipe? Recipe, string? ErrorMessage)> ValidateRecipeSelectionAsync(long? recipeId)
-        {
-            if (!recipeId.HasValue || recipeId.Value <= 0)
-            {
-                return (true, null, null);
-            }
-
-            var recipe = await _context.Recipes
-                .FirstOrDefaultAsync(r => r.Id == recipeId.Value && !r.IsDeleted);
-
-            if (recipe == null)
-            {
-                return (false, null, "Công thức được chọn không tồn tại hoặc đã bị xóa.");
-            }
-
-            var authResult = await _authorizationService.AuthorizeAsync(User, recipe, "GetRecipePolicy");
-            if (!authResult.Succeeded)
-            {
-                return (false, null, "Bạn không có quyền sử dụng công thức này.");
-            }
-
-            return (true, recipe, null);
-        }
-
         private static ProductResponse MapToResponse(Product product)
         {
             product.RefreshDerivedFields();
@@ -1082,8 +1037,6 @@ namespace Assignment.Controllers.Api
                 AverageEvaluate = product.AverageEvaluate,
                 CategoryId = product.CategoryId,
                 CategoryName = product.Category?.Name,
-                RecipeId = product.RecipeId,
-                RecipeName = product.Recipe?.Name,
                 CreatedAt = product.CreatedAt,
                 UpdatedAt = product.UpdatedAt,
                 PriceRange = product.PriceRange,
@@ -1199,8 +1152,6 @@ namespace Assignment.Controllers.Api
             [Range(1, long.MaxValue)]
             public long CategoryId { get; set; }
 
-            [Range(1, long.MaxValue)]
-            public long? RecipeId { get; set; }
         }
 
         public class ProductTypeRequest
@@ -1265,8 +1216,6 @@ namespace Assignment.Controllers.Api
             public double AverageEvaluate { get; set; }
             public long CategoryId { get; set; }
             public string? CategoryName { get; set; }
-            public long? RecipeId { get; set; }
-            public string? RecipeName { get; set; }
             public DateTime CreatedAt { get; set; }
             public DateTime? UpdatedAt { get; set; }
             public string PriceRange { get; set; } = string.Empty;
