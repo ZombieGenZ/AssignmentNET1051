@@ -126,6 +126,29 @@ namespace Assignment.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.Sql(@"DECLARE @sql NVARCHAR(MAX) = '';
+
+IF OBJECT_ID(N'dbo.Materials', N'U') IS NOT NULL
+BEGIN
+    SELECT @sql += 'ALTER TABLE [' + OBJECT_SCHEMA_NAME(parent_object_id) + '].[' + OBJECT_NAME(parent_object_id) + '] DROP CONSTRAINT [' + name + '];'
+    FROM sys.foreign_keys
+    WHERE referenced_object_id = OBJECT_ID(N'dbo.Materials')
+      AND type = 'F';
+END;
+
+IF OBJECT_ID(N'dbo.Units', N'U') IS NOT NULL
+BEGIN
+    SELECT @sql += 'ALTER TABLE [' + OBJECT_SCHEMA_NAME(parent_object_id) + '].[' + OBJECT_NAME(parent_object_id) + '] DROP CONSTRAINT [' + name + '];'
+    FROM sys.foreign_keys
+    WHERE referenced_object_id = OBJECT_ID(N'dbo.Units')
+      AND type = 'F';
+END;
+
+IF LEN(@sql) > 0
+BEGIN
+    EXEC sp_executesql @sql;
+END;");
+
             migrationBuilder.DropTable(
                 name: "Materials");
 
